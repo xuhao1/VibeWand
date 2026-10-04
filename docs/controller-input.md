@@ -44,7 +44,7 @@ All 130 automated tests passed, including native GameController snapshot mapping
 
 USB 接入代码与蓝牙共用原生后端，但本轮未插线实测 USB。当前 macOS 原生接口没有提供参考手柄的静音键事件；麦克风是独立的系统音频输入，控制器识别不自动改变音源或启用录音。
 
-USB is implemented through the same native backend, but no physical USB trial was performed in this pass. The native API does not expose the reference controller's mute button. Its microphone is a separate system audio endpoint; controller discovery does not change audio sources or start recording.
+USB is implemented through the same native backend, but no physical USB trial was performed in this pass. The native API does not expose the reference controller's mute button. Controller discovery does not change audio sources or start recording. A separate [Bluetooth microphone experiment](dualsense-microphone.md) received and decoded Opus audio on the current Mac, and a later standalone prototype published a system input with significantly fewer gaps using Game Mode. Residual loss and production integration remain open.
 
 参考 / References: [Apple controller discovery](https://developer.apple.com/documentation/gamecontroller/discovering-game-controllers), [controller capability declaration](https://developer.apple.com/documentation/bundleresources/information-property-list/gcsupportedgamecontrollers).
 

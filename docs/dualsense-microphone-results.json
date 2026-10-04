@@ -1,0 +1,33 @@
+{
+  "baseline": {
+    "application_missing_percent": 58.01694383432695,
+    "median_abs_peak_correlation": 0.22259536968550236,
+    "median_band_coherence": 0.12372984711177475,
+    "estimated_test_to_background_db": 7.466160778543109,
+    "clipped_fraction": 0.0
+  },
+  "boosted": {
+    "application_missing_percent": 4.760413404321954,
+    "median_abs_peak_correlation": 0.5370021983846825,
+    "median_band_coherence": 0.7420364734832176,
+    "estimated_test_to_background_db": 15.154104379730942,
+    "clipped_fraction": 2.5614754098360656e-06
+  },
+  "system_path": {
+    "decoder_to_system_alignment_offset_ms": 282.72916666666663,
+    "aligned_correlation": 0.9818986843973764,
+    "aligned_samples": 1532640,
+    "note": "Offset includes different file recording start times; not an absolute latency measurement."
+  },
+  "limitations": [
+    "One device and one noisy acoustic setup; not a calibrated audio-quality benchmark.",
+    "Missing frames are application-visible sequence gaps, not measured over-the-air packet loss.",
+    "Opus concealment fills missing time with estimates and cannot recover the original missing samples.",
+    "Alignment offsets include recording-start differences; they are not standalone Bluetooth latency measurements."
+  ],
+  "date": "2026-10-04",
+  "device": "DualSense 054c:0ce6, Mac built-in Bluetooth",
+  "os": "macOS 27.0 (26A5378j)",
+  "capture": "Two 32-second captures, identical 21-second acoustic stimulus; user placed controller near Mac speakers; background noise present.",
+  "pipeline": "48kHz mono Opus decode, sequence-based PLC, 100ms prebuffer, muted process tap and aggregate input."
+}

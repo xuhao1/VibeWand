@@ -75,7 +75,7 @@ VibeWand 提供 **VibeKey、手柄、遥控器** 三套可切换的逻辑模板�
 
 VibeWand 当前只发送按住 Fn 的听写触发，不采集音频、不切换录音设备、不内置语音识别服务。音频由 macOS 或语音应用选择的输入设备提供。
 
-对于作为手柄参考的 DualSense，需区分连接方式：[JoyHarness 的一手调查](https://github.com/nixihz/JoyHarness/blob/main/docs/research/dualsense-wireless-microphone.md)记录了 USB 连接时在 macOS 26.5.2 出现标准音频输入设备的实测；同份调查未发现可直接启用的 Mac 蓝牙麦克风路径。因此 USB 下可先检查系统输入列表并选择实际出现的手柄麦克风；蓝牙操作时使用 Mac 或外接麦克风。本项目未在当前手柄上复验音频。
+对于作为手柄参考的 DualSense，需区分连接方式：[JoyHarness 的一手调查](https://github.com/nixihz/JoyHarness/blob/main/docs/research/dualsense-wireless-microphone.md)记录了 USB 连接时在 macOS 26.5.2 出现标准音频输入设备的实测。本项目于 2026-10-04 已在当前 Mac 和蓝牙手柄上接收并解码内置麦克风的 Opus 数据，后续独立实验版已发布系统音频输入，并通过游戏模式显著降低缺帧；仍有残余缺帧与采集期间暂停手柄导航的限制，见 [蓝牙麦克风适配调查](dualsense-microphone.md)。因此当前发布版的蓝牙操作仍使用 Mac 或外接麦克风；不能再把「尚未适配」解释为硬件不支持蓝牙音频。
 
 [Sony 官方兼容说明](https://www.playstation.com/en-us/support/hardware/pair-dualsense-controller-bluetooth/)支持 Mac 的 USB / 蓝牙手柄连接，但没有承诺 Mac 内置麦克风兼容性；官方保证和 USB 实测兼容行为应分别记录。不能从 HID 静音键事件推断已经取得声音。
 
