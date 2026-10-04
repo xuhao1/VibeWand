@@ -28,6 +28,22 @@ The model action presses the "Select model, current …" button. The menu has tw
 
 Exercised on a real machine with `0.2.0-rc.2`: dictation, switching chats and back, and entering / cancelling the two-level model menu.
 
+## WorkBuddy
+
+WorkBuddy desktop (`com.tencent.workbuddy.mac`) has a built-in integration from 0.8.0. Settings → Applications can disable it independently.
+
+<p><img src="images/applications-v080-en.png" width="720" alt="VibeWand 0.8.0 application settings including WorkBuddy"></p>
+
+This is a hidden-window rendering of the implemented 0.8.0 settings page, not a capture of live WorkBuddy operation.
+
+The chat action first presses the sidebar's Search button to open Search Tasks. Turn to choose, confirm to open, and back to cancel. If the sidebar is hidden or its button is unavailable, the action falls back to the default `⌘K`. In 5.6.2, `⌘K` opens Global search, which needs a query or recent searches before there are results to select. If the composer intercepts the shortcut, expand the sidebar and retry. A custom integration can override a changed shortcut.
+
+The model action presses the composer's button labelled `Select model`. Turn to choose a model, confirm to apply, and back to close the menu. Disabled models, the Max switch and settings actions are excluded from model candidates. Thinking toggles and finer reasoning settings remain in WorkBuddy's own model-detail menus.
+
+Dictation is pasted once into the current composer on release, then the clipboard is restored; it does not send a message. Turning moves the caret and ESC deletes when a draft has text; an empty draft scrolls. On first contact, VibeWand asks Electron to publish its accessibility content.
+
+The installed WorkBuddy **5.6.2** bundle ID, shortcuts, Chinese / English search labels, model button and option structure were inspected and used in automated metadata fixtures. The current UI automation tool cannot bind this app's actual identity, so **live UI operation, dictation insertion and physical-device operation have not been accepted**.
+
 ## Browsers
 
 The browser allowlist includes Safari, Chrome, Edge, Brave, Firefox, Opera, and Vivaldi. Default rotation scrolls the page. Pressing the dial sends `⌃Tab` for the next tab; the model-entry action maps to `⌘L` for the address bar.

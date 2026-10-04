@@ -1,6 +1,6 @@
 # VibeWand
 
-A small macOS tool for driving Codex, Claude and DeepSeek Harness with a dial, a game controller or a remote.
+A small macOS tool for driving Codex, Claude, DeepSeek Harness and WorkBuddy with a dial, a game controller or a remote.
 
 [简体中文](README.zh-CN.md) · [Get started](docs/getting-started.en.md) · [Documentation](docs/README.md) · [Project site](https://vibewand.xuhao1.me)
 
@@ -40,14 +40,15 @@ Per-model details are in the [hardware guide](docs/device-templates.en.md).
 | Codex | ⌘K palette | Effort slider; press again for the model list | ✓ |
 | Claude | ⌘K palette | Model menu, then the effort slider | ✓ |
 | DeepSeek Harness | Sidebar chat list | Model menu and its submenu | ✓ |
+| WorkBuddy | Sidebar task search; ⌘K fallback | Model menu | Paste on release |
 | Browsers | Next tab | Address bar | ✓ |
 | WeChat, Feishu | Search / switch chats | — | ✓ |
 
-The three AI tools were exercised on a real machine. Dictation is not tied to an app: native fields fill in as you speak, and everything else gets a single paste when you release, after which your clipboard is put back. You can add a shortcut rule for other apps in Settings; see [Applications](docs/applications.en.md).
+Codex, Claude and DeepSeek Harness were exercised on a real machine. WorkBuddy support was checked against the installed 5.6.2 UI code and automated fixtures; live UI operation remains unverified. Dictation is not tied to an app: native fields fill in as you speak, and everything else gets a single paste when you release, after which your clipboard is put back. You can add a shortcut rule for other apps in Settings; see [Applications](docs/applications.en.md).
 
 ## Install
 
-**[Download VibeWand 0.7.0 (Apple Silicon)](https://github.com/xuhao1/VibeWand/releases/download/v0.7.0/VibeWand-0.7.0-macOS-arm64.zip)** · [Release notes](https://github.com/xuhao1/VibeWand/releases/latest)
+**[Download VibeWand 0.8.0 (Apple Silicon)](https://github.com/xuhao1/VibeWand/releases/download/v0.8.0/VibeWand-0.8.0-macOS-arm64.zip)** · [Release notes](https://github.com/xuhao1/VibeWand/releases/latest)
 
 Requires macOS 13 or later on an M-series Mac. Unzip, drag **VibeWand.app** into Applications, open it, then:
 

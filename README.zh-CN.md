@@ -1,6 +1,6 @@
 # VibeWand
 
-用旋钮、手柄或遥控器操作 Codex、Claude、DeepSeek Harness 的 macOS 小工具。
+用旋钮、手柄或遥控器操作 Codex、Claude、DeepSeek Harness、WorkBuddy 的 macOS 小工具。
 
 [English](README.md) · [快速开始](docs/getting-started.md) · [文档目录](docs/README.md) · [项目主页](https://vibewand.xuhao1.me)
 
@@ -40,14 +40,15 @@ Vibe coding 的大部分时间其实不在打字：读回复、翻会话、换�
 | Codex | ⌘K 面板 | 强度滑块，再按一次进模型列表 | ✓ |
 | Claude | ⌘K 面板 | 模型菜单，确认后进强度滑块 | ✓ |
 | DeepSeek Harness | 侧边栏会话列表 | 模型菜单及其子菜单 | ✓ |
+| WorkBuddy | 侧边栏搜索任务；⌘K 回退 | 模型菜单 | 松开后粘贴 |
 | 浏览器 | 切换标签页 | 地址栏 | ✓ |
 | 微信、飞书 | 搜索 / 切换聊天 | — | ✓ |
 
-以上三款 AI 工具在本机实测过。听写不挑应用：原生输入框边说边写，其他应用在松开后粘贴一次，剪贴板随后恢复原样。别的应用可以在设置里加一条快捷键规则，见[应用适配](docs/applications.md)。
+Codex、Claude、DeepSeek Harness 在本机实测过。WorkBuddy 已核对本机 5.6.2 界面代码并通过自动化样例测试，真实界面操作仍待验证。听写不挑应用：原生输入框边说边写，其他应用在松开后粘贴一次，剪贴板随后恢复原样。别的应用可以在设置里加一条快捷键规则，见[应用适配](docs/applications.md)。
 
 ## 安装
 
-**[下载 VibeWand 0.7.0（Apple Silicon）](https://github.com/xuhao1/VibeWand/releases/download/v0.7.0/VibeWand-0.7.0-macOS-arm64.zip)** · [版本说明](https://github.com/xuhao1/VibeWand/releases/latest)
+**[下载 VibeWand 0.8.0（Apple Silicon）](https://github.com/xuhao1/VibeWand/releases/download/v0.8.0/VibeWand-0.8.0-macOS-arm64.zip)** · [版本说明](https://github.com/xuhao1/VibeWand/releases/latest)
 
 需要 macOS 13 以上和 M 系列芯片。解压后把 **VibeWand.app** 拖进“应用程序”，打开它，然后：
 

@@ -28,7 +28,7 @@ final class TextInserter {
     /// so a second dictation does not pay for the same failed attempt.
     private(set) static var pasteOnlyApps: Set<String> = []
     static func supportsDirectWrites(_ bundleID: String) -> Bool {
-        method == .automatic && !pasteOnlyApps.contains(bundleID)
+        method == .automatic && ApplicationProfile.resolve(bundleID: bundleID) != .workBuddy && !pasteOnlyApps.contains(bundleID)
     }
     static func markPasteOnly(_ bundleID: String) { if !bundleID.isEmpty { pasteOnlyApps.insert(bundleID) } }
     static var method: TextInsertionMethod {

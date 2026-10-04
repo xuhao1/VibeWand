@@ -284,6 +284,13 @@ final class AccessibilityAdapter {
                 openSidebarSessions(pid: pid)
                 return profile.title(for: effect)
             }
+            if profile.opensSessionsWithButton, observation.customProfile == nil {
+                pressLabelledControl(pid: pid, mode: .sessions, identity: identity, menus: observation.menuHashes,
+                    fallback: profile.primaryShortcut, ancestorClasses: profile.sessionTriggerAncestorClasses) {
+                    profile.isSessionTrigger(role: $0, hint: $1)
+                }
+                return profile.title(for: effect)
+            }
             guard let shortcut = observation.shortcut(for: effect, fallback: profile == .codex ? sessionShortcut : profile.primaryShortcut) else { return L10n.tr("当前应用未配置主操作", "No primary action configured for this app") }
             generation += 1
             pendingPicker = profile.expectsSessionPicker ? PendingPicker(mode: .sessions, pid: pid, requestedAt: Date(), originFocus: identity.focusedHash) : nil
@@ -459,9 +466,16 @@ final class AccessibilityAdapter {
     /// Finds a labelled control near the composer and presses it. The search
     /// has its own time budget on the worker, so ordinary sampling stays cheap.
     private func pressLabelledControl(pid: pid_t, mode: InteractionMode, identity: TargetIdentity, menus: Set<CFHashCode>,
-                                      fallback: KeyStroke? = nil, matches: @escaping @Sendable (String, String) -> Bool) {
+                                      fallback: KeyStroke? = nil, ancestorClasses: Set<String> = [],
+                                      matches: @escaping @Sendable (String, String) -> Bool) {
         worker.async { [weak self] in
-            let control = LabelledControlFinder.find(pid: pid, matches: matches)
+            let control = LabelledControlFinder.find(pid: pid, ancestorClasses: ancestorClasses, matches: matches)
+            guard LabelledControlFinder.stillOwnsFocus(identity) else {
+                DispatchQueue.main.async { [weak self] in
+                    self?.onStatus?(L10n.tr("目标 / 焦点状态已变化，操作已取消", "Target or focus changed; action canceled"))
+                }
+                return
+            }
             let pressed = control.map { AXUIElementPerformAction($0, kAXPressAction as CFString) == .success } ?? false
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
@@ -477,7 +491,8 @@ final class AccessibilityAdapter {
                         originWindow: identity.windowHash, originMenus: menus)
                     self.boundPicker = nil
                     self.cached.sampledAt = nil
-                    self.onStatus?(mode == .efforts ? L10n.tr("选择推理强度", "Choose reasoning effort") : L10n.tr("选择模型", "Choose a model"))
+                    self.onStatus?(mode == .sessions ? L10n.tr("选择会话", "Choose a chat") :
+                        mode == .efforts ? L10n.tr("选择推理强度", "Choose reasoning effort") : L10n.tr("选择模型", "Choose a model"))
                 }
             }
         }
@@ -530,8 +545,26 @@ final class AccessibilityAdapter {
 /// element's ancestors (the composer footer is usually a few levels away) and
 /// then walks the window, later siblings first. Message text is never read.
 enum LabelledControlFinder {
+    /// Button lookup can take longer than an ordinary sample. Recheck the
+    /// original app, window and focus before pressing or falling back to keys.
+    static func stillOwnsFocus(_ identity: TargetIdentity) -> Bool {
+        guard NSWorkspace.shared.frontmostApplication?.processIdentifier == identity.pid else { return false }
+        let application = AXUIElementCreateApplication(identity.pid)
+        AXUIElementSetMessagingTimeout(application, 0.02)
+        func attribute(_ node: AXUIElement, _ name: String) -> CFTypeRef? {
+            var value: CFTypeRef?
+            return AXUIElementCopyAttributeValue(node, name as CFString, &value) == .success ? value : nil
+        }
+        guard let window = attribute(application, kAXFocusedWindowAttribute), CFGetTypeID(window) == AXUIElementGetTypeID(),
+              let focused = attribute(application, kAXFocusedUIElementAttribute), CFGetTypeID(focused) == AXUIElementGetTypeID() else { return false }
+        let windowElement = window as! AXUIElement, focusedElement = focused as! AXUIElement
+        return CFHash(window) == identity.windowHash && CFHash(focused) == identity.focusedHash &&
+            (attribute(windowElement, kAXTitleAttribute) as? String ?? "") == identity.windowTitle &&
+            (attribute(focusedElement, kAXIdentifierAttribute) as? String ?? "") == identity.focusedIdentifier
+    }
+
     static func find(pid: pid_t, budget: TimeInterval = 1.2, roles: Set<String> = ["AXButton", "AXPopUpButton", "AXMenuButton"],
-                     descend: Bool = true, matches: (String, String) -> Bool) -> AXUIElement? {
+                     descend: Bool = true, ancestorClasses: Set<String> = [], matches: (String, String) -> Bool) -> AXUIElement? {
         let stop = ProcessInfo.processInfo.systemUptime + budget
         let application = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(application, 0.05)
@@ -544,6 +577,18 @@ enum LabelledControlFinder {
             return (value as! AXUIElement)
         }
         func text(_ node: AXUIElement, _ name: String) -> String { attribute(node, name) as? String ?? "" }
+        func inRequiredContainer(_ node: AXUIElement) -> Bool {
+            guard !ancestorClasses.isEmpty else { return true }
+            var parent = element(attribute(node, kAXParentAttribute))
+            for _ in 0..<6 {
+                guard let current = parent, ProcessInfo.processInfo.systemUptime < stop else { return false }
+                let classes = attribute(current, "AXDOMClassList") as? [String] ?? []
+                if !ancestorClasses.isDisjoint(with: classes) { return true }
+                if ["AXWindow", "AXApplication"].contains(text(current, kAXRoleAttribute)) { return false }
+                parent = element(attribute(current, kAXParentAttribute))
+            }
+            return false
+        }
         var roots: [AXUIElement] = []
         var node = element(attribute(application, kAXFocusedUIElementAttribute))
         while let current = node { roots.append(current); node = element(attribute(current, kAXParentAttribute)) }
@@ -557,7 +602,8 @@ enum LabelledControlFinder {
                 let role = text(current, kAXRoleAttribute)
                 if roles.contains(role) {
                     let hint = [kAXDescriptionAttribute, kAXTitleAttribute].map { text(current, $0) }.first { !$0.isEmpty } ?? ""
-                    if matches(role, hint), (attribute(current, kAXEnabledAttribute) as? Bool) != false { return current }
+                    if matches(role, hint), (attribute(current, kAXEnabledAttribute) as? Bool) != false,
+                       inRequiredContainer(current) { return current }
                     continue
                 }
                 // The window pass looks for sidebar lists as well; buttons are leaves either way.
@@ -852,29 +898,40 @@ private final class AXSampler {
     }
     private func string(_ node: AXUIElement, _ name: String) -> String { (attribute(node, name) as? String) ?? "" }
     private func hints(_ node: AXUIElement) -> String {
-        [kAXIdentifierAttribute, kAXDescriptionAttribute, kAXTitleAttribute, "AXPlaceholderValue"].map { String(string(node, $0).prefix(160)) }.joined(separator: " ")
+        var parts = [kAXIdentifierAttribute, kAXDescriptionAttribute, kAXTitleAttribute, "AXPlaceholderValue"].map { String(string(node, $0).prefix(160)) }
+        if profile == .workBuddy {
+            parts += (attribute(node, "AXDOMClassList") as? [String] ?? []).prefix(8).map { String($0.prefix(100)) }
+        }
+        return parts.joined(separator: " ")
     }
-    private func descendants(_ root: AXUIElement, limit: Int, depth: Int) -> [AXUIElement] {
+    private func descendants(_ root: AXUIElement, limit: Int, depth: Int,
+                             stopAt: ((AXUIElement) -> Bool)? = nil) -> [AXUIElement] {
         var found: [AXUIElement] = []
         var queue: [(AXUIElement, Int)] = [(root, 0)]
         var index = 0
         while index < queue.count && found.count < limit && !overBudget {
             let (node, level) = queue[index]; index += 1
             found.append(node)
-            if level < depth, let children = attribute(node, kAXChildrenAttribute) as? [AXUIElement] {
+            if level < depth, stopAt?(node) != true, let children = attribute(node, kAXChildrenAttribute) as? [AXUIElement] {
                 queue.append(contentsOf: children.prefix(limit-found.count).map { ($0, level+1) })
             }
         }
         return found
     }
     private func candidates(in root: AXUIElement, mode: InteractionMode) -> [AccessibleCandidate] {
-        let stop = min(deadline - 0.012, ProcessInfo.processInfo.systemUptime + 0.012)
+        let webModels = profile == .workBuddy && mode == .models
+        let stop = min(deadline - 0.012, ProcessInfo.processInfo.systemUptime + (webModels ? 0.030 : 0.012))
         let rootFrame = frame(root)
         var found: [(AccessibleCandidate, Int)] = []
-        for node in descendants(root, limit: 48, depth: 5) {
+        // Skip a model row's decorative children, so the bounded walk reaches
+        // the options further down WorkBuddy's grouped and scrollable menu.
+        let nodes = descendants(root, limit: webModels ? 128 : 48, depth: webModels ? 8 : 5,
+            stopAt: webModels ? { (self.attribute($0, "AXDOMClassList") as? [String] ?? []).contains("cr-model-selector__item") } : nil)
+        for node in nodes {
             guard ProcessInfo.processInfo.systemUptime < stop else { break }
             let role = string(node, kAXRoleAttribute)
-            guard ["AXMenuItem", "AXRadioButton", "AXButton"].contains(role),
+            let webOption = webModels && profile.isWebModelOption(role: role, classes: attribute(node, "AXDOMClassList") as? [String] ?? [])
+            guard webModels ? webOption : ["AXMenuItem", "AXRadioButton", "AXButton"].contains(role),
                   (attribute(node, kAXEnabledAttribute) as? Bool) != false, let rect = frame(node),
                   rect.width > 30, rect.height > 14 else { continue }
             if let rootFrame, rect.maxX < rootFrame.minX || rect.minX > rootFrame.maxX { continue }
@@ -882,7 +939,8 @@ private final class AXSampler {
             // Web menus mark the current choice as a checked item (value 1).
             let selected = (attribute(node, kAXSelectedAttribute) as? Bool) == true ||
                 (["AXRadioButton", "AXMenuItem"].contains(role) && (attribute(node, kAXValueAttribute) as? NSNumber)?.boolValue == true)
-            let title = [kAXTitleAttribute, kAXDescriptionAttribute].map { string(node, $0) }.first { !$0.isEmpty } ?? ""
+            let labels = [kAXTitleAttribute, kAXDescriptionAttribute] + (webOption ? [kAXValueAttribute] : [])
+            let title = labels.map { string(node, $0) }.first { !$0.isEmpty } ?? ""
             found.append((AccessibleCandidate(element: node, frame: rect, selected: selected, title: String(title.prefix(40))), role == "AXButton" ? 1 : 0))
         }
         let preferred = found.contains(where: { $0.1 == 0 }) ? found.filter { $0.1 == 0 } : found

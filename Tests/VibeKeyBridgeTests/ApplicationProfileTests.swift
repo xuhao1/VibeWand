@@ -4,12 +4,13 @@ import XCTest
 final class ApplicationProfileTests: XCTestCase {
     func testOnlyExactInstalledAppIdentitiesAreSupported() {
         XCTAssertEqual(ApplicationProfile.resolve(bundleID: "com.deepseek.dsh"), .deepSeekHarness)
+        XCTAssertEqual(ApplicationProfile.resolve(bundleID: "com.tencent.workbuddy.mac"), .workBuddy)
         XCTAssertEqual(ApplicationProfile.resolve(bundleID: "com.tencent.xinWeChat"), .weChat)
         XCTAssertEqual(ApplicationProfile.resolve(bundleID: "com.electron.lark"), .feishu)
         for bundle in ["com.apple.Safari", "com.google.Chrome", "org.mozilla.firefox", "com.microsoft.edgemac"] {
             XCTAssertEqual(ApplicationProfile.resolve(bundleID: bundle), .browser)
         }
-        for bundle in [nil, "com.deepseek.dsh.helper", "com.example.codex", "com.google.Chrome.fake", "com.apple.TextEdit"] {
+        for bundle in [nil, "com.deepseek.dsh.helper", "com.tencent.workbuddy.mac.helper", "com.workbuddy.workbuddy", "com.example.codex", "com.google.Chrome.fake", "com.apple.TextEdit"] {
             XCTAssertEqual(ApplicationProfile.resolve(bundleID: bundle), .generic)
         }
     }
