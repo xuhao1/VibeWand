@@ -2,7 +2,7 @@
 
 **Read, edit, and dictate with the controls in your hand.**
 
-A native macOS utility that turns a dial, gamepad, or remote into a control surface for your AI workflow. Use the apps and input method you already know, with physical controls that follow what you are doing.
+A native macOS companion for **vibe coding without a mouse or keyboard**, with built-in support for **Codex and DeepSeek Harness**. Use a dial, gamepad, or remote to read, dictate, edit, and confirm in supported workflows. The same controls let you switch between macOS apps, browse the web, change browser tabs, and chat in **WeChat and Feishu**, using the input method you already know.
 
 [简体中文](README.zh-CN.md) · [Getting started](docs/getting-started.en.md) · [Documentation](docs/README.md) · [Project website](https://vibewand.xuhao1.me)
 

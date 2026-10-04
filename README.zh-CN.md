@@ -2,7 +2,7 @@
 
 **把阅读、编辑和听写，握在手中。**
 
-一款原生 macOS 工具，把旋钮、手柄或遥控器接入你的 AI 工作流。同一套实体控件跟随当前场景工作，继续使用熟悉的应用和输入法。
+一款原生 macOS 工具，也是让你**不用鼠标和键盘进行 Vibe Coding** 的好助手。内置适配 **Codex 和 DeepSeek Harness**，用旋钮、手柄或遥控器完成受支持工作流中的阅读、听写、编辑与确认。同一套控件还能跨程序切换、浏览网页、切换标签页，并在**微信和飞书**中聊天，继续使用你熟悉的输入法。
 
 [English](README.md) · [快速开始](docs/getting-started.md) · [文档目录](docs/README.md) · [项目主页](https://vibewand.xuhao1.me)
 
