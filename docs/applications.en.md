@@ -6,15 +6,27 @@ Settings → Applications lets you enable or disable each adapter, with settings
 
 ## Codex
 
-The adapter supports conversations, draft editing, models, and reasoning effort. Conversation entry uses native `⌘K`; model entry uses native `⌃⇧M`. VibeWand reads available model and effort options from the actual UI instead of maintaining its own model catalog.
+Chats open through the `⌘K` command palette: turn to choose, confirm to open.
 
-A picker must be observed before picker-specific navigation and confirmation are allowed. Sending a shortcut is not proof that a picker opened. Where possible, the adapter locates accessibility candidates and performs their native actions; it can fall back to a candidate's position or standard keyboard events. Effort controls are handled according to their exposed control type.
+The model button (the one labelled with the current model) is pressed through accessibility rather than a shortcut. Current Codex builds put effort and model in one popover: the first "model / effort" press opens the effort slider, which turning adjusts; pressing again inside the popover opens the model list, and confirming a model returns to effort. `⌃⇧M` is only the fallback when no button is found.
+
+An empty composer's placeholder is not a draft, so turning still scrolls while the empty composer has focus.
+
+## Claude
+
+Claude desktop (`com.anthropic.claudefordesktop`). Chats open through the `⌘K` search palette. The model action presses the "Model: …" button beside the composer and turning moves through the menu; confirming a model continues to the "Effort" slider, which you can simply back out of. Dictation is pasted into the composer on release.
+
+Exercised on a real machine: dictation, opening / moving / cancelling the chat palette, opening / moving / confirming in the model menu, and recognition of the effort popover.
 
 ## DeepSeek Harness
 
-A separate application identity and control lookup reuse the reading, editing, conversation, and model workflow. The local client inspected for this implementation is `0.2.0-rc.2`, bundle identifier `com.deepseek.dsh`.
+Harness is an Electron app and does not publish its web content to accessibility clients by default. VibeWand asks it to (`AXManualAccessibility`) the first time it sees the app; only then can the composer and buttons be recognised.
 
-`⌘K` focuses “Search conversation name.” Model entry performs the accessibility action on a positively identified “Select model, current …” button, opening “Model and reasoning effort.” The adapter does not assume Codex's model shortcut or insert a guessed command into the draft. These UI entry points were inspected locally; the full physical-controller workflow still needs validation and should be retested after app updates.
+Its `⌘K` is a name filter for the sidebar, and arrow keys do not pick rows there, so chats are chosen from the sidebar's chat list itself: press once to enter, turning parks the pointer on each row, confirm opens it and back leaves everything untouched. It ends by itself after 20 idle seconds. Workspace rows are in the list too; confirming one expands or collapses it.
+
+The model action presses the "Select model, current …" button. The menu has two levels: confirm the "Model" row, then choose in the submenu.
+
+Exercised on a real machine with `0.2.0-rc.2`: dictation, switching chats and back, and entering / cancelling the two-level model menu.
 
 ## Browsers
 

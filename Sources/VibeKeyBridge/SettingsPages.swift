@@ -42,16 +42,25 @@ struct GeneralSettings: View {
                     }
                 }.frame(maxWidth: .infinity, alignment: .topLeading)
                 VStack(spacing: 16) {
-                    SettingsCard(title: tr("当前状态", "Current status")) {
-                        HStack(spacing: 10) {
-                            Circle().fill(model.snapshot.connected ? Color.green : Color.orange).frame(width: 8, height: 8)
-                            Text(model.snapshot.connected ? tr("设备已连接", "Device connected") : tr("等待设备连接", "Waiting for a device"))
-                                .font(.system(size: 16, weight: .semibold))
-                            Spacer(minLength: 0)
+                    SettingsCard(title: tr("设备", "Devices")) {
+                        HStack(spacing: 8) {
+                            ForEach(DeviceTemplateID.allCases, id: \.self) { id in
+                                DeviceChip(title: id.template.title, connected: model.snapshot.connectedTemplates.contains(id),
+                                           current: model.snapshot.deviceTemplate == id) { model.chooseTemplate(id) }
+                            }
+                        }
+                        SettingsToggleRow(title: tr("跟随正在使用的设备", "Follow the device in use"), isOn: Binding(
+                            get: { model.runtime.followsActiveDevice }, set: { model.runtime.setFollowsActiveDevice($0); model.refresh() }))
+                        SettingsNote(text: tr("已连接的设备同时待命；在哪个设备上按键，悬浮面板和按键布局就切到哪个。", "Connected devices all stay ready. Press a button on one and the overlay and its layout follow."))
+                        Divider()
+                        SettingsToggleRow(title: tr("保持手柄唤醒", "Keep the controller awake"), isOn: Binding(
+                            get: { model.runtime.keepsControllerAwake }, set: { model.runtime.setKeepsControllerAwake($0); model.refresh() }))
+                        SettingsNote(text: tr("定时向蓝牙手柄发送一次灯光指令，避免它因闲置自动关机；会多耗一些手柄电量。", "Sends the Bluetooth controller a light command now and then so it does not power off when idle. Uses a little more controller battery."))
+                        if let battery = model.runtime.vibeKeyBattery {
+                            Divider()
+                            SettingsValueRow(label: tr("VibeKey 电量", "VibeKey battery"), value: battery)
                         }
                         Divider()
-                        SettingsValueRow(label: tr("当前布局", "Layout"), value: model.template.title)
-                        SettingsValueRow(label: tr("设备", "Device"), value: model.runtime.deviceName)
                         SettingsValueRow(label: tr("前台应用", "Active app"), value: model.snapshot.target)
                         SettingsValueRow(label: tr("运行模式", "Run mode"), value: model.snapshot.captureOnly ? tr("只采集物理事件", "Capture only") : model.snapshot.demo ? tr("演示模式", "Demo") : tr("实时控制", "Live control"))
                     }
@@ -295,6 +304,28 @@ struct AboutSettings: View {
                 Image(systemName: "arrow.up.right").font(.system(size: 13)).foregroundStyle(.secondary)
             }.padding(.vertical, 3).contentShape(Rectangle())
         }.buttonStyle(.plain)
+    }
+}
+
+private struct DeviceChip: View {
+    let title: String
+    let connected: Bool
+    let current: Bool
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 7) {
+                Circle().fill(connected ? Color.green : Color.secondary.opacity(0.35)).frame(width: 7, height: 7)
+                Text(title).font(.system(size: 13, weight: current ? .semibold : .regular)).lineLimit(1)
+            }
+            .padding(.horizontal, 11).padding(.vertical, 7).frame(maxWidth: .infinity)
+            .background(current ? Color.accentColor.opacity(0.16) : Color.primary.opacity(0.05), in: Capsule())
+            .overlay(Capsule().strokeBorder(current ? Color.accentColor.opacity(0.55) : .clear, lineWidth: 1))
+            .contentShape(Capsule())
+        }.buttonStyle(.plain)
+            .help(connected ? tr("已连接", "Connected") : tr("未连接", "Not connected"))
+            .accessibilityLabel(title + " · " + (connected ? tr("已连接", "Connected") : tr("未连接", "Not connected")))
+            .accessibilityAddTraits(current ? .isSelected : [])
     }
 }
 

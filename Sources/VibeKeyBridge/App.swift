@@ -208,7 +208,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if settings == nil {
             settings = SettingsController(runtime: runtime, overlay: overlay)
             settingsCloseObserver = NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: settings?.window, queue: .main) { _ in
-                MainActor.assumeIsolated { _ = NSApp.setActivationPolicy(.accessory) }
+                MainActor.assumeIsolated { if !CommandLine.arguments.contains("--dock") { _ = NSApp.setActivationPolicy(.accessory) } }
             }
         }
         // Keep an open (including minimized) settings window easy to find in the Dock.
@@ -230,7 +230,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 struct VibeWandMain {
     @MainActor static func main() {
         let application = NSApplication.shared
-        application.setActivationPolicy(.accessory)
+        // `--dock` keeps a development build listed as an ordinary app.
+        application.setActivationPolicy(CommandLine.arguments.contains("--dock") ? .regular : .accessory)
         let delegate = AppDelegate(); application.delegate = delegate
         withExtendedLifetime(delegate) { application.run() }
     }

@@ -4,7 +4,7 @@
 
 ## 1. Download and open
 
-Download **[VibeWand-0.6.0-macOS-arm64.zip](https://github.com/xuhao1/VibeWand/releases/download/v0.6.0/VibeWand-0.6.0-macOS-arm64.zip)** from [GitHub Releases](https://github.com/xuhao1/VibeWand/releases/latest). This package requires **macOS 13+** and an **Apple Silicon Mac**; it does not include an Intel binary.
+Download **[VibeWand-0.7.0-macOS-arm64.zip](https://github.com/xuhao1/VibeWand/releases/download/v0.7.0/VibeWand-0.7.0-macOS-arm64.zip)** from [GitHub Releases](https://github.com/xuhao1/VibeWand/releases/latest). This package requires **macOS 13+** and an **Apple Silicon Mac**; it does not include an Intel binary.
 
 1. Double-click the ZIP in Finder to extract **VibeWand.app**.
 2. Drag it into **Applications**.

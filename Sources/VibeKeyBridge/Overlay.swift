@@ -51,6 +51,13 @@ final class OverlayController {
     private var scale = 1.0
     private var expanded = false
     private let positionKey = "VibeKeyBridge.overlayOrigin"
+    private let anchorKey = "VibeKeyBridge.overlayAnchor"
+    private let belowKey = "VibeKeyBridge.overlayDeviceBelow"
+    /// Top-right corner of the speech bar, in screen coordinates. Every size
+    /// change is laid out from this point, so the bar and its buttons stay
+    /// under the pointer when the panel expands, collapses or changes device.
+    private var anchor = NSPoint.zero
+    private var deviceBelow = false
     var isVisible: Bool { panel.isVisible }
 
     static func makeLivePreview() -> NSView {
@@ -81,13 +88,18 @@ final class OverlayController {
         host.onToggleMode = { [weak self] in
             guard let self else { return }; self.setDisplayMode(self.displayMode == .full ? .compact : .full)
         }
-        view.onDragCompleted = { [weak self] in self?.savePosition() }
-        if let saved = UserDefaults.standard.string(forKey: positionKey) {
-            panel.setFrameOrigin(NSPointFromString(saved))
-            keepOnScreen()
-        } else { resetPosition() }
+        view.onDragCompleted = { [weak self] in self?.captureAnchor() }
+        host.onDragCompleted = { [weak self] in self?.captureAnchor() }
         host.update(host.snapshot, mode: displayMode, expanded: expanded)
-        resize()
+        let defaults = UserDefaults.standard
+        deviceBelow = defaults.bool(forKey: belowKey)
+        if let saved = defaults.string(forKey: anchorKey) {
+            anchor = NSPointFromString(saved); resize()
+        } else if let saved = defaults.string(forKey: positionKey) {
+            // Earlier versions stored the panel origin with the bar at the bottom.
+            let size = currentSize, origin = NSPointFromString(saved)
+            anchor = NSPoint(x: origin.x + size.width, y: origin.y + barHeight); resize()
+        } else { resetPosition() }
     }
 
     func update(_ state: HUDSnapshot) {
@@ -106,12 +118,13 @@ final class OverlayController {
     func setOpacity(_ value: Double) { panel.alphaValue = min(1, max(0.35, value)) }
     func setExpanded(_ value: Bool) { expanded = value; view.expanded = value; host.update(host.snapshot, mode: displayMode, expanded: value); resize() }
     func setDisplayMode(_ mode: OverlayDisplayMode) {
+        let changed = displayMode != mode
         displayMode = mode; UserDefaults.standard.set(mode.rawValue, forKey: "hudDisplayMode")
-        view.cancelMousePress(); host.update(host.snapshot, mode: mode, expanded: expanded); resize()
+        view.cancelMousePress(); host.update(host.snapshot, mode: mode, expanded: expanded); resize(reorient: changed && mode == .full)
     }
 
     func toggleDisplayMode() { setDisplayMode(displayMode == .full ? .compact : .full) }
-    func setOrigin(_ origin: NSPoint) { panel.setFrameOrigin(origin); keepOnScreen(); savePosition() }
+    func setOrigin(_ origin: NSPoint) { panel.setFrameOrigin(origin); keepOnScreen(); captureAnchor() }
     var automationState: [String: Any] {
         ["mode": displayMode.rawValue, "visible": panel.isVisible, "expanded": expanded,
          "frame": [panel.frame.minX, panel.frame.minY, panel.frame.width, panel.frame.height],
@@ -120,8 +133,9 @@ final class OverlayController {
 
     func resetPosition() {
         let screen = (NSScreen.main ?? NSScreen.screens.first)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        panel.setFrameOrigin(NSPoint(x: screen.maxX - panel.frame.width - 28, y: screen.minY + 34))
-        savePosition()
+        deviceBelow = false
+        anchor = NSPoint(x: screen.maxX - 28, y: screen.minY + 34 + barHeight)
+        resize()
     }
 
     /// Render our own accessory for documentation without capturing other windows.
@@ -162,15 +176,42 @@ final class OverlayController {
         return bitmap
     }
 
-    private func resize() {
+    private var currentSize: NSSize {
         let size = SpeechOverlayLayout.size(template: view.deviceTemplate, expanded: expanded, mode: displayMode, voice: host.snapshot.voice)
-        let top = panel.frame.maxY
-        let right = panel.frame.maxX
-        panel.setFrame(NSRect(x: right - size.width * scale, y: top - size.height * scale, width: size.width * scale, height: size.height * scale), display: true)
-        keepOnScreen()
-        savePosition()
+        return NSSize(width: size.width * scale, height: size.height * scale)
     }
-    private func savePosition() { UserDefaults.standard.set(NSStringFromPoint(panel.frame.origin), forKey: positionKey) }
+    private var barHeight: CGFloat { SpeechOverlayLayout.barHeight(voice: host.snapshot.voice) * scale }
+
+    /// `reorient` re-decides, when expanding, whether the device view has room above the bar.
+    private func resize(reorient: Bool = false) {
+        let size = currentSize, bar = barHeight
+        var frame = NSRect(x: anchor.x - size.width, y: anchor.y - bar, width: size.width, height: size.height)
+        if displayMode == .full {
+            let device = size.height - bar
+            if reorient {
+                let visible = (NSScreen.screens.first { $0.frame.contains(NSPoint(x: anchor.x - 1, y: anchor.y - 1)) } ?? NSScreen.main)?.visibleFrame
+                if let visible {
+                    let fitsAbove = anchor.y + device <= visible.maxY, fitsBelow = anchor.y - bar - device >= visible.minY
+                    deviceBelow = !fitsAbove && fitsBelow
+                }
+            }
+            if deviceBelow { frame.origin.y = anchor.y - bar - device }
+        }
+        host.deviceBelow = deviceBelow && displayMode == .full
+        panel.setFrame(frame, display: true)
+        keepOnScreen()
+        captureAnchor()
+    }
+    /// Reads the anchor back from the window, after a drag or a screen clamp.
+    private func captureAnchor() {
+        let frame = panel.frame
+        let below = deviceBelow && displayMode == .full
+        anchor = NSPoint(x: frame.maxX, y: displayMode == .compact || below ? frame.maxY : frame.minY + barHeight)
+        let defaults = UserDefaults.standard
+        defaults.set(NSStringFromPoint(anchor), forKey: anchorKey)
+        defaults.set(deviceBelow, forKey: belowKey)
+        defaults.set(NSStringFromPoint(frame.origin), forKey: positionKey)
+    }
     private func keepOnScreen() {
         let screen = NSScreen.screens.max { first, second in
             let a = first.visibleFrame.intersection(panel.frame)
@@ -266,7 +307,8 @@ private final class CompanionView: NSView {
             button.contentTintColor = .secondaryLabelColor
             button.target = self
             content.addSubview(button)
-            button.isHidden = isPreview
+            // The speech bar carries these controls in both modes.
+            button.isHidden = true
         }
         settingsButton.action = #selector(openSettings)
         hideButton.action = #selector(hideOverlay)
@@ -378,7 +420,7 @@ private final class CompanionView: NSView {
     }
 
     private func drawHeader() {
-        let buttonsX = settingsButton.frame.minX / max(factor, 0.01)
+        let buttonsX = designSize.width - 12
         text("VibeWand", rect: NSRect(x: 17, y: 15, width: 89, height: 18), size: 12, weight: .semibold, color: .labelColor)
         if designSize.width >= 300 {
             text(deviceTemplate.template.title, rect: NSRect(x: 112, y: 16, width: max(0, buttonsX - 180), height: 17), size: 11.5, weight: .medium, color: .labelColor, alignment: .center)
@@ -390,11 +432,6 @@ private final class CompanionView: NSView {
         NSBezierPath(ovalIn: NSRect(x: liveX, y: 22, width: 5, height: 5)).fill()
         if showStatusLabel {
             text(snapshot.captureOnly ? L10n.tr("采集", "INPUT") : snapshot.demo ? L10n.tr("演示", "DEMO") : snapshot.connected ? L10n.tr("已连接", "LIVE") : L10n.tr("离线", "OFF"), rect: NSRect(x: liveX + 10, y: 17, width: 44, height: 15), size: 10, weight: .medium, color: .secondaryLabelColor)
-        }
-        if isPreview {
-            let transform = CGAffineTransform(scaleX: 1 / factor, y: 1 / factor)
-            symbol("gearshape", rect: settingsButton.frame.applying(transform).insetBy(dx: 6, dy: 6), color: .secondaryLabelColor)
-            symbol("xmark", rect: hideButton.frame.applying(transform).insetBy(dx: 6, dy: 6), color: .secondaryLabelColor)
         }
     }
 

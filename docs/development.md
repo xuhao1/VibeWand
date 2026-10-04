@@ -21,9 +21,9 @@ The script compiles a release build, copies the icon, device images and license 
 
 脚本完成 Release 编译、素材与许可证打包和签名，生成 **`dist/VibeWand.app`**。在 Finder 中打开，或复制到「应用程序」后双击；设置、演示、采集与诊断均通过图形界面操作。
 
-The default build targets the build Mac's architecture. The published 0.6.0 package is **arm64 / Apple Silicon**, requires macOS 13+, uses ad-hoc signing, and is not Apple-notarized. The bundled microphone-helper build currently targets arm64, so this packaging flow does not support Intel.
+The default build targets the build Mac's architecture. The published 0.7.0 package is **arm64 / Apple Silicon**, requires macOS 13+, uses ad-hoc signing, and is not Apple-notarized. The bundled microphone-helper build currently targets arm64, so this packaging flow does not support Intel.
 
-默认编译面向构建机器的架构。已发布 0.6.0 为 **arm64 / Apple Silicon**，要求 macOS 13+，临时签名且未公证；当前麦克风组件固定编译为 arm64，此打包流程不支持 Intel。
+默认编译面向构建机器的架构。已发布 0.7.0 为 **arm64 / Apple Silicon**，要求 macOS 13+，临时签名且未公证；当前麦克风组件固定编译为 arm64，此打包流程不支持 Intel。
 
 ## Tests / 测试
 
@@ -34,6 +34,12 @@ For behavior changes, run the test suite with the same Xcode toolchain:
 ```sh
 swift test
 ```
+
+## End-to-end checks / 端到端检查
+
+`scripts/dev-run.sh` builds a debug bundle, signs it with your Apple Development identity (so the Accessibility grant survives rebuilds) and starts it with `--automation-socket`. `scripts/vwctl '<json>'` then drives the same entry points the hardware uses: `{"cmd":"tap","control":"dial"}`, `{"cmd":"turn","control":"right","count":2}`, `{"cmd":"dictate","previews":["…"]}` (replayed transcript, no microphone), `{"cmd":"listen","seconds":6}` (real microphone), `{"cmd":"field"}` (read back the focused editor), `{"cmd":"ax"}` (accessibility dump) and `{"cmd":"overlay","toggle":true}`. The socket exists only with that flag, accepts the same user only, and its raw key command refuses Return, so a check cannot send a draft.
+
+`scripts/dev-run.sh` 构建调试包、用开发证书签名（重新编译后辅助功能授权仍然有效），并带 `--automation-socket` 启动。`scripts/vwctl` 走的是与硬件相同的入口，可以注入按键、回放听写、读回输入框、导出界面结构。套接字只在带该参数时存在，仅限同一用户，原始按键命令拒绝 Return，检查过程不会把草稿发出去。
 
 ## Source layout / 源码布局
 

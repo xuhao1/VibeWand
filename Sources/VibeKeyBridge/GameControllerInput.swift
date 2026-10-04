@@ -264,6 +264,15 @@ final class GameControllerInputSource: ControllerPointerEventSource {
         set(.ready)
     }
 
+    /// A Bluetooth controller powers itself off after a quiet spell. Writing
+    /// its light bar counts as host activity; the colour change is too small to see.
+    private var nudged = false
+    func nudge() {
+        guard running, !sleeping, connection == .ready, let light = controller?.light else { return }
+        nudged.toggle()
+        light.color = GCColor(red: 0, green: 0.02, blue: nudged ? 0.42 : 0.40)
+    }
+
     func suspend() {
         guard running, !sleeping else { return }
         sleeping = true; detach(); set(.waiting)

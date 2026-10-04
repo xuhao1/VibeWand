@@ -1,76 +1,83 @@
 # VibeWand
 
-**Read, edit, and dictate with the controls in your hand.**
+A small macOS tool for driving Codex, Claude and DeepSeek Harness with a dial, a game controller or a remote.
 
-A native macOS companion for **vibe coding without a mouse or keyboard**, with built-in support for **Codex and DeepSeek Harness**. Use a dial, gamepad, or remote to read, dictate, edit, and confirm in supported workflows. The same controls let you switch between macOS apps, browse the web, change browser tabs, and chat in **WeChat and Feishu**, using the input method you already know.
+[简体中文](README.zh-CN.md) · [Get started](docs/getting-started.en.md) · [Documentation](docs/README.md) · [Project site](https://vibewand.xuhao1.me)
 
-[简体中文](README.zh-CN.md) · [Getting started](docs/getting-started.en.md) · [Documentation](docs/README.md) · [Project website](https://vibewand.xuhao1.me)
+![Read with a dial, edit and dictate with a controller, confirm with a remote](docs/images/workflow-hero-v2.png)
 
-![Read with a dial, edit and dictate with a gamepad, execute an AI action with a remote](docs/images/workflow-hero-v2.png)
+Most of vibe coding is not typing. You read a reply, flip between chats, change the model, say a sentence, and wait. One hand is enough for all of that. VibeWand puts it on a dial or a controller so you can lean back while you work.
 
-## Why VibeWand
+## What it does
 
-- **Controls that follow context.** Scroll through a conversation, move the caret in a draft, or choose an item in a recognized picker using the same navigation controls.
-- **Hold to dictate.** Hold the microphone key or △, speak, and release to finish. Choose an external input method, macOS dictation, or your own speech API.
-- **Live words, clean drafts.** Built-in dictation previews text as you speak, with verbatim or polished output. It updates only the current dictation range and never submits the message.
-- **Switch without reaching for the keyboard.** Open conversations, move between browser tabs, or choose another macOS app.
-- **Make the layout yours.** Click a control in the device picture to remap its gestures. Each hardware template keeps its own settings.
-- **Native and local.** A native device HUD or compact voice bar, Chinese and English interfaces, and local configuration. No VibeWand cloud account or API key is required.
+- **Read.** Turn the dial or push a stick to scroll the conversation. Once the draft has text in it, the same motion moves the cursor instead.
+- **Speak.** Hold the microphone button and talk. When you let go, the text is in the composer, and nothing is sent for you. Use the built-in recognition (macOS dictation or your own speech API) or keep using an input method such as Typeless.
+- **Switch.** Press once for the chat list, turn to choose, press to confirm. Long-press for reasoning effort and models. Double-press to switch macOS apps.
+- **Remap.** Every button's press, double press and long press can be reassigned in Settings, and each device keeps its own layout.
 
-<p align="center"><img src="docs/images/overlay-v060-light.png" width="500" alt="VibeWand 0.6.0 native controller HUD and compact voice bar"></p>
+<p align="center"><img src="docs/images/overlay-v060-light.png" width="500" alt="VibeWand overlay and speech bar"></p>
 
-*Native controller HUD and compact voice bar in 0.6.0. [Configure your controls and overlay](docs/settings.en.md).*
+A floating overlay shows what each button will do right now. It collapses into a thin bar when you want it out of the way, and the button that expands and collapses it never moves.
 
-## Hardware support
+## Devices
 
-| Supported type | Connection | Default experience | Typical supported devices |
+| Type | Connection | Tested with |
+| --- | --- | --- |
+| **VibeKey**<br><img src="assets/device/controller.png" height="110" alt="VibeKey dial controller"> | USB receiver, built-in protocol | Ulanzi VibeKey (AU05) |
+| **Controller**<br><img src="assets/device/gamepad.png" height="90" alt="Game controller"> | USB or Bluetooth, detected by macOS | Sony DualSense (PS5) |
+| **Remote**<br><img src="assets/device/remote.png" height="110" alt="Remote control"> | Needs an imported HID profile | Xiaomi Bluetooth Remote 2 Pro |
+
+Several devices can stay connected at once. Press a button on one and the overlay and button layout follow it; there is nothing to switch in Settings. A Bluetooth controller powers itself off after about ten idle minutes, so Settings has a "Keep the controller awake" switch.
+
+Per-model details are in the [hardware guide](docs/device-templates.en.md).
+
+**VibeWand is an independent project. It is not affiliated with, sponsored by or endorsed by Ulanzi, Sony, Xiaomi or any other device maker. Product names and trademarks belong to their owners.**
+
+## Apps
+
+| App | Chats | Model / effort | Dictation |
 | --- | --- | --- | --- |
-| **VibeKey**<br><img src="assets/device/controller.png" height="110" alt="VibeKey dial controller"> | Built-in receiver backend | Turn to navigate, hold to dictate, and press OK / ESC to confirm or return. | Ulanzi VibeKey (AU05) |
-| **Controller**<br><img src="assets/device/gamepad.png" height="90" alt="Gamepad controller"> | USB or Bluetooth through macOS GameController | Context-aware navigation, confirm / back / delete, held dictation, and touchpad pointer control. | Sony DualSense (PS5) |
-| **Remote Controller**<br><img src="assets/device/remote.png" height="110" alt="Handheld remote controller"> | Device-specific HID profile | Navigate with the direction ring, confirm with the center button, and use voice / back / menu controls. | Xiaomi Bluetooth Remote 2 Pro |
+| Codex | ⌘K palette | Effort slider; press again for the model list | ✓ |
+| Claude | ⌘K palette | Model menu, then the effort slider | ✓ |
+| DeepSeek Harness | Sidebar chat list | Model menu and its submenu | ✓ |
+| Browsers | Next tab | Address bar | ✓ |
+| WeChat, Feishu | Search / switch chats | — | ✓ |
 
-Connection setup, model-specific capabilities, and validation details are in the [hardware guide](docs/device-templates.en.md).
+The three AI tools were exercised on a real machine. Dictation is not tied to an app: native fields fill in as you speak, and everything else gets a single paste when you release, after which your clipboard is put back. You can add a shortcut rule for other apps in Settings; see [Applications](docs/applications.en.md).
 
-**VibeWand is an independent project with no affiliation, sponsorship, endorsement, or other relationship with Ulanzi, Sony, Xiaomi, or any other device manufacturer. Product names and trademarks belong to their respective owners.**
+## Install
 
-## A few controls, a complete workflow
+**[Download VibeWand 0.7.0 (Apple Silicon)](https://github.com/xuhao1/VibeWand/releases/download/v0.7.0/VibeWand-0.7.0-macOS-arm64.zip)** · [Release notes](https://github.com/xuhao1/VibeWand/releases/latest)
 
-Read a reply → hold to dictate a draft → release and edit → confirm when ready. Navigation scrolls while reading, moves the caret in an observed nonempty draft, and selects candidates in a recognized picker. Double-press the VibeKey dial or × on the Controller to open macOS app switching.
+Requires macOS 13 or later on an M-series Mac. Unzip, drag **VibeWand.app** into Applications, open it, then:
 
-Built-in adapters cover **Codex, DeepSeek Harness, browsers, WeChat, and Feishu**. Behavior varies with each app's exposed controls and shortcuts; Return follows its own send/newline setting. Add other apps through editable shortcut presets. See [application support](docs/applications.en.md).
+1. Allow VibeWand under System Settings → Privacy & Security → Accessibility. Without it, the app can neither see the composer nor send keys.
+2. Connect your device. For the VibeKey, quit Ulanzi Studio first; the two cannot share the receiver.
+3. No device yet? Try Settings → Developer → Demo mode.
 
-## Download and install
-
-**[Download VibeWand for macOS — Apple Silicon](https://github.com/xuhao1/VibeWand/releases/download/v0.6.0/VibeWand-0.6.0-macOS-arm64.zip)** · [Release notes](https://github.com/xuhao1/VibeWand/releases/latest)
-
-Requires **macOS 13+** and an **Apple Silicon Mac** (M series). Download the ZIP, extract it in Finder, drag **VibeWand.app** into **Applications**, then double-click to open it. No development tools are needed.
-
-Allow VibeWand in **System Settings → Privacy & Security → Accessibility**, then choose your hardware in **Settings → Devices & inputs**. For AU05, quit Ulanzi Studio first. Without hardware, choose **Settings → Developer → Demo**.
-
-This release is ad-hoc signed and is not Apple-notarized; see [Getting started](docs/getting-started.en.md) for first-open instructions.
+This build is ad-hoc signed and not notarized by Apple, so the first launch takes one extra step. See [Get started](docs/getting-started.en.md).
 
 ### Build from source
 
-For your own build, install **Xcode 26 or later** and **Homebrew Opus** on an Apple Silicon Mac, download the source, and run this in the project folder:
+You need Xcode 26 or later and Opus from Homebrew:
 
 ```sh
+brew install opus
 bash scripts/build-app.sh
 ```
 
-Then open `dist/VibeWand.app` in Finder. See the [compilation guide](docs/development.md) for toolchain and signing details.
+The result is `dist/VibeWand.app`. More in the [development guide](docs/development.md).
 
 ## Documentation
 
 [Default controls](docs/core-experience.en.md) · [Settings and remapping](docs/settings.en.md) · [Voice input](docs/voice-input.md) · [Applications](docs/applications.en.md) · [Troubleshooting](docs/troubleshooting.en.md) · [Development](docs/development.md)
 
-The [documentation index](docs/README.md) includes Chinese guides, hardware references, and engineering records. For contributions and bug reports, see [Contributing](CONTRIBUTING.md).
+## Privacy
 
-## Privacy and license
+Device input and configuration stay on your Mac. VibeWand has no server and needs no account. With an external input method it only holds Fn for you. With built-in recognition, audio stays in memory; macOS dictation runs on device when it can, and API mode sends audio to the endpoint you entered. Keys live in the macOS Keychain and are never part of an exported configuration. Dictated text goes into the field and no further; sending it is up to you.
 
-VibeWand processes device input and configuration locally. External mode sends Fn only. Built-in mode records your selected microphone into memory. System recognition prefers on-device processing when supported and may use Apple’s online service for other languages; API mode streams audio to your configured endpoint while recording. API keys stay in macOS Keychain and are excluded from exports. Dictation inserts into the original editor without submitting. See [Voice input](docs/voice-input.md).
+## License
 
-Source is available under [PolyForm Noncommercial 1.0.0](LICENSE). **Personal noncommercial use, modification, and redistribution are permitted under its terms. Commercial use requires contacting [Hao Xu](https://github.com/xuhao1) and obtaining a separate license before use.** [Ask about commercial licensing](https://github.com/xuhao1/VibeWand/issues/new?title=Commercial%20licensing%20inquiry).
+The source is under [PolyForm Noncommercial 1.0.0](LICENSE). Personal, noncommercial use, modification and distribution are allowed. **Commercial use requires a separate license from [the author, Hao Xu](https://github.com/xuhao1)**; open a [commercial licensing inquiry](https://github.com/xuhao1/VibeWand/issues/new?title=Commercial%20licensing%20inquiry) to ask. Because commercial use is restricted, this is source-available rather than open source as the OSI defines it. Third-party components keep their own licenses; see [acknowledgements](third-party/README.md).
 
-Because it restricts commercial use, this is a source-available license rather than an OSI-approved open-source license. Third-party components retain their original licenses; see [acknowledgments](third-party/README.md).
-
-Created by **Dr. Xu**. [Personal website](http://xuhao1.me) · [GitHub](https://github.com/xuhao1)
+By **Dr. Xu** · [Homepage](http://xuhao1.me) · [GitHub](https://github.com/xuhao1)

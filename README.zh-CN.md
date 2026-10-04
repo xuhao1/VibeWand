@@ -1,76 +1,83 @@
 # VibeWand
 
-**把阅读、编辑和听写，握在手中。**
-
-一款原生 macOS 工具，也是让你**不用鼠标和键盘进行 Vibe Coding** 的好助手。内置适配 **Codex 和 DeepSeek Harness**，用旋钮、手柄或遥控器完成受支持工作流中的阅读、听写、编辑与确认。同一套控件还能跨程序切换、浏览网页、切换标签页，并在**微信和飞书**中聊天，继续使用你熟悉的输入法。
+用旋钮、手柄或遥控器操作 Codex、Claude、DeepSeek Harness 的 macOS 小工具。
 
 [English](README.md) · [快速开始](docs/getting-started.md) · [文档目录](docs/README.md) · [项目主页](https://vibewand.xuhao1.me)
 
 ![用旋钮阅读、用手柄编辑与听写、用遥控器确认执行](docs/images/workflow-hero-v2.png)
 
-## 为什么用 VibeWand
+Vibe coding 的大部分时间其实不在打字：读回复、翻会话、换模型、说一句话，然后等。这些事一只手就够了。VibeWand 把它们放到一个旋钮或手柄上，人可以靠在椅背上干活。
 
-- **操作跟随场景。** 阅读时滚屏，有字的草稿中移动光标，已识别的选择器中切换候选，无需换一套按键。
-- **按住就说。** 按住麦克风键或 △，说完松开；选择外置输入法、macOS 系统听写，或自己的语音 API。
-- **边说边写，也能自动整理。** 内置听写实时预览文字，可选择原词或整理后的输出；只更新本次听写范围，不自动发送消息。
-- **切换更顺手。** 打开会话、切换浏览器标签，或选择另一个 macOS 应用。
-- **按自己的习惯配置。** 在设备图上点击控件，修改其触发动作；每种硬件模板独立保存。
-- **原生、本地运行。** 完整设备面板或紧凑语音条、中英文界面、本地配置，无需 VibeWand 云账号或 API Key。
+## 能做什么
 
-<p align="center"><img src="docs/images/overlay-v060-light.png" width="500" alt="VibeWand 0.6.0 原生手柄面板与紧凑语音条"></p>
+- **读**：转旋钮或推摇杆滚动对话。输入框里有字时，同一个动作改成移动光标。
+- **说**：按住麦克风键说话，松开后文字出现在输入框里，不会替你发送。可以用自带的识别（系统听写或你自己的语音 API），也可以继续用 Typeless、豆包这类输入法。
+- **切**：按一下打开会话列表，转动选择，再按确认。长按调推理强度、换模型。双击切换 macOS 应用。
+- **改**：每个按键的单击、双击、长按都能在设置里重新分配，每种设备各存一套。
 
-*0.6.0 的原生手柄面板与紧凑语音条。[配置按键与悬浮面板](docs/settings.md)。*
+<p align="center"><img src="docs/images/overlay-v060-light.png" width="500" alt="VibeWand 悬浮面板与语音条"></p>
 
-## 硬件支持
+屏幕上有个悬浮面板，告诉你当前每个键会做什么。嫌占地方可以收成一条，展开和收起的按钮始终在同一个位置。
 
-| 默认支持类型 | 接入方式 | 默认体验 | 典型支持设备 |
+## 支持的设备
+
+| 类型 | 接入方式 | 实测设备 |
+| --- | --- | --- |
+| **VibeKey**<br><img src="assets/device/controller.png" height="110" alt="VibeKey 旋钮控制器"> | USB 接收器，内置协议 | Ulanzi VibeKey（AU05） |
+| **手柄**<br><img src="assets/device/gamepad.png" height="90" alt="游戏手柄"> | USB 或蓝牙，macOS 自动识别 | Sony DualSense（PS5 手柄） |
+| **遥控器**<br><img src="assets/device/remote.png" height="110" alt="遥控器"> | 需要导入 HID 配置 | 小米蓝牙遥控器 2 Pro |
+
+几个设备可以同时连着。在哪个上面按键，面板和按键布局就跟到哪个，不用进设置切换。蓝牙手柄闲置十来分钟会自己关机，设置里有个“保持手柄唤醒”的开关。
+
+各型号的细节见[硬件指南](docs/device-templates.md)。
+
+**VibeWand 是独立项目，与 Ulanzi、Sony、小米及其他设备厂商没有隶属、合作、赞助或背书关系。产品名称与商标归各自所有者。**
+
+## 支持的应用
+
+| 应用 | 会话 | 模型 / 强度 | 听写 |
 | --- | --- | --- | --- |
-| **VibeKey**<br><img src="assets/device/controller.png" height="110" alt="VibeKey 旋钮控制器"> | 内置接收器后端 | 转动导航、按住听写，OK / ESC 确认与返回。 | Ulanzi VibeKey（AU05） |
-| **Controller（手柄）**<br><img src="assets/device/gamepad.png" height="90" alt="游戏手柄"> | macOS GameController，USB 或蓝牙接入 | 按场景导航、确认 / 返回 / 删除、按住听写，以及触摸板光标操作。 | Sony DualSense（PS5 手柄） |
-| **Remote Controller（遥控器）**<br><img src="assets/device/remote.png" height="110" alt="遥控器"> | 对应设备的 HID 配置 | 方向环导航、中央键确认，语音 / 返回 / 菜单键完成常用操作。 | 小米蓝牙遥控器 2 Pro |
+| Codex | ⌘K 面板 | 强度滑块，再按一次进模型列表 | ✓ |
+| Claude | ⌘K 面板 | 模型菜单，确认后进强度滑块 | ✓ |
+| DeepSeek Harness | 侧边栏会话列表 | 模型菜单及其子菜单 | ✓ |
+| 浏览器 | 切换标签页 | 地址栏 | ✓ |
+| 微信、飞书 | 搜索 / 切换聊天 | — | ✓ |
 
-连接设置、各型号能力与实测范围见[硬件指南](docs/device-templates.md)。
+以上三款 AI 工具在本机实测过。听写不挑应用：原生输入框边说边写，其他应用在松开后粘贴一次，剪贴板随后恢复原样。别的应用可以在设置里加一条快捷键规则，见[应用适配](docs/applications.md)。
 
-**VibeWand 是独立项目，与 Ulanzi、Sony、小米及其他设备提供商没有任何隶属、合作、赞助、背书或其他关系。产品名称与商标归各自所有者。**
+## 安装
 
-## 少量控件，串起日常操作
+**[下载 VibeWand 0.7.0（Apple Silicon）](https://github.com/xuhao1/VibeWand/releases/download/v0.7.0/VibeWand-0.7.0-macOS-arm64.zip)** · [版本说明](https://github.com/xuhao1/VibeWand/releases/latest)
 
-阅读回复 → 按住听写草稿 → 松开后编辑 → 准备好再确认。导航在阅读时滚屏，在已识别的非空草稿中移动光标，在选择器中切换候选。双击 VibeKey 旋钮或手柄 ×，即可打开 macOS 应用切换。
+需要 macOS 13 以上和 M 系列芯片。解压后把 **VibeWand.app** 拖进“应用程序”，打开它，然后：
 
-内置适配覆盖 **Codex、DeepSeek Harness、浏览器、微信与飞书**。具体行为随应用控件和快捷键而变化；Return 是否发送消息由目标应用决定。其他应用可通过快捷键预设添加，详见[应用适配](docs/applications.md)。
+1. 在“系统设置 → 隐私与安全性 → 辅助功能”里允许 VibeWand。没有这个权限它既看不到输入框也发不了按键。
+2. 接上设备。VibeKey 需要先退出 Ulanzi Studio，两者不能同时占用接收器。
+3. 没有设备也可以先看看：“设置 → 开发者 → 演示模式”。
 
-## 下载与安装
-
-**[下载 VibeWand macOS 版 — Apple Silicon](https://github.com/xuhao1/VibeWand/releases/download/v0.6.0/VibeWand-0.6.0-macOS-arm64.zip)** · [版本说明](https://github.com/xuhao1/VibeWand/releases/latest)
-
-要求 **macOS 13+**、**Apple Silicon Mac（M 系列）**。下载 ZIP，在 Finder 中解压，将 **VibeWand.app** 拖入「应用程序」，再双击打开，无需安装开发工具。
-
-在「系统设置 → 隐私与安全性 → 辅助功能」允许 VibeWand，再到「设置 → 设备与按键」选择硬件。AU05 使用前先退出 Ulanzi Studio。没有设备时，可在「设置 → 开发者 → 演示模式」体验。
-
-本版本使用临时签名，尚未通过 Apple 公证；首次打开说明见[快速开始](docs/getting-started.md)。
+这个版本是临时签名，没有做 Apple 公证，第一次打开要多点一步，见[快速开始](docs/getting-started.md)。
 
 ### 从源码编译
 
-如需自行编译，请安装 **Xcode 26+** 与 **Homebrew Opus**，并使用 Apple Silicon Mac，下载源码，在项目目录执行：
+需要 Xcode 26 以上和 Homebrew 的 Opus：
 
 ```sh
+brew install opus
 bash scripts/build-app.sh
 ```
 
-之后在 Finder 中打开 `dist/VibeWand.app`。工具链与签名说明见[编译指南](docs/development.md)。
+产物在 `dist/VibeWand.app`。更多细节见[开发指南](docs/development.md)。
 
-## 使用文档
+## 文档
 
 [默认操作](docs/core-experience.md) · [设置与改键](docs/settings.md) · [语音输入](docs/voice-input.md) · [应用适配](docs/applications.md) · [问题排查](docs/troubleshooting.md) · [开发指南](docs/development.md)
 
-[文档目录](docs/README.md)统一收录中英文指南、硬件参考及工程记录。贡献代码或报告问题前，请阅读[贡献说明](CONTRIBUTING.md)。
+## 隐私
 
-## 隐私与许可
+设备输入和配置都在本机处理，VibeWand 没有自己的服务器，也不需要账号。听写用外置输入法时，它只替你按住 Fn；用内置识别时，录音只留在内存里，系统听写能离线就离线，语音 API 模式会把录音发到你自己填的地址。密钥存在 macOS 钥匙串里，导出配置不会带上。听写的文字只写进输入框，发不发由你决定。
 
-设备输入和配置在本机处理。外置模式只发送 Fn；内置模式主动录制麦克风，音频暂存在内存中。系统听写支持时优先在本机识别，其他语言可能使用 Apple 在线服务；API 模式在录音中上传音频到用户配置的服务。密钥独立保存在 macOS 钥匙串，配置导出不包含密钥。听写文字只插入原输入框，不自动发送。见[语音输入](docs/voice-input.md)。
+## 许可
 
-源码采用 [PolyForm Noncommercial 1.0.0 非商用许可证](LICENSE)。**允许按条款进行个人非商用使用、修改和分发；商用必须联系[作者徐浩](https://github.com/xuhao1)，并在使用前取得单独商业许可。** 可提交[商业授权咨询](https://github.com/xuhao1/VibeWand/issues/new?title=Commercial%20licensing%20inquiry)。
+源码采用 [PolyForm Noncommercial 1.0.0](LICENSE)。个人非商用可以使用、修改和分发；**商用需要先联系[作者徐浩](https://github.com/xuhao1)取得单独授权**，可以直接提一个[商业授权咨询](https://github.com/xuhao1/VibeWand/issues/new?title=Commercial%20licensing%20inquiry)。因为限制了商业用途，它是源码公开，但不算 OSI 定义的开源。第三方组件保留各自的许可证，见[致谢](third-party/README.md)。
 
-因限制商业用途，本项目属于源码公开，不属于 OSI 定义的开源许可。第三方组件保留原有许可证，见[致谢与第三方记录](third-party/README.md)。
-
-作者：**Dr. Xu**。[个人主页](http://xuhao1.me) · [GitHub](https://github.com/xuhao1)
+作者：**Dr. Xu** · [个人主页](http://xuhao1.me) · [GitHub](https://github.com/xuhao1)

@@ -185,7 +185,9 @@ final class BridgeRuntime {
         syncCompanions()
         refresh()
         pollTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.reconcileControllerVoiceRoute(); self?.fallBackToConnectedDevice(); self?.refresh() }
+            MainActor.assumeIsolated {
+                self?.reconcileControllerVoiceRoute(); self?.fallBackToConnectedDevice(); self?.keepControllerAwake(); self?.refresh()
+            }
         }
     }
 
@@ -242,6 +244,28 @@ final class BridgeRuntime {
             wireCompanion(source, id: id)
             source.start()
         }
+    }
+
+    // MARK: Keeping devices awake
+
+    static let keepAwakeKey = "controllerKeepAwake"
+    private(set) var keepsControllerAwake = UserDefaults.standard.bool(forKey: BridgeRuntime.keepAwakeKey)
+    private var nextNudge: TimeInterval = 0
+    func setKeepsControllerAwake(_ enabled: Bool) {
+        keepsControllerAwake = enabled
+        UserDefaults.standard.set(enabled, forKey: Self.keepAwakeKey)
+        nextNudge = 0; onSettingsChanged?()
+    }
+    private func keepControllerAwake() {
+        let now = ProcessInfo.processInfo.systemUptime
+        guard keepsControllerAwake, inputStarted, now >= nextNudge else { return }
+        nextNudge = now + 40
+        for source in [device] + Array(companions.values) { (source as? GameControllerInputSource)?.nudge() }
+    }
+    /// "82%" or "82% · charging" once the handset has reported a level.
+    var vibeKeyBattery: String? {
+        guard let level = ([device] + Array(companions.values)).compactMap({ ($0 as? AU05HIDClient)?.battery }).first else { return nil }
+        return "\(level.percent)%" + (level.charging ? L10n.tr(" · 充电中", " · charging") : "")
     }
 
     private var canAutoSwitch: Bool { followsActiveDevice && !autoSwitchSuspended && !captureOnly }
@@ -642,6 +666,8 @@ final class BridgeRuntime {
         value["target"] = snapshot.target
         value["connectedTemplates"] = connectedTemplates.map(\.rawValue).sorted()
         value["autoSwitch"] = followsActiveDevice
+        value["keepAwake"] = keepsControllerAwake
+        value["vibeKeyBattery"] = vibeKeyBattery ?? ""
         value["selecting"] = !snapshot.selection.isEmpty
         value["speech"] = ["state": String(describing: voiceInput.state), "previewCharacters": voiceInput.liveTranscript.count,
             "liveInsertion": liveDraft != nil, "style": voiceInput.configuration.effectiveTextStyle.rawValue,

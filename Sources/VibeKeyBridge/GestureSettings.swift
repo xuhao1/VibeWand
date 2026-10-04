@@ -19,6 +19,17 @@ enum SettingsSection: Int, CaseIterable {
         case .speech: return tr("语音输入", "Voice input")
         }
     }
+    var tint: Color {
+        switch self {
+        case .general: return .gray
+        case .devices: return .blue
+        case .applications: return .indigo
+        case .overlay: return .teal
+        case .developer: return .orange
+        case .about: return Color(nsColor: .systemGray)
+        case .speech: return .pink
+        }
+    }
     var symbol: String {
         switch self {
         case .general: return "slider.horizontal.3"
@@ -36,7 +47,11 @@ enum SettingsSection: Int, CaseIterable {
 final class SettingsController: NSWindowController {
     private let model: SettingsModel
     private var languageObserver: NSObjectProtocol?
+    private var keyObservers: [NSObjectProtocol] = []
     private var renderingAudit = false
+    private func updateDevicePin() {
+        model.runtime.autoSwitchSuspended = window?.isKeyWindow == true && window?.isVisible == true && model.section == .devices
+    }
     init(runtime: BridgeRuntime, overlay: OverlayController) {
         model = SettingsModel(runtime: runtime, overlay: overlay)
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1220, height: 790),
@@ -55,6 +70,14 @@ final class SettingsController: NSWindowController {
         window.setContentSize(NSSize(width: 1220, height: 790))
         window.setFrameAutosaveName("VibeWand.settings.studio")
         window.center()
+        // While the layout editor is in front, pressing another device must
+        // not swap the layout being edited.
+        for name in [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification, NSWindow.willCloseNotification] {
+            keyObservers.append(NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.updateDevicePin() }
+            })
+        }
+        model.onSectionChange = { [weak self] in self?.updateDevicePin() }
         languageObserver = NotificationCenter.default.addObserver(forName: L10n.languageDidChange, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.window?.title = tr("VibeWand 设置", "VibeWand Settings")
@@ -63,7 +86,10 @@ final class SettingsController: NSWindowController {
         }
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) is unsupported") }
-    deinit { if let languageObserver { NotificationCenter.default.removeObserver(languageObserver) } }
+    deinit {
+        if let languageObserver { NotificationCenter.default.removeObserver(languageObserver) }
+        keyObservers.forEach(NotificationCenter.default.removeObserver)
+    }
     func present(tab: Int? = nil) {
         if let tab, let section = SettingsSection(rawValue: tab) { model.section = section }
         model.refresh(); showWindow(nil); NSApp.activate(ignoringOtherApps: true)
@@ -127,7 +153,8 @@ final class SettingsModel: ObservableObject {
     let runtime: BridgeRuntime
     let overlay: OverlayController
     @Published var snapshot: HUDSnapshot
-    @Published var section = SettingsSection.devices
+    @Published var section = SettingsSection.devices { didSet { onSectionChange?() } }
+    var onSectionChange: (() -> Void)?
     @Published var selectedControl = "dial"
     @Published var scope = GestureScope.global
     @Published var error: String?
@@ -248,7 +275,7 @@ private struct SettingsShell: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }.padding(.horizontal, 5)
-                VStack(spacing: 5) {
+                VStack(spacing: 3) {
                     ForEach(SettingsSection.allCases, id: \.rawValue) { section in
                         SettingsNavigationButton(section: section, selected: model.section == section) { model.section = section }
                     }
@@ -288,15 +315,15 @@ private struct SettingsNavigationButton: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                Image(systemName: section.symbol).frame(width: 20)
-                Text(section.title)
+                Image(systemName: section.symbol).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(.white)
+                    .frame(width: 26, height: 26)
+                    .background(section.tint.gradient, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                Text(section.title).font(.system(size: 14, weight: selected ? .semibold : .regular)).foregroundStyle(.primary)
                 Spacer(minLength: 0)
             }
-            .font(.system(size: 15, weight: selected ? .semibold : .regular))
-            .foregroundStyle(selected ? Color.accentColor : Color.primary)
-            .padding(.horizontal, 12).frame(maxWidth: .infinity, minHeight: 44)
-            .background(selected ? Color.accentColor.opacity(0.16) : hovered ? Color.primary.opacity(0.055) : .clear, in: RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(selected ? Color.accentColor.opacity(0.24) : .clear, lineWidth: 0.75).allowsHitTesting(false))
+            .padding(.horizontal, 8).frame(maxWidth: .infinity, minHeight: 40)
+            .background(selected ? Color.primary.opacity(0.11) : hovered ? Color.primary.opacity(0.05) : .clear,
+                        in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             .contentShape(Rectangle())
         }.buttonStyle(.plain).frame(maxWidth: .infinity)
             .onHover { hovered = $0 }
@@ -339,8 +366,13 @@ private struct DeviceSettings: View {
             HStack(spacing: 12) {
                 Text(tr("设备布局", "Layout")).font(.system(size: 20, weight: .semibold)).fixedSize()
                 Picker(tr("模板", "Layout"), selection: Binding(get: { model.runtime.templates.selectedID }, set: model.chooseTemplate)) {
-                    ForEach(DeviceTemplateID.allCases, id: \.self) { id in Text(id.template.title).tag(id) }
-                }.pickerStyle(.segmented).labelsHidden().frame(width: 310)
+                    ForEach(DeviceTemplateID.allCases, id: \.self) { id in
+                        Text((model.snapshot.connectedTemplates.contains(id) ? "● " : "") + id.template.title).tag(id)
+                    }
+                }.pickerStyle(.segmented).labelsHidden().frame(width: 330)
+                    .help(tr("● 表示该设备已连接。按下任意已连接设备上的按键即可切换到它。", "● marks a connected device. Press any button on a connected device to switch to it."))
+                Toggle(tr("跟随正在使用的设备", "Follow the device in use"), isOn: Binding(get: { model.runtime.followsActiveDevice },
+                    set: { model.runtime.setFollowsActiveDevice($0); model.refresh() })).toggleStyle(.switch).controlSize(.small)
                 Spacer(minLength: 0)
                 Button(action: model.importGestures) { Label(tr("导入", "Import"), systemImage: "square.and.arrow.down") }
                 Button(action: model.exportGestures) { Label(tr("导出", "Export"), systemImage: "square.and.arrow.up") }

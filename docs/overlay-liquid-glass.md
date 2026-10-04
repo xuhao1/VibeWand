@@ -23,6 +23,12 @@ The HUD uses larger artwork, single-line capsules, short physical-control leader
 
 Native reflection/refraction/color sampling varies with the backdrop and system appearance. Static PNG exports have no live desktop backdrop and do not prove the optical effect.
 
+## 0.7.0：语音条是锚点 / The speech bar is the anchor
+
+展开、收起、换设备或出现实时文字时，面板都以语音条的右上角为基准重新布局，所以展开 / 收起按钮的屏幕位置不变。设备面板默认向上展开，上方放不下时改为向下。语音条在两种模式下的按钮一致（文字模式、展开 / 收起、设置、隐藏），设备面板顶部不再重复设置和关闭按钮。玻璃仍然完全交给系统的 `NSGlassEffectView`，没有自绘的边缘效果。
+
+Expanding, collapsing, changing device or showing live text all lay the panel out from the top-right corner of the speech bar, so the expand / collapse button keeps its screen position. The device view opens upward by default and downward when there is no room above. The bar carries the same buttons in both modes, and the device view no longer repeats settings and close. Glass is still entirely the system's `NSGlassEffectView`; nothing is painted on top of it.
+
 ## 设计参考 / Design reference
 
 ![历史设计概念](images/overlay-liquid-glass-concept.png)

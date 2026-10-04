@@ -13,6 +13,7 @@ struct SpeechSettings: View {
     @State private var keySaved = false
     @State private var polishingKey = ""
     @State private var polishingKeySaved = false
+    @State private var insertion = TextInserter.method
     init(model: SettingsModel, voice: VoiceInputController) {
         self.model = model; self.voice = voice
         _draft = State(initialValue: voice.configuration)
@@ -51,6 +52,12 @@ struct SpeechSettings: View {
                 }
             }
             if draft.mode == .builtIn {
+                SettingsCard(title: tr("写入方式", "How text is inserted")) {
+                    Picker(tr("写入方式", "How text is inserted"), selection: Binding(get: { insertion }, set: { insertion = $0; TextInserter.method = $0 })) {
+                        ForEach(TextInsertionMethod.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }.pickerStyle(.segmented).labelsHidden()
+                    SettingsNote(text: tr("自动：原生输入框边说边写；Claude、Codex、浏览器等网页类输入框在松开后一次粘贴，随后恢复剪贴板。应用不接受粘贴时可改用模拟键入。", "Automatic: native fields fill in as you speak; web-based editors such as Claude, Codex and browsers get one paste on release, after which your clipboard is restored. Use simulated typing for apps that refuse paste."))
+                }
                 HStack(alignment: .top, spacing: 16) {
                     VStack(spacing: 16) {
                         SettingsCard(title: usesAPI ? tr("服务配置", "Service settings") : tr("识别语言", "Recognition language")) {

@@ -86,6 +86,7 @@ enum AU05Codec {
 }
 enum AU05Commands {
     static let heartbeat: [UInt8] = [6, 1, 0x23, 0, 1]
+    static let batteryQuery: [UInt8] = [1, 1, 2, 1]
     static func hooks(_ enabled: Bool) -> [UInt8] { [1, 11, 0x89, 4, enabled ? 1 : 0] }
     static func handshake(_ nonce: UInt32) -> [UInt8] {
         [6, 2, 5, 1, UInt8(nonce & 15)] + (0..<4).map { UInt8(truncatingIfNeeded: nonce >> ($0 * 8)) }
@@ -97,6 +98,24 @@ enum AU05Commands {
     }
     static func isHeartbeat(_ data: [UInt8]) -> Bool {
         data.count >= 3 && data[0] & 31 == 6 && data[1] == 1 && data[2] == 0x23
+    }
+}
+
+/// Battery reports, in both layouts the handset uses (reply and unsolicited).
+public struct AU05Battery: Equatable, Sendable {
+    public let percent: Int
+    public let charging: Bool
+    static func parse(_ data: [UInt8]) -> AU05Battery? {
+        guard data.count >= 12 else { return nil }
+        if data[0] & 0x1f == 1, data[1] & 0x0f == 1, data[2] == 2, data[3] & 0x10 != 0 {
+            let voltage = Int(data[4]) | Int(data[5]) << 8, percent = Int(data[6]) | Int(data[7]) << 8
+            guard percent <= 100, (2000...5000).contains(voltage) else { return nil }
+            return AU05Battery(percent: percent, charging: data[10] != 0)
+        }
+        guard data[0] & 0x1f == 0x0b, data[1] == 0x7b, data[5] <= 100 else { return nil }
+        let voltage = Int(data[2]) | Int(data[3]) << 8
+        guard (2000...5000).contains(voltage) else { return nil }
+        return AU05Battery(percent: Int(data[5]), charging: data[4] & 8 != 0)
     }
 }
 

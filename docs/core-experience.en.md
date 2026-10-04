@@ -2,7 +2,7 @@
 
 [简体中文](core-experience.md) · [Getting started](getting-started.en.md) · [Documentation](README.md)
 
-These are the 0.6.0 template defaults. Saved custom mappings take precedence; reset the active template if you want its defaults. Complete controls and hardware boundaries are in [Device templates](device-templates.en.md).
+These are the 0.7.0 template defaults. Saved custom mappings take precedence; reset the active template if you want its defaults. Complete controls and hardware boundaries are in [Device templates](device-templates.en.md).
 
 ## Navigation follows context
 
@@ -59,3 +59,9 @@ Return can send or insert a newline depending on the target app. Check its prefe
 VibeKey uses a 0.28-second double-press window and 0.55-second long press; Controller and Remote use 0.32 and 0.65 seconds. A single press waits when a double-press action exists. Hold actions take priority over click gestures. Hold-and-turn is specific to the VibeKey dial.
 
 Disconnecting, sleeping, changing templates/configuration/modes, or quitting cancels pending actions and releases held Fn and app-switch modifiers. To remap a control or adjust timing, see [Settings](settings.en.md). For verification history, see [native controller records](controller-input.md) and [AU05 records](direct-device-plan.md).
+
+## Several devices at once
+
+From 0.7.0, a connected VibeKey and controller both listen. Press any button on the other device and it becomes current: the overlay shows its artwork, buttons follow its own layout, and the press that caused the switch still acts. If the current device disconnects for a few seconds, the one still connected takes over. Editing a layout under Settings → Devices is not interrupted by other devices, and "Follow the device in use" turns the behaviour off entirely.
+
+A Bluetooth controller powers itself off after roughly ten idle minutes. With Settings → General → Keep the controller awake, VibeWand rewrites the light bar every 40 seconds (no visible change), at the cost of a little controller battery.

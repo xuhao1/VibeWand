@@ -7,8 +7,10 @@ enum OverlayDisplayMode: String, CaseIterable {
 }
 
 enum SpeechOverlayLayout {
+    static let gap: CGFloat = 7
+    static func barHeight(voice: VoiceHUDSnapshot) -> CGFloat { voice.showsText ? 118 : 48 }
     static func size(template: DeviceTemplateID, expanded: Bool, mode: OverlayDisplayMode, voice: VoiceHUDSnapshot) -> NSSize {
-        let height: CGFloat = voice.showsText ? 118 : 48
+        let height = barHeight(voice: voice)
         if mode == .compact { return NSSize(width: 390, height: height) }
         let device = OverlayLayout.size(for: template, expanded: expanded)
         return NSSize(width: device.width, height: device.height + 7 + height)
@@ -22,10 +24,14 @@ final class SpeechOverlayHost: NSView {
     let fullView: NSView
     private let bar: SpeechOverlayBar
     var onToggleMode: (() -> Void)?
+    var onDragCompleted: (() -> Void)? { didSet { bar.onDragCompleted = onDragCompleted } }
     private(set) var snapshot = HUDSnapshot()
     private var mode = OverlayDisplayMode.full
     private var expanded = false
     private let content = GlassControlContent()
+    /// The bar is the fixed part; the device view opens above it, or below
+    /// when there is no room above.
+    var deviceBelow = false { didSet { if oldValue != deviceBelow { needsLayout = true } } }
     override var isFlipped: Bool { true }
     var exporting = false { didSet { bar.exporting = exporting } }
     init(fullView: NSView, isPreview: Bool = false, onOpenSettings: @escaping () -> Void,
@@ -58,9 +64,14 @@ final class SpeechOverlayHost: NSView {
         let factor = bounds.width / max(1, size.width)
         if mode == .full {
             let device = OverlayLayout.size(for: snapshot.deviceTemplate, expanded: expanded)
-            fullView.frame = NSRect(x: 0, y: 0, width: bounds.width, height: device.height * factor)
-            bar.frame = NSRect(x: 0, y: (device.height + 7) * factor, width: bounds.width,
-                height: bounds.height - (device.height + 7) * factor)
+            let deviceHeight = device.height * factor, barHeight = bounds.height - (device.height + SpeechOverlayLayout.gap) * factor
+            if deviceBelow {
+                bar.frame = NSRect(x: 0, y: 0, width: bounds.width, height: barHeight)
+                fullView.frame = NSRect(x: 0, y: bounds.height - deviceHeight, width: bounds.width, height: deviceHeight)
+            } else {
+                fullView.frame = NSRect(x: 0, y: 0, width: bounds.width, height: deviceHeight)
+                bar.frame = NSRect(x: 0, y: bounds.height - barHeight, width: bounds.width, height: barHeight)
+            }
         } else { bar.frame = bounds }
     }
 }
@@ -68,6 +79,7 @@ final class SpeechOverlayHost: NSView {
 @MainActor
 private final class SpeechOverlayBar: NSView {
     var onToggleMode: (() -> Void)?
+    var onDragCompleted: (() -> Void)?
     var toggleFrame: NSRect { resizeButton.frame }
     var exporting = false { didSet { glass.exporting = exporting; needsDisplay = true } }
     private var mode = OverlayDisplayMode.full
@@ -131,7 +143,6 @@ private final class SpeechOverlayBar: NSView {
         settings.toolTip = L10n.tr("打开设置", "Open settings"); settings.setAccessibilityLabel(settings.toolTip!)
         hide.toolTip = L10n.tr("隐藏悬浮窗", "Hide overlay"); hide.setAccessibilityLabel(hide.toolTip!)
         resizeButton.isEnabled = !isPreview; settings.isEnabled = !isPreview; hide.isEnabled = !isPreview
-        settings.isHidden = mode == .full; hide.isHidden = mode == .full
         scroll.isHidden = !voice.showsText
         let text = voice.text.isEmpty ? voice.state.title : voice.text
         if transcript.string != text {
@@ -146,7 +157,6 @@ private final class SpeechOverlayBar: NSView {
         let header: CGFloat = min(48, bounds.height), button: CGFloat = 25, inset: CGFloat = 10
         hide.frame = NSRect(x: bounds.width - inset - button, y: (header - button) / 2, width: button, height: button)
         settings.frame = hide.frame.offsetBy(dx: -button - 2, dy: 0); resizeButton.frame = settings.frame.offsetBy(dx: -button - 2, dy: 0)
-        if mode == .full { resizeButton.frame = hide.frame }
         let styleWidth: CGFloat = L10n.shared.language == .english ? 100 : 87
         style.frame = NSRect(x: resizeButton.frame.minX - styleWidth - 6, y: (header - 28) / 2, width: styleWidth, height: 28)
         icon.frame = NSRect(x: 12, y: (header - 19) / 2, width: 19, height: 19)
@@ -168,7 +178,7 @@ private final class SpeechOverlayBar: NSView {
             let rim = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 18, yRadius: 18); rim.lineWidth = 1; rim.stroke()
         }
     }
-    override func mouseDown(with event: NSEvent) { window?.performDrag(with: event) }
+    override func mouseDown(with event: NSEvent) { window?.performDrag(with: event); onDragCompleted?() }
     @objc private func toggleStyle() { guard !isPreview else { return }; onToggleStyle() }
     @objc private func toggleMode() { guard !isPreview else { return }; onToggleMode?() }
     @objc private func openSettings() { guard !isPreview else { return }; onOpenSettings() }

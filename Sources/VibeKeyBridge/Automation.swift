@@ -292,7 +292,13 @@ final class AutomationController {
         case "activate":
             guard let bundle = request["bundle"] as? String,
                   let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundle).first else { return fail("app not running") }
-            app.activate(options: [.activateAllWindows])
+            // A background app may not take focus for another one directly;
+            // reopening through Launch Services is always honoured.
+            if let url = app.bundleURL {
+                let configuration = NSWorkspace.OpenConfiguration()
+                configuration.activates = true
+                NSWorkspace.shared.openApplication(at: url, configuration: configuration)
+            } else { app.activate(options: [.activateAllWindows]) }
             after(request["settle"] as? Int ?? 900) { state() }
         case "ax":
             guard let pid = targetPID(request) else { return fail("no target app") }

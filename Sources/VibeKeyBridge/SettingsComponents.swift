@@ -5,7 +5,7 @@ import AU05Device
 private func tr(_ zh: String, _ en: String) -> String { L10n.tr(zh, en) }
 
 enum SettingsStyle {
-    static var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.6.0" }
+    static var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.7.0" }
 }
 
 /// A system material that follows the window appearance without intercepting controls above it.
@@ -88,8 +88,8 @@ struct PageHeader: View {
     let title: String
     let subtitle: String
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.system(size: 22, weight: .semibold))
+        VStack(alignment: .leading, spacing: 5) {
+            Text(title).font(.system(size: 26, weight: .bold, design: .rounded))
             Text(subtitle).font(.system(size: 14)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }.frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -102,12 +102,10 @@ struct StandardPage<Content: View>: View {
     var body: some View {
         VStack(spacing: 0) {
             PageHeader(title: title, subtitle: subtitle)
-                .padding(.horizontal, 20).padding(.top, 10).padding(.bottom, 12)
-                .background { SettingsBackdrop(material: .headerView, blendingMode: .withinWindow) }
-            Divider().opacity(0.45)
+                .padding(.horizontal, 28).padding(.top, 26).padding(.bottom, 14)
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) { content() }
-                    .frame(maxWidth: 1100, alignment: .leading).padding(20)
+                VStack(alignment: .leading, spacing: 18) { content() }
+                    .frame(maxWidth: 1100, alignment: .leading).padding(.horizontal, 28).padding(.top, 6).padding(.bottom, 28)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
             }
         }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -118,10 +116,10 @@ struct SettingsCard<Content: View>: View {
     let title: String
     @ViewBuilder var content: () -> Content
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title).font(.system(size: 14, weight: .semibold)).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 13) {
+            Text(title).font(.system(size: 15, weight: .semibold))
             content()
-        }.padding(18).frame(maxWidth: .infinity, alignment: .leading)
-            .settingsGlass()
+        }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
+            .settingsGlass(cornerRadius: 16)
     }
 }

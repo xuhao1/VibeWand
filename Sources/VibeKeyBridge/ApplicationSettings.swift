@@ -40,7 +40,7 @@ struct ApplicationSettings: View {
                         .font(.system(size: 13)).foregroundStyle(.secondary)
                 }
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                    ForEach([ApplicationProfile.codex, .deepSeekHarness, .browser, .weChat, .feishu], id: \.self) { profile in
+                    ForEach([ApplicationProfile.codex, .claude, .deepSeekHarness, .browser, .weChat, .feishu], id: \.self) { profile in
                         builtInCard(profile)
                     }
                     VStack(alignment: .leading, spacing: 8) {
@@ -147,6 +147,7 @@ struct ApplicationSettings: View {
     private func symbol(for profile: ApplicationProfile) -> String {
         switch profile {
         case .codex: return "terminal"
+        case .claude: return "asterisk"
         case .deepSeekHarness: return "sparkles"
         case .browser: return "globe"
         case .weChat: return "bubble.left.and.bubble.right"
@@ -158,6 +159,7 @@ struct ApplicationSettings: View {
     private func tint(for profile: ApplicationProfile) -> Color {
         switch profile {
         case .codex: return .primary
+        case .claude: return .orange
         case .weChat: return .green
         case .deepSeekHarness: return .indigo
         default: return .blue
@@ -167,7 +169,8 @@ struct ApplicationSettings: View {
     private func summary(for profile: ApplicationProfile) -> String {
         switch profile {
         case .codex: return tr("会话、模型与推理强度；草稿编辑与滚动。", "Chats, models and reasoning; draft editing and scrolling.")
-        case .deepSeekHarness: return tr("会话搜索、模型与推理等级菜单。", "Chat search, model selection and reasoning menus.")
+        case .claude: return tr("⌘K 会话搜索、模型菜单与强度滑块；听写直接写入输入框。", "⌘K chat search, the model menu and effort slider; dictation goes straight into the composer.")
+        case .deepSeekHarness: return tr("侧边栏会话列表、模型与推理等级菜单。", "Sidebar chat list, model and reasoning menus.")
         case .browser: return tr("滚动网页、切换标签页、定位地址栏。", "Page scrolling, tab switching and address bar focus.")
         case .weChat: return tr("⌘F 搜索聊天；浏览结果与编辑草稿。", "⌘F chat search, result navigation and draft editing.")
         case .feishu: return tr("⌘K 快速搜索；浏览结果与编辑草稿。", "⌘K quick search, result navigation and draft editing.")

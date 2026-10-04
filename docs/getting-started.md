@@ -4,7 +4,7 @@
 
 ## 1. 下载并打开
 
-从 [GitHub Releases](https://github.com/xuhao1/VibeWand/releases/latest) 下载 **[VibeWand-0.6.0-macOS-arm64.zip](https://github.com/xuhao1/VibeWand/releases/download/v0.6.0/VibeWand-0.6.0-macOS-arm64.zip)**。本包要求 **macOS 13+**、**Apple Silicon Mac**，不含 Intel 可执行文件。
+从 [GitHub Releases](https://github.com/xuhao1/VibeWand/releases/latest) 下载 **[VibeWand-0.7.0-macOS-arm64.zip](https://github.com/xuhao1/VibeWand/releases/download/v0.7.0/VibeWand-0.7.0-macOS-arm64.zip)**。本包要求 **macOS 13+**、**Apple Silicon Mac**，不含 Intel 可执行文件。
 
 1. 在 Finder 中双击 ZIP，解压得到 **VibeWand.app**。
 2. 拖入「应用程序」。

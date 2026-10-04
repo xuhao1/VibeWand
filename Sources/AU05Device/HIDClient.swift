@@ -22,6 +22,9 @@ public final class AU05HIDClient {
     public private(set) var diagnostics = AU05Diagnostics()
     public var onConnection: ((AU05Connection) -> Void)?
     public var onEvent: ((AU05Event) -> Void)?
+    /// Last battery level the handset reported, if any.
+    public private(set) var battery: AU05Battery?
+    private var lastBatteryQuery = -Double.infinity
     private let manager = IOHIDManagerCreate(kCFAllocatorDefault, 0)
     private var device: IOHIDDevice?
     private var gate = AU05SessionGate()
@@ -73,6 +76,7 @@ public final class AU05HIDClient {
                 if let data = AU05Codec.decode(report) {
                     // Protocol command IDs only; never expose packet payloads.
                     client.diagnostics.lastCommand = [data[0] & 31, data[1], data[2]]
+                    if let level = AU05Battery.parse(data) { client.battery = level }
                 }
                 guard client.diagnostics.senderMatches else { return }
                 client.diagnostics.acceptedReports += 1
@@ -148,6 +152,7 @@ public final class AU05HIDClient {
             lastHeartbeat = now
             let result = send(AU05Commands.heartbeat)
             if result != kIOReturnSuccess { detach(restore: true); set(.failed(DeviceLocalization.tr("AU05 心跳发送失败：\(result)", "AU05 heartbeat failed: \(result)"))) }
+            else if gate.ready, now - lastBatteryQuery >= 60 { lastBatteryQuery = now; _ = send(AU05Commands.batteryQuery) }
         }
     }
     private func receive(_ report: [UInt8]) {

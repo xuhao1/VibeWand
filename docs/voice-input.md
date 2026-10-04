@@ -68,3 +68,11 @@ Codex 的 ProseMirror 编辑器使用正常粘贴事件接收文字，临时剪�
 预览正常增长时只追加新后缀，识别修正只替换变化尾部。写入先等待 AX 文字和光标确认，允许分开更新及短暂缓存，不在每个预览到达时立即整段重写。焦点绑定到编辑器本身，内部段落节点变化不视为切换；已拥有的文字仍受草稿和选区校验保护。未收到写入确认会显示单独的错误，不再全部归为用户修改草稿。
 
 兼容粘贴路径已在独立 Chromium contenteditable 页面实测，连续写入“测试语音输入连续出现文字。”，触发真实 input 事件并保留原有草稿，标题随输入变化也未中断。桌面自动操作工具禁止直接控制 Codex 自身界面，因此 Codex 本体需要用户复测。
+
+## 0.7.0：文字如何写入 / How text is inserted
+
+内置听写不再要求目标应用支持逐字改写。原生输入框（TextEdit、备忘录等）仍然边说边写，通过辅助功能直接改动本次听写的那一段。其余应用（Claude、Codex、DeepSeek Harness、浏览器、终端等）在松开后粘贴一次：剪贴板先暂存，粘贴完成后恢复，并带上剪贴板管理器约定的“临时内容”标记。某个应用的输入框不理会辅助功能写入时，本次运行期间会记住它，下次直接粘贴。密码框不接收听写。读不到输入框的应用（例如微信）同样会在光标处粘贴，只是无法回读确认。
+
+“设置 → 语音输入 → 写入方式”可以改成“始终粘贴”或“模拟键入”。
+
+Built-in dictation no longer needs the target app to support in-place edits. Native fields still fill in as you speak through accessibility writes limited to the dictated range. Every other app gets one paste on release: the clipboard is saved, restored afterwards, and marked as transient for clipboard managers. An app whose field ignores accessibility writes is remembered until quit and pasted into directly next time. Password fields never receive dictation. Apps that expose no readable editor are pasted into at the caret as well, without read-back confirmation. "Settings → Voice input → How text is inserted" can force paste or simulated typing.
