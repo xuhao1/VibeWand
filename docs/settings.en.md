@@ -4,7 +4,7 @@
 
 ## Unified settings and graphical editing
 
-The menu bar keeps everyday entry points. One native settings window groups configuration into six sidebar pages. The editor pairs a device picture and input list with an inspector for the selected control. Settings appears in the Dock while open or minimized; clicking its Dock icon restores the window. Closing settings returns to menu-bar operation without stopping device input.
+The menu bar keeps everyday entry points. One native settings window groups configuration into seven sidebar pages. The editor pairs a device picture and input list with an inspector for the selected control. Settings appears in the Dock while open or minimized; clicking its Dock icon restores the window. Closing settings returns to menu-bar operation without stopping device input.
 
 | Page | Purpose |
 | --- | --- |
@@ -14,6 +14,7 @@ The menu bar keeps everyday entry points. One native settings window groups conf
 | Overlay | Visibility, descriptions, size, opacity, position, and image export |
 | Developer | Demo, physical-event capture, compatibility, diagnostics, and reconnect |
 | About | Version, license, author, and personal / project website links |
+| Voice input | External / built-in dictation, system / API, language, endpoint, separate keys, testing and exports |
 
 ## Remap a control
 
@@ -31,7 +32,7 @@ Each template stores its own gestures and timing. The visible **Import**, **Expo
 
 Switch between Chinese and English on the General page. The initial choice follows the first preferred system language: Chinese selects Simplified Chinese; other languages select English. Explicit choices are saved locally. Menus, settings, action names, and floating feedback update without restarting or altering stored mappings. App recognition continues to accept its existing Chinese and English Accessibility labels.
 
-The About page identifies the author as **Dr. Hao Xu, Tenure-track Associate Professor at Nanjing University**, and includes [personal](http://xuhao1.me) and [project](https://vibewand.xuhao1.me) website links, the app version, PolyForm Noncommercial license, and source-available project information and commercial licensing requirements.
+The About page identifies the author as **Dr. Xu**, and includes [personal](http://xuhao1.me) and [project](https://vibewand.xuhao1.me) website links, the app version, PolyForm Noncommercial license, and source-available project information and commercial licensing requirements.
 
 See [Settings design](settings-design.md) for the concept and implemented interface, and [Device photography](design-device-assets.md) for image provenance and physical-control hotspots.
 

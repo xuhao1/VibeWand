@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import AU05Device
+import SpeechInput
 
 @MainActor
 final class BridgeRuntime {
@@ -13,6 +14,28 @@ final class BridgeRuntime {
     var sendPointerClick: (() -> Void)? // Test seam.
     private var device: any HIDEventSource
     let dictation = FnDictation()
+    let voiceInput: VoiceInputController
+    private(set) var dualSenseVoiceEnabled = UserDefaults.standard.bool(forKey: "dualSenseVoiceEnabled")
+    func setDualSenseVoiceEnabled(_ enabled: Bool) throws {
+        guard !enabled || DualSenseMicrophoneSource.supported else {
+            throw NSError(domain: "VibeWand.DualSenseVoice",code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "当前版本未包含兼容的蓝牙麦克风组件"])
+        }
+        guard dualSenseVoiceEnabled != enabled else { return }
+        cancelAll()
+        dualSenseVoiceEnabled = enabled
+        UserDefaults.standard.set(enabled,forKey: "dualSenseVoiceEnabled")
+        SpeechAudioInput.deviceUID = enabled ? DualSenseMicrophoneSource.deviceUID : nil
+        if templates.selectedID == .dualSense { try replaceDevice(profile: templates.profile(), template: .dualSense) }
+        onSettingsChanged?()
+    }
+    private var dictationTarget: TargetIdentity?
+    private var liveDraft: LiveDictationDraft?
+    private var pendingDictationPreview: String?
+    private var pendingDictationFinal: String?
+    private var draftUpdateInFlight = false
+    private let dictationTargetAdapter = DictationTargetAdapter()
+    private var lastDictationFailure = ""
     private(set) var configuration = GestureConfiguration()
     private var gestureEngine = GestureEngine()
     private var gestureTimer: Timer?
@@ -39,6 +62,7 @@ final class BridgeRuntime {
     private var interaction = InteractionState()
     private var pulseTimers: [DeviceControl: Timer] = [:]
     private var pollTimer: Timer?
+    private var nextVoiceRouteCheck: TimeInterval = 0
     private var demoTimer: Timer?
     var onSnapshot: ((HUDSnapshot) -> Void)?
     var onSettingsChanged: (() -> Void)?
@@ -58,16 +82,32 @@ final class BridgeRuntime {
     private var generation: UInt = 0
     private var languageObserver: NSObjectProtocol?
     private var presentationScope = GestureScope.reading
+    private var presentationProfile = ApplicationProfile.codex
 
     init(source: (any HIDEventSource)? = nil, templates: DeviceTemplateStore = DeviceTemplateStore(),
-         sourceFactory: ((HIDDeviceProfile?, DeviceTemplateID) throws -> any HIDEventSource)? = nil) {
+         sourceFactory: ((HIDDeviceProfile?, DeviceTemplateID) throws -> any HIDEventSource)? = nil,
+         voiceInput: VoiceInputController? = nil) {
+        self.voiceInput = voiceInput ?? VoiceInputController()
         self.templates = templates
         suppliedSource = source != nil
         self.sourceFactory = sourceFactory ?? Self.makeSource
         device = source ?? AU05HIDClient()
         configuration = templates.configuration()
+        SpeechAudioInput.deviceUID = dualSenseVoiceEnabled && templates.selectedID == .dualSense && templates.profile() == nil ? DualSenseMicrophoneSource.deviceUID : nil
         snapshot.deviceTemplate = templates.selectedID
         deviceName = templates.profile()?.name ?? templates.selectedTemplate.title
+        self.voiceInput.onChange = { [weak self] in
+            guard let self else { return }
+            if case .failed = self.voiceInput.state {
+                self.cancelLiveDraft(); self.dictationTarget = nil; self.generation &+= 1
+            }
+            self.emit(); self.onSettingsChanged?()
+        }
+        self.voiceInput.onTranscript = { [weak self] text in self?.deliverDictation(text) }
+        self.voiceInput.onPartialTranscript = { [weak self] text in self?.previewDictation(text) }
+        self.voiceInput.onCancel = { [weak self] in
+            self?.cancelLiveDraft(); self?.dictationTarget = nil; self?.generation &+= 1
+        }
         languageObserver = NotificationCenter.default.addObserver(forName: L10n.languageDidChange,
             object: L10n.shared, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.refreshLanguage() }
@@ -79,7 +119,8 @@ final class BridgeRuntime {
     }
 
     private func refreshLanguage() {
-        if device is GameControllerInputSource {
+        voiceInput.refreshLanguage()
+        if device is GameControllerInputSource || device is DualSenseMicrophoneSource {
             deviceName = templates.selectedTemplate.title
         } else if templates.profile() == nil { deviceName = templates.selectedTemplate.title }
         if templates.readiness() == .needsProfile {
@@ -124,31 +165,45 @@ final class BridgeRuntime {
         connectDevice()
         refresh()
         pollTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.refresh() }
+            MainActor.assumeIsolated { self?.reconcileControllerVoiceRoute(); self?.refresh() }
+        }
+    }
+
+    private func reconcileControllerVoiceRoute() {
+        guard inputStarted, templates.selectedID == .dualSense, dualSenseVoiceEnabled,
+              templates.profile() == nil, !(device is DualSenseMicrophoneSource) else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        guard now >= nextVoiceRouteCheck else { return }
+        nextVoiceRouteCheck = now + 3
+        if DualSenseMicrophoneSource.hardwareAvailable {
+            try? replaceDevice(profile: nil, template: .dualSense)
         }
     }
 
     func stop() {
         inputStarted = false
-        device.stop(); cancelAll(); pollTimer?.invalidate(); demoTimer?.invalidate(); gestureTimer?.invalidate(); gestureTimer = nil
+        device.stop(); SpeechAudioInput.deviceUID = nil; cancelAll(); pollTimer?.invalidate(); demoTimer?.invalidate(); gestureTimer?.invalidate(); gestureTimer = nil
     }
 
     static func makeSource(profile: HIDDeviceProfile?, template: DeviceTemplateID) throws -> any HIDEventSource {
         if let profile { return try GenericHIDClient(profile: profile) }
         switch template {
         case .vibeKey: return AU05HIDClient()
-        case .dualSense: return GameControllerInputSource()
+        case .dualSense: return UserDefaults.standard.bool(forKey: "dualSenseVoiceEnabled") && DualSenseMicrophoneSource.hardwareAvailable
+            ? DualSenseMicrophoneSource() : GameControllerInputSource()
         case .xiaomiRemote: return UnconfiguredHIDSource(template: template.template)
         }
     }
 
     var connectionSummary: String {
-        device is GameControllerInputSource ? controllerConnectionSummary(device.connection) : deviceStatus
+        device is GameControllerInputSource || device is DualSenseMicrophoneSource ? controllerConnectionSummary(device.connection) : deviceStatus
     }
 
     private func controllerConnectionSummary(_ state: AU05Connection) -> String {
         switch state {
-        case .ready: return L10n.tr("手柄已连接 · USB / 蓝牙自动识别", "Controller connected · automatic USB / Bluetooth input")
+        case .ready: return device is DualSenseMicrophoneSource
+            ? L10n.tr("蓝牙手柄与麦克风已连接", "Bluetooth controller and microphone connected")
+            : L10n.tr("手柄已连接 · USB / 蓝牙自动识别", "Controller connected · automatic USB / Bluetooth input")
         case .waiting:
             if let controller = device as? GameControllerInputSource,
                controller.diagnostics.availableControllers > 0, controller.diagnostics.supportedControllers == 0 {
@@ -166,6 +221,7 @@ final class BridgeRuntime {
         device.stop(); cancelAll(); inputReady = false; device = next
         deviceName = profile?.name ?? template.template.title
         deviceStatus = L10n.tr("等待设备", "Waiting for device")
+        SpeechAudioInput.deviceUID = next is DualSenseMicrophoneSource ? DualSenseMicrophoneSource.deviceUID : nil
         snapshot.deviceTemplate = template
         snapshot.rotation = 0
         if inputStarted { connectDevice() }
@@ -201,7 +257,7 @@ final class BridgeRuntime {
         device.onConnection = { [weak self] state in
             guard let self else { return }
             self.inputReady = state == .ready
-            if self.device is GameControllerInputSource {
+            if self.device is GameControllerInputSource || self.device is DualSenseMicrophoneSource {
                 self.deviceName = self.templates.selectedTemplate.title
                 self.deviceStatus = self.controllerConnectionSummary(state)
             } else { self.deviceStatus = state.title }
@@ -276,7 +332,7 @@ final class BridgeRuntime {
             }
         }
         signals.forEach(dispatch)
-        if phase == .cancel && dictationHolders.isEmpty { dictation.cancel() }
+        if phase == .cancel && dictationHolders.isEmpty { dictation.cancel(); voiceInput.cancel(); dictationTarget = nil }
         if gestureOwners.count > 128 {
             let oldest = gestureOwners.keys.sorted().prefix(gestureOwners.count - 128)
             for token in oldest { gestureOwners.removeValue(forKey: token) }
@@ -314,13 +370,22 @@ final class BridgeRuntime {
             onInternalAction?(signal.action); record(signal, action: signal.action.label); emit(); return
         }
         if signal.action == .dictation {
+            let wasHeld = !dictationHolders.isEmpty
             if signal.phase == .down { dictationHolders.insert(signal.control) }
             else if signal.phase == .up || signal.phase == .cancel { dictationHolders.remove(signal.control) }
             if !demo && !captureOnly && adapter.trusted {
-                if signal.phase == .pulse { dictation.pulse() }
-                else { dictation.setHeld(!dictationHolders.isEmpty) }
+                if voiceInput.configuration.mode == .external {
+                    if signal.phase == .pulse { dictation.pulse() }
+                    else { dictation.setHeld(!dictationHolders.isEmpty) }
+                } else if signal.phase == .cancel {
+                    voiceInput.cancel(); dictationTarget = nil
+                } else if signal.phase == .pulse {
+                    voiceInput.report(L10n.tr("内置听写需要按住并松开的按键", "Built-in dictation needs a hold-and-release button"))
+                } else if !wasHeld && !dictationHolders.isEmpty {
+                    beginDictation()
+                } else if wasHeld && dictationHolders.isEmpty { voiceInput.end() }
             }
-            snapshot.action = signal.phase == .down ? L10n.tr("Fn 按住 · 豆包听写", "Fn held · dictation") : L10n.tr("Fn 松开 · 等待听写文字", "Fn released · waiting for dictated text")
+            snapshot.action = signal.phase == .down ? L10n.tr("按住 · 听写", "Hold · dictate") : L10n.tr("松开 · 等待听写文字", "Released · waiting for dictated text")
             if demo && signal.phase == .up { insertDemoVoice() }
             emit(); return
         }
@@ -342,7 +407,7 @@ final class BridgeRuntime {
                 }
             } else {
                 switch signal.action {
-                case .switchApplications: dictation.cancel(); applicationSwitcher.begin()
+                case .switchApplications: dictation.cancel(); voiceInput.cancel(); dictationTarget = nil; applicationSwitcher.begin()
                 case .previousApplication: applicationSwitcher.move(-1)
                 case .nextApplication: applicationSwitcher.move(1)
                 case .confirmApplication: applicationSwitcher.confirm()
@@ -435,6 +500,9 @@ final class BridgeRuntime {
         var value: [String: Any] = ["mode":snapshot.mode,"action":snapshot.action,"status":snapshot.status,"demo":snapshot.demo,"inputReady":inputReady,"accessibility":adapter.trusted,"device":deviceName,"deviceStatus":deviceStatus,"captureOnly":captureOnly,"eventCounts":eventCounts,"lastDeviceEvent":lastDeviceEvent,"recentActions":recentActions,"lastDispatch":lastDispatch,"appSwitcher":switcherActive,"pressed":snapshot.pressed.map(\.rawValue)]
         value["dockVisible"] = NSApp?.activationPolicy() == .regular
         value["deviceTemplate"] = snapshot.deviceTemplate.rawValue
+        value["speech"] = ["state": String(describing: voiceInput.state), "previewCharacters": voiceInput.liveTranscript.count,
+            "liveInsertion": liveDraft != nil, "style": voiceInput.configuration.effectiveTextStyle.rawValue,
+            "failure": lastDictationFailure, "frontApp": NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? ""]
         if let controller = device as? GameControllerInputSource {
             value["inputBackend"] = "GameController"
             value["controllerMetrics"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(controller.diagnostics))
@@ -452,6 +520,11 @@ final class BridgeRuntime {
     }
 
     private func updateObservedState() {
+        if voiceInput.state.active, let target = dictationTarget,
+           NSWorkspace.shared.frontmostApplication?.processIdentifier != target.pid {
+            voiceInput.cancel(); dictationTarget = nil
+            voiceInput.report(L10n.tr("已切换应用，听写已取消", "App changed; dictation canceled"))
+        }
         deviceStatus = connectionSummary
         let context: InteractionContext
         if captureOnly {
@@ -473,6 +546,7 @@ final class BridgeRuntime {
 
         }
         presentationScope = currentScope(context)
+        presentationProfile = context.applicationProfile
         if let picker = context.picker { interaction.mode = picker }
         else { interaction.mode = !context.targetAvailable ? .unavailable : context.editingDraft ? .editing : .browse }
         snapshot.mode = interaction.mode.title
@@ -487,16 +561,27 @@ final class BridgeRuntime {
     }
 
     private func cancelAll() {
+        cancelLiveDraft()
         generation &+= 1
         adapter.reset()
         _ = gestureEngine.reset(); gestureOwners.removeAll(); dictationHolders.removeAll()
-        dictation.cancel(); applicationSwitcher.cancel(); demoSwitcherActive = false; hardwarePressed.removeAll()
+        dictation.cancel(); voiceInput.cancel(); dictationTarget = nil; applicationSwitcher.cancel(); demoSwitcherActive = false; hardwarePressed.removeAll()
         hardwarePulseTimers.values.forEach { $0.invalidate() }; hardwarePulseTimers.removeAll()
         pulseTimers.values.forEach { $0.invalidate() }; pulseTimers.removeAll()
         snapshot.pressed.removeAll()
     }
     private func emit() {
+        snapshot.voice = VoiceHUDSnapshot(enabled: voiceInput.configuration.mode == .builtIn,
+            state: voiceInput.state, style: voiceInput.configuration.effectiveTextStyle,
+            text: voiceInput.liveTranscript, status: voiceInput.displayMessage)
+        if voiceInput.configuration.mode == .builtIn && !demo && !captureOnly &&
+           (voiceInput.state != .idle || !voiceInput.message.isEmpty) {
+            snapshot.status = voiceInput.displayMessage
+        }
         snapshot.deviceTemplate = templates.selectedID
+        snapshot.scope = presentationScope
+        snapshot.controlHints = HUDGuidance.hints(template: templates.selectedTemplate,
+            configuration: configuration, scope: presentationScope, profile: presentationProfile)
         snapshot.controlActions = Dictionary(uniqueKeysWithValues: templates.selectedTemplate.controls.map { item in
             let held = item.gestures.contains(.hold) ? configuration.action(presentationScope, item.control, .hold) : .none
             let action = held != .none ? held : item.gestures.lazy.map { self.configuration.action(self.presentationScope, item.control, $0) }.first { $0 != .none } ?? .none
@@ -506,6 +591,135 @@ final class BridgeRuntime {
             snapshot.pressed = demo && !captureOnly ? hardwarePressed.union(gestureEngine.held).union(pulseTimers.keys) : hardwarePressed
         }
         onSnapshot?(snapshot)
+    }
+    private func beginDictation(replay: Bool = false) {
+        if replay, CommandLine.arguments.contains("--speech-test-paste"),
+           !["com.google.Chrome", "com.apple.Safari", "org.vibekey.bridge"].contains(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "") {
+            voiceInput.report(L10n.tr("兼容测试需要聚焦独立测试编辑器", "Focus the standalone test editor for this delivery check")); return
+        }
+        cancelLiveDraft()
+        generation &+= 1
+        dictationTarget = nil
+        lastDictationFailure = ""
+        let token = generation
+        dictationTargetAdapter.requestRefresh { [weak self] observation in
+        guard let self, self.generation == token, replay || !self.dictationHolders.isEmpty else { return }
+        guard observation.context.targetAvailable, observation.context.editorFocused || observation.editor != nil,
+              !observation.context.modalOpen, !observation.context.compositionActive,
+              observation.context.picker == nil, let identity = observation.identity else {
+            self.voiceInput.report(L10n.tr("请先聚焦可编辑输入框", "Focus an editable field first")); return
+        }
+        self.dictationTarget = identity
+        if let editor = observation.editor {
+            let forcePaste = CommandLine.arguments.contains("--replay-transcript") && CommandLine.arguments.contains("--speech-test-paste")
+            self.liveDraft = LiveDictationDraft(field: AccessibilityDictationField(element: editor, pid: identity.pid,
+                prefersPaste: forcePaste ? true : nil))
+        }
+        self.voiceInput.begin()
+        }
+    }
+    private func previewDictation(_ text: String) {
+        guard !demo, !captureOnly, dictationTarget != nil, liveDraft != nil else { return }
+        pendingDictationPreview = text
+        flushDictationDraft()
+    }
+    private func deliverDictation(_ text: String) {
+        if liveDraft != nil {
+            pendingDictationFinal = text; flushDictationDraft(); return
+        }
+        guard let target = dictationTarget, !demo, !captureOnly else { return }
+        let token = generation
+        dictationTargetAdapter.requestRefresh { [weak self] observation in
+            guard let self, self.generation == token, self.dictationTarget == target else { return }
+            self.dictationTarget = nil
+            let inserted = self.adapter.trusted && DictationDelivery.accepts(target: target,
+                observation: observation, frontmostPID: NSWorkspace.shared.frontmostApplication?.processIdentifier)
+            if inserted { UnicodeTextDelivery.post(text, pid: target.pid) }
+            self.voiceInput.report(inserted ? L10n.tr("已插入听写文字，请检查后发送", "Dictation inserted; review before sending") :
+                L10n.tr("输入框或焦点已变化，未插入听写文字", "Editor or focus changed; dictation was not inserted"))
+        }
+    }
+    private func flushDictationDraft() {
+        guard !draftUpdateInFlight, let target = dictationTarget, let draft = liveDraft,
+              let text = pendingDictationFinal ?? pendingDictationPreview else { return }
+        let isFinal = pendingDictationFinal != nil, token = generation
+        if isFinal { pendingDictationFinal = nil; pendingDictationPreview = nil } else { pendingDictationPreview = nil }
+        draftUpdateInFlight = true
+        dictationTargetAdapter.requestRefresh { [weak self] observation in
+            guard let self, self.generation == token, self.dictationTarget == target else { return }
+            self.draftUpdateInFlight = false
+            guard DictationDelivery.accepts(target: target, observation: observation,
+                frontmostPID: NSWorkspace.shared.frontmostApplication?.processIdentifier, ownsWrite: draft.ownsWrite) else {
+                self.lastDictationFailure = "target-changed"; self.stopLiveDraftAfterConflict(); return
+            }
+            switch draft.update(text) {
+            case .applied:
+                if isFinal {
+                    self.liveDraft = nil; self.dictationTarget = nil
+                    self.pendingDictationPreview = nil; self.pendingDictationFinal = nil
+                    self.voiceInput.report(L10n.tr("听写已完成，请检查后发送", "Dictation complete; review before sending"))
+                } else { self.flushDictationDraft() }
+            case .pending:
+                if isFinal { self.pendingDictationFinal = text }
+                else if self.pendingDictationPreview == nil { self.pendingDictationPreview = text }
+                Task { @MainActor [weak self] in
+                    try? await Task.sleep(nanoseconds: 40_000_000)
+                    guard let self, self.generation == token else { return }; self.flushDictationDraft()
+                }
+            case .conflict, .unavailable:
+                self.lastDictationFailure = draft.failureReason; self.stopLiveDraftAfterConflict()
+            }
+        }
+    }
+    private func stopLiveDraftAfterConflict() {
+        generation &+= 1; liveDraft = nil; dictationTarget = nil
+        pendingDictationPreview = nil; pendingDictationFinal = nil; draftUpdateInFlight = false
+        voiceInput.cancel()
+        if lastDictationFailure == "write-unconfirmed" || lastDictationFailure == "replace-unavailable" {
+            voiceInput.report(L10n.tr("输入框未接收文字，已暂停写入，请重新聚焦后重试", "Editor did not accept the text; refocus and retry"))
+        } else {
+            voiceInput.report(L10n.tr("草稿或焦点已改变，已停止听写，保留当前文字", "Draft or focus changed; dictation stopped and current text kept"))
+        }
+    }
+    private func cancelLiveDraft() {
+        if let target = dictationTarget, let draft = liveDraft,
+           NSWorkspace.shared.frontmostApplication?.processIdentifier == target.pid,
+           dictationStillFocused(target) { _ = draft.rollback() }
+        liveDraft = nil; pendingDictationPreview = nil; pendingDictationFinal = nil; draftUpdateInFlight = false
+    }
+    private func dictationStillFocused(_ target: TargetIdentity) -> Bool {
+        let app = AXUIElementCreateApplication(target.pid)
+        AXUIElementSetMessagingTimeout(app, 0.02)
+        var focus: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &focus) == .success else { return false }
+        for _ in 0..<8 {
+            guard let candidate = focus, CFGetTypeID(candidate) == AXUIElementGetTypeID() else { return false }
+            if CFHash(candidate) == target.focusedHash { return true }
+            let element = unsafeBitCast(candidate, to: AXUIElement.self)
+            AXUIElementSetMessagingTimeout(element, 0.02)
+            var parent: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(element, kAXParentAttribute as CFString, &parent) == .success else { return false }
+            focus = parent
+        }
+        return false
+    }
+    func toggleSpeechTextStyle() {
+        do { try voiceInput.toggleTextStyle() }
+        catch { voiceInput.report((error as? SpeechInputError)?.displayMessage ?? error.localizedDescription) }
+    }
+    func replaySpeech(duration: Double) {
+        guard !demo, !captureOnly else { return }
+        adapter.requestRefresh { [weak self] _ in
+            guard let self else { return }
+            self.beginDictation(replay: true)
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(nanoseconds: UInt64((duration + 2) * 1_000_000_000))
+                guard let self, self.voiceInput.state == .recording else { return }; self.voiceInput.end()
+            }
+        }
+    }
+    func updateSpeechConfiguration(_ value: SpeechConfiguration) throws {
+        try value.validate(); cancelAll(); try voiceInput.update(value); onSettingsChanged?()
     }
     private func demoObservation() -> TargetObservation {
         var observation = TargetObservation()

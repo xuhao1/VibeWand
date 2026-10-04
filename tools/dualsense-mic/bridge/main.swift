@@ -212,6 +212,9 @@ final class Microphone {
         if count==77,id==0x31 { packet.insert(0x31,at:0) }
         let kind=packet.withUnsafeBufferPointer { ds_classify($0.baseAddress,$0.count) }
         if kind==DS_INVALID { invalid+=1; return }
+        if kind==DS_STATE,CommandLine.arguments.contains("--headless") {
+            log("CONTROL " + Data(packet).base64EncodedString())
+        }
         guard kind==DS_MIC else { return }
         let now=ProcessInfo.processInfo.systemUptime, seq=Int(packet[2])
         if let previous {
@@ -348,6 +351,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let menu=NSMenu();let appItem=NSMenuItem();let submenu=NSMenu()
         submenu.addItem(withTitle:"停止并退出",action:#selector(NSApplication.terminate(_:)),keyEquivalent:"q")
         appItem.submenu=submenu;menu.addItem(appItem);NSApp.mainMenu=menu
+        if !CommandLine.arguments.contains("--headless") {
         window=NSWindow(contentRect:NSRect(x:0,y:0,width:480,height:285),styleMask:[.titled,.closable,.miniaturizable],backing:.buffered,defer:false)
         window.title="DualSense 蓝牙麦克风 · 实验版"; window.center();window.delegate=self
         let title=NSTextField(labelWithString:deviceName);title.font = .boldSystemFont(ofSize:22)
@@ -359,14 +363,25 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         stack.translatesAutoresizingMaskIntoConstraints=false;window.contentView!.addSubview(stack)
         NSLayoutConstraint.activate([stack.leadingAnchor.constraint(equalTo:window.contentView!.leadingAnchor,constant:24),stack.trailingAnchor.constraint(equalTo:window.contentView!.trailingAnchor,constant:-24),stack.topAnchor.constraint(equalTo:window.contentView!.topAnchor,constant:24)])
         window.makeKeyAndOrderFront(nil);NSApp.activate(ignoringOtherApps:true)
-        mic.onFailure={ [weak self] message in self?.lastFailure=message; self?.label.stringValue=message; self?.stop() }
+        }
+        mic.onFailure={ [weak self] message in
+            guard let self else { return }
+            self.lastFailure=message; self.label.stringValue=message; self.stop()
+            if CommandLine.arguments.contains("--headless") { NSApp.terminate(nil) }
+        }
         for number in [SIGTERM,SIGINT,SIGHUP] {
             signal(number,SIG_IGN)
             let source=DispatchSource.makeSignalSource(signal:number,queue:.main)
             source.setEventHandler { RunLoop.main.perform { NSApp.terminate(nil) } };source.resume();signals.append(source)
         }
         do { try publisher.prepare(); label.stringValue="已发布麦克风，尚未采集声音"; button.isEnabled=true }
-        catch { publisher.close();label.stringValue="准备失败：\(error)";log("Prepare failed: \(error)") }
+        catch { publisher.close();label.stringValue="准备失败：\(error)";log("Prepare failed: \(error)")
+            if CommandLine.arguments.contains("--headless") { NSApp.terminate(nil) }
+        }
+        if CommandLine.arguments.contains("--headless"),publisher.aggregate != 0 {
+            do { try mic.start(); log("BRIDGE_READY") }
+            catch { log("Start failed: \(error)"); NSApp.terminate(nil) }
+        }
         ticker=Timer.scheduledTimer(withTimeInterval:0.25,repeats:true) { [weak self] _ in
             guard let self else{return};let stats=self.mic.snapshot();let total=stats.frames+stats.missing
             if self.mic.active && ProcessInfo.processInfo.systemUptime-max(self.mic.startedAt,stats.lastArrival)>3 {
@@ -479,6 +494,6 @@ guard instanceLock>=0,flock(instanceLock,LOCK_EX|LOCK_NB)==0 else {
     fputs("VibeWand Mic is already running; refusing a second audio owner.\n",stderr);exit(1)
 }
 let application=NSApplication.shared
-application.setActivationPolicy(.regular)
+application.setActivationPolicy(CommandLine.arguments.contains("--headless") ? .prohibited : .regular)
 let delegate=App();application.delegate=delegate
 application.run()

@@ -80,11 +80,28 @@ final class OverlayLayoutTests: XCTestCase {
                 overlay.setExpanded(expanded)
                 for template in DeviceTemplateID.allCases {
                     snapshot.deviceTemplate = template
+                    snapshot.scope = template == .dualSense ? .sessions : .reading
+                    snapshot.mode = snapshot.scope.label
+                    snapshot.action = L10n.tr("等待操作", "Ready")
+                    snapshot.connected = true
+                    snapshot.controlHints = HUDGuidance.hints(template: template.template,
+                        configuration: template.template.defaultConfiguration, scope: snapshot.scope, profile: .codex)
                     overlay.update(snapshot)
                     XCTAssertFalse(overlay.isVisible, "Changing \(template.rawValue) must retain the hidden state")
                     let preview = try XCTUnwrap(overlay.previewImage())
-                    XCTAssertEqual(preview.size, OverlayLayout.size(for: template, expanded: expanded))
+                    let deviceSize = OverlayLayout.size(for: template, expanded: expanded)
+                    XCTAssertEqual(preview.size, NSSize(width: deviceSize.width, height: deviceSize.height + 55))
                     XCTAssertFalse(overlay.isVisible, "Rendering a preview must not order the window front")
+                    if let path = ProcessInfo.processInfo.environment["VIBEWAND_OVERLAY_REVIEW"] {
+                        let directory = URL(fileURLWithPath: path)
+                        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                        for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+                            let image = try XCTUnwrap(overlay.previewImage(appearance: NSAppearance(named: appearance)))
+                            let bitmap = try XCTUnwrap(image.representations.first as? NSBitmapImageRep)
+                            let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+                            try png.write(to: directory.appendingPathComponent("\(template.rawValue)-\(expanded ? "expanded" : "compact")-\(name).png"))
+                        }
+                    }
                 }
             }
         }

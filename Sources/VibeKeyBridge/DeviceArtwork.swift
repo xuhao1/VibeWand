@@ -18,6 +18,11 @@ struct DeviceArtwork {
         return image
     }
 
+    @MainActor var overlayImage: NSImage? {
+        guard imageName == "gamepad" else { return image }
+        return DeviceArtwork(imageName: "gamepad-overlay", aspectRatio: aspectRatio, hotspots: hotspots).image ?? image
+    }
+
     static func forTemplate(_ id: DeviceTemplateID) -> DeviceArtwork {
         switch id {
         case .vibeKey:

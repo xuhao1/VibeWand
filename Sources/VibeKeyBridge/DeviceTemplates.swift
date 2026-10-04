@@ -59,6 +59,8 @@ struct DeviceTemplate {
                     configuration.set(scope, control, .long, GestureAction.none)
                 }
             }
+            configuration.set(.sessions, .ok, .single, .confirmCandidate)
+            configuration.set(.sessions, .escape, .single, .cancelPicker)
         }
         if id == .xiaomiRemote {
             configuration.set(.global, .dial, .single, .contextConfirm)
@@ -109,7 +111,7 @@ struct DeviceTemplate {
     static var catalog: [DeviceTemplate] { [
         DeviceTemplate(id: .vibeKey, title: "VibeKey", subtitle: L10n.tr("旋钮 + 三枚按键", "Dial + three buttons"),
             connectionNote: L10n.tr("使用 AU05 接收器与内置直连协议；连接状态以实时设备反馈为准。", "Connect through the AU05 receiver using the built-in protocol. Live device feedback determines connection status."),
-            audioNote: L10n.tr("麦克风键按住时发送 Fn；音频由 macOS 当前输入设备提供。", "Hold the microphone button to send Fn. Audio comes from the current macOS input device."),
+            audioNote: L10n.tr("按住麦克风键听写；在语音输入设置中选择输入法或内置识别。", "Hold the microphone button to dictate; choose an input method or built-in recognition in Voice input settings."),
             controls: [
                 button(.dial, L10n.tr("旋钮", "Dial"), L10n.tr("单击会话 / 确认 · 双击切应用 · 长按模型", "Press for chats / confirm · double press to switch apps · long press for models"), "circle.circle", 0.50, 0.27, heldRotation: true),
                 direction(.left, L10n.tr("左旋", "Turn left"), 0.18, 0.27), direction(.right, L10n.tr("右旋", "Turn right"), 0.82, 0.27),
@@ -150,7 +152,7 @@ struct DeviceTemplate {
             ]),
         DeviceTemplate(id: .xiaomiRemote, title: L10n.tr("遥控器", "Remote"), subtitle: L10n.tr("方向键 + 语音 + 返回", "Direction pad + voice + back"),
             connectionNote: L10n.tr("逻辑模板已就绪；macOS 配对、HID 按键及释放事件需实测后导入配置。", "Pair with macOS and import a verified HID profile that includes button press and release events."),
-            audioNote: L10n.tr("电视语音功能不等于 Mac 音频输入。语音键触发 Fn；默认使用 Mac 或外接麦克风。", "TV voice features do not guarantee Mac audio input. The voice key sends Fn; use a Mac or external microphone by default."),
+            audioNote: L10n.tr("电视语音功能不等于 Mac 音频输入。语音键触发所选听写服务；使用 Mac 或外接麦克风。", "TV voice features do not guarantee Mac audio input. The voice key triggers your selected dictation service; use a Mac or external microphone."),
             controls: [
                 button(.voice, L10n.tr("语音键", "Voice"), L10n.tr("按住听写，松开结束", "Hold to dictate; release to finish"), "mic.fill", 0.50, 0.16),
                 button(.dial, L10n.tr("中央确认键", "Center button"), L10n.tr("单击确认 · 双击切应用 · 长按会话", "Press to confirm · double press to switch apps · long press for chats"), "circle.circle", 0.50, 0.38),
@@ -190,7 +192,7 @@ final class DeviceTemplateStore {
         var configurations: [String: GestureConfiguration] = [:]
         var profiles: [String: HIDDeviceProfile] = [:]
         // Optional for the v1 store written before controller pointer support.
-        var presetRevision: Int? = 2
+        var presetRevision: Int? = 3
     }
     private let defaults: UserDefaults
     private var state: State
@@ -209,11 +211,13 @@ final class DeviceTemplateStore {
                 DeviceTemplateID(rawValue: $0.key) != nil && (try? $0.value.validate()) != nil
             }
             migratePresetDefaults()
+            migrateSessionConfirmation()
         } else {
             state = State()
             state.presetRevision = 1
             migrateLegacyConfiguration()
             migratePresetDefaults()
+            migrateSessionConfirmation()
         }
     }
 
@@ -330,6 +334,19 @@ final class DeviceTemplateStore {
     }
     private func persist() throws {
         defaults.set(try JSONEncoder().encode(state), forKey: Self.storageKey)
+    }
+    private func migrateSessionConfirmation() {
+        guard (state.presetRevision ?? 1) < 3 else { return }
+        if var saved = state.configurations[DeviceTemplateID.dualSense.rawValue] {
+            for (control, old, new) in [(DeviceControl.ok, GestureAction.cancelPicker, GestureAction.confirmCandidate),
+                                       (.escape, .confirmCandidate, .cancelPicker)] {
+                let key = GestureConfiguration.key(.sessions, control, .single)
+                if saved.overrides[key] == nil || saved.overrides[key] == old { saved.overrides[key] = new }
+            }
+            state.configurations[DeviceTemplateID.dualSense.rawValue] = saved
+        }
+        state.presetRevision = 3
+        try? persist()
     }
 }
 

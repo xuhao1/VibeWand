@@ -5,9 +5,9 @@ import ImageIO
 enum OverlayLayout {
     static func size(for template: DeviceTemplateID, expanded: Bool) -> NSSize {
         switch template {
-        case .vibeKey: return NSSize(width: expanded ? 326 : 200, height: 290)
-        case .dualSense: return NSSize(width: expanded ? 500 : 300, height: expanded ? 324 : 272)
-        case .xiaomiRemote: return NSSize(width: expanded ? 360 : 200, height: 310)
+        case .vibeKey: return NSSize(width: expanded ? 380 : 320, height: expanded ? 402 : 378)
+        case .dualSense: return NSSize(width: expanded ? 520 : 460, height: expanded ? 480 : 448)
+        case .xiaomiRemote: return NSSize(width: expanded ? 410 : 350, height: expanded ? 442 : 412)
         }
     }
 
@@ -15,11 +15,11 @@ enum OverlayLayout {
         switch template {
         case .vibeKey:
             // This asset alone is cropped to its opaque body, preserving its dial animation.
-            return NSRect(x: (expanded ? 91 : 100) - 26.1, y: 37, width: 52.2, height: 198)
+            return NSRect(x: 24, y: 58, width: 62, height: 235.2)
         case .dualSense:
-            return NSRect(x: 12, y: expanded ? 68 : 41, width: 276, height: 184)
+            return NSRect(x: expanded ? 26 : 24, y: 112, width: expanded ? 370 : 330, height: expanded ? 370 / 1.5 : 220)
         case .xiaomiRemote:
-            return NSRect(x: expanded ? 5 : 24, y: 36, width: 152, height: 228)
+            return NSRect(x: 14, y: 68, width: 145.333333, height: 218)
         }
     }
 
@@ -46,13 +46,27 @@ enum OverlayLayout {
 final class OverlayController {
     private let panel: CompanionPanel
     private let view: CompanionView
+    private let host: SpeechOverlayHost
+    private(set) var displayMode: OverlayDisplayMode = .full
     private var scale = 1.0
     private var expanded = false
     private let positionKey = "VibeKeyBridge.overlayOrigin"
     var isVisible: Bool { panel.isVisible }
 
-    init(onOpenSettings: @escaping () -> Void = {}, onHide: @escaping () -> Void = {}, onControl: @escaping (DeviceControl, InputPhase) -> Void) {
+    static func makeLivePreview() -> NSView {
+        let view = CompanionView(isPreview: true, onOpenSettings: {}, onHide: {}, onControl: { _, _ in })
+        return SpeechOverlayHost(fullView: view, isPreview: true, onOpenSettings: {}, onHide: {}, onToggleStyle: {})
+    }
+    static func updateLivePreview(_ preview: NSView, snapshot: HUDSnapshot, expanded: Bool, mode: OverlayDisplayMode = .full) {
+        guard let host = preview as? SpeechOverlayHost, let view = host.fullView as? CompanionView else { return }
+        if view.expanded != expanded { view.expanded = expanded }
+        view.update(snapshot)
+        host.update(snapshot, mode: mode, expanded: expanded)
+    }
+
+    init(onOpenSettings: @escaping () -> Void = {}, onHide: @escaping () -> Void = {}, onToggleStyle: @escaping () -> Void = {}, onControl: @escaping (DeviceControl, InputPhase) -> Void) {
         view = CompanionView(onOpenSettings: onOpenSettings, onHide: onHide, onControl: onControl)
+        host = SpeechOverlayHost(fullView: view, onOpenSettings: onOpenSettings, onHide: onHide, onToggleStyle: onToggleStyle)
         panel = CompanionPanel(contentRect: NSRect(origin: .zero, size: CompanionView.compactSize), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.level = .floating
         panel.title = L10n.tr("VibeWand 悬浮面板", "VibeWand Overlay")
@@ -62,19 +76,25 @@ final class OverlayController {
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
-        panel.contentView = view
-        view.autoresizingMask = [.width, .height]
+        panel.contentView = host
+        host.autoresizingMask = [.width, .height]
+        host.onToggleMode = { [weak self] in
+            guard let self else { return }; self.setDisplayMode(self.displayMode == .full ? .compact : .full)
+        }
         view.onDragCompleted = { [weak self] in self?.savePosition() }
         if let saved = UserDefaults.standard.string(forKey: positionKey) {
             panel.setFrameOrigin(NSPointFromString(saved))
             keepOnScreen()
         } else { resetPosition() }
+        host.update(host.snapshot, mode: displayMode, expanded: expanded)
+        resize()
     }
 
     func update(_ state: HUDSnapshot) {
         panel.title = L10n.tr("VibeWand 悬浮面板", "VibeWand Overlay")
-        let changedTemplate = view.deviceTemplate != state.deviceTemplate
+        let changedTemplate = view.deviceTemplate != state.deviceTemplate || host.snapshot.voice.showsText != state.voice.showsText
         view.update(state)
+        host.update(state, mode: displayMode, expanded: expanded)
         // Resizing never orders the panel front, so switching a template keeps a hidden HUD hidden.
         if changedTemplate { resize() }
     }
@@ -84,7 +104,11 @@ final class OverlayController {
     }
     func setScale(_ value: Double) { scale = min(1.8, max(0.65, value)); resize() }
     func setOpacity(_ value: Double) { panel.alphaValue = min(1, max(0.35, value)) }
-    func setExpanded(_ value: Bool) { expanded = value; view.expanded = value; resize() }
+    func setExpanded(_ value: Bool) { expanded = value; view.expanded = value; host.update(host.snapshot, mode: displayMode, expanded: value); resize() }
+    func setDisplayMode(_ mode: OverlayDisplayMode) {
+        displayMode = mode; UserDefaults.standard.set(mode.rawValue, forKey: "hudDisplayMode")
+        view.cancelMousePress(); host.update(host.snapshot, mode: mode, expanded: expanded); resize()
+    }
 
     func resetPosition() {
         let screen = (NSScreen.main ?? NSScreen.screens.first)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
@@ -95,7 +119,7 @@ final class OverlayController {
     /// Render our own accessory for documentation without capturing other windows.
     func previewImage(appearance: NSAppearance? = nil) -> NSImage? {
         guard let bitmap = bitmap(appearance: appearance) else { return nil }
-        let image = NSImage(size: view.bounds.size)
+        let image = NSImage(size: host.bounds.size)
         image.addRepresentation(bitmap)
         return image
     }
@@ -109,24 +133,29 @@ final class OverlayController {
 
     private func bitmap(appearance: NSAppearance? = nil) -> NSBitmapImageRep? {
         let previousAppearance = view.appearance
+        let previousHostAppearance = host.appearance
         if let appearance { view.appearance = appearance }
+        if let appearance { host.appearance = appearance }
         view.exporting = true
+        host.exporting = true
         defer {
             view.exporting = false
+            host.exporting = false
             view.appearance = previousAppearance
+            host.appearance = previousHostAppearance
         }
-        view.layoutSubtreeIfNeeded()
-        guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return nil }
+        host.layoutSubtreeIfNeeded()
+        guard let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { return nil }
         // Offscreen rendering has no WindowServer backdrop. Resolve semantic colors
         // against the HUD (or requesting settings window), never an ambient context.
         view.effectiveAppearance.performAsCurrentDrawingAppearance {
-            view.cacheDisplay(in: view.bounds, to: bitmap)
+            host.cacheDisplay(in: host.bounds, to: bitmap)
         }
         return bitmap
     }
 
     private func resize() {
-        let size = OverlayLayout.size(for: view.deviceTemplate, expanded: expanded)
+        let size = SpeechOverlayLayout.size(template: view.deviceTemplate, expanded: expanded, mode: displayMode, voice: host.snapshot.voice)
         let top = panel.frame.maxY
         let right = panel.frame.maxX
         panel.setFrame(NSRect(x: right - size.width * scale, y: top - size.height * scale, width: size.width * scale, height: size.height * scale), display: true)
@@ -160,14 +189,17 @@ private final class CompanionView: NSView {
     var expanded = false { didSet { needsLayout = true; redraw() } }
     var exporting = false {
         didSet {
-            material.isHidden = exporting
+            material.exporting = exporting
             redraw()
         }
     }
     private let onControl: (DeviceControl, InputPhase) -> Void
     private let onOpenSettings: () -> Void
     private let onHide: () -> Void
-    private let material = CompanionMaterial()
+    private let material: CompanionBackdrop
+    private let content = GlassControlContent()
+    private let isPreview: Bool
+    private var deviceDrawing: CompanionDrawing?
     private let settingsButton = CompanionSettingsButton()
     private let hideButton = CompanionSettingsButton()
     private var drawing: CompanionDrawing?
@@ -192,29 +224,32 @@ private final class CompanionView: NSView {
     private var dialRadius: CGFloat { deviceRect.width * 0.435 }
     private var keyRadius: CGFloat { deviceRect.width * 0.26 }
 
-    init(onOpenSettings: @escaping () -> Void, onHide: @escaping () -> Void, onControl: @escaping (DeviceControl, InputPhase) -> Void) {
+    init(isPreview: Bool = false, onOpenSettings: @escaping () -> Void, onHide: @escaping () -> Void, onControl: @escaping (DeviceControl, InputPhase) -> Void) {
+        self.isPreview = isPreview
+        material = CompanionBackdrop(inWindow: isPreview)
         self.onOpenSettings = onOpenSettings
         self.onHide = onHide
         self.onControl = onControl
         super.init(frame: NSRect(origin: .zero, size: Self.compactSize))
         wantsLayer = true
-        layer?.cornerRadius = 17
-        layer?.masksToBounds = true
-        material.material = .popover
-        material.blendingMode = .behindWindow
-        material.state = .active
+        layer?.cornerRadius = 26
+        // Native glass owns its rounded silhouette; clipping its superview cuts
+        // off the optical halo at the rim and makes the lens look like a flat card.
+        layer?.masksToBounds = false
         material.frame = bounds
         material.autoresizingMask = [.width, .height]
-        material.wantsLayer = true
-        material.layer?.cornerRadius = 17
-        material.layer?.masksToBounds = true
+        content.frame = bounds; content.autoresizingMask = [.width, .height]
+        material.setContent(content)
         addSubview(material)
-        // The drawing lives above the native material without replacing its appearance.
-        let drawing = CompanionDrawing(owner: self)
+        let deviceDrawing = CompanionDrawing(owner: self, deviceLayer: true)
+        self.deviceDrawing = deviceDrawing
+        deviceDrawing.frame = bounds; deviceDrawing.autoresizingMask = [.width, .height]
+        content.addSubview(deviceDrawing)
+        let drawing = CompanionDrawing(owner: self, deviceLayer: false)
         self.drawing = drawing
         drawing.frame = bounds
         drawing.autoresizingMask = [.width, .height]
-        addSubview(drawing)
+        content.addSubview(drawing)
         for button in [settingsButton, hideButton] {
             button.isBordered = false
             button.imagePosition = .imageOnly
@@ -222,7 +257,8 @@ private final class CompanionView: NSView {
             button.bezelStyle = .recessed
             button.contentTintColor = .secondaryLabelColor
             button.target = self
-            addSubview(button)
+            content.addSubview(button)
+            button.isHidden = isPreview
         }
         settingsButton.action = #selector(openSettings)
         hideButton.action = #selector(hideOverlay)
@@ -234,8 +270,12 @@ private final class CompanionView: NSView {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
+    deinit { animationTimer?.invalidate() }
+
     override func layout() {
         super.layout()
+        material.frame = bounds; content.frame = bounds
+        deviceDrawing?.frame = bounds; drawing?.frame = bounds
         // Keep both controls easy to hit even when the user shrinks the HUD.
         let side = max(24, 24 * factor), gap = max(2, 2 * factor)
         let inset = max(6, 10 * factor), y = max(3, 8 * factor)
@@ -244,6 +284,7 @@ private final class CompanionView: NSView {
         let symbolConfiguration = NSImage.SymbolConfiguration(pointSize: max(11, 12 * factor), weight: .medium)
         settingsButton.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: nil)?.withSymbolConfiguration(symbolConfiguration)
         hideButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: nil)?.withSymbolConfiguration(symbolConfiguration)
+        updateGlassShape()
     }
 
     override func viewDidChangeEffectiveAppearance() {
@@ -288,7 +329,7 @@ private final class CompanionView: NSView {
             rotationUntil = 0
             pulses.removeAll()
             scrollAccumulator = 0
-            deviceImage = state.deviceTemplate == .vibeKey ? Self.loadDeviceImage() : DeviceArtwork.forTemplate(state.deviceTemplate).image
+            deviceImage = state.deviceTemplate == .vibeKey ? Self.loadDeviceImage() : DeviceArtwork.forTemplate(state.deviceTemplate).overlayImage
             needsLayout = true
         }
         let delta = changedTemplate ? 0 : state.rotation - snapshot.rotation
@@ -301,7 +342,7 @@ private final class CompanionView: NSView {
         for control in state.pressed.subtracting(changedTemplate ? [] : snapshot.pressed) { flash(control) }
         snapshot = state
         updateSettingsButton()
-        if deviceImage == nil { deviceImage = deviceTemplate == .vibeKey ? Self.loadDeviceImage() : DeviceArtwork.forTemplate(deviceTemplate).image }
+        if deviceImage == nil { deviceImage = deviceTemplate == .vibeKey ? Self.loadDeviceImage() : DeviceArtwork.forTemplate(deviceTemplate).overlayImage }
         let demoHint = deviceTemplate == .vibeKey
             ? L10n.tr("拖动移动。演示模式可点击、长按按键或滚动旋钮。", "Drag to move. In demo mode, press or hold buttons and scroll the dial.")
             : L10n.tr("拖动移动。演示模式可点击或长按实际按键。", "Drag to move. In demo mode, click or hold the physical controls.")
@@ -311,45 +352,51 @@ private final class CompanionView: NSView {
         redraw()
     }
 
-    fileprivate func drawContents() {
+    fileprivate func drawContents(deviceLayer: Bool) {
         NSGraphicsContext.saveGraphicsState()
         let transform = NSAffineTransform()
         transform.scaleX(by: factor, yBy: factor)
         transform.concat()
-        if exporting {
-            // Material is composited by WindowServer. Export uses the matching system surface.
-            NSColor.windowBackgroundColor.withAlphaComponent(0.96).setFill()
-            NSBezierPath(roundedRect: NSRect(origin: .zero, size: designSize), xRadius: 17, yRadius: 17).fill()
+        if deviceLayer {
+            if exporting || NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency {
+                OverlayGlassSkin.panel(in: NSRect(origin: .zero, size: designSize), dark: darkAppearance, exporting: exporting, optics: false)
+            }
+            drawDevice()
+        } else {
+            if exporting { OverlayGlassSkin.rim(in: NSRect(origin: .zero, size: designSize), dark: darkAppearance, optics: false) }
+            drawHeader(); drawGraphicalGuide(); drawFooter()
         }
-        let outline = NSBezierPath(roundedRect: NSRect(x: 0.5, y: 0.5, width: designSize.width - 1, height: designSize.height - 1), xRadius: 16.5, yRadius: 16.5)
-        NSColor.separatorColor.withAlphaComponent(0.30).setStroke()
-        outline.lineWidth = 0.7
-        outline.stroke()
-        drawHeader()
-        drawDevice()
-        drawFooter()
-        if expanded { drawExpandedLabels() }
         NSGraphicsContext.restoreGraphicsState()
     }
 
     private func drawHeader() {
         let buttonsX = settingsButton.frame.minX / max(factor, 0.01)
-        text("VibeWand", rect: NSRect(x: 15, y: 12, width: min(88, max(0, buttonsX - 18)), height: 17), size: 11, weight: .medium, color: .labelColor)
+        text("VibeWand", rect: NSRect(x: 17, y: 15, width: 89, height: 18), size: 12, weight: .semibold, color: .labelColor)
         if designSize.width >= 300 {
-            text(deviceTemplate.template.title, rect: NSRect(x: 86, y: 13, width: max(0, buttonsX - 143), height: 15), size: 10, weight: .regular, color: .secondaryLabelColor)
+            text(deviceTemplate.template.title, rect: NSRect(x: 112, y: 16, width: max(0, buttonsX - 180), height: 17), size: 11.5, weight: .medium, color: .labelColor, alignment: .center)
         }
         let showStatusLabel = buttonsX >= 132
-        let liveX = buttonsX - (showStatusLabel ? 43 : 10)
-        NSColor.secondaryLabelColor.withAlphaComponent(snapshot.connected || snapshot.demo ? 0.75 : 0.35).setFill()
-        NSBezierPath(ovalIn: NSRect(x: liveX, y: 19, width: 3.5, height: 3.5)).fill()
+        let liveX = buttonsX - (showStatusLabel ? 59 : 10)
+        let liveColor: NSColor = snapshot.captureOnly ? .systemOrange : snapshot.demo ? .systemBlue : snapshot.connected ? .systemGreen : .secondaryLabelColor
+        liveColor.setFill()
+        NSBezierPath(ovalIn: NSRect(x: liveX, y: 22, width: 5, height: 5)).fill()
         if showStatusLabel {
-            text(snapshot.captureOnly ? L10n.tr("采集", "INPUT") : snapshot.demo ? L10n.tr("演示", "DEMO") : snapshot.connected ? L10n.tr("实时", "LIVE") : L10n.tr("离线", "OFF"), rect: NSRect(x: liveX + 7, y: 14, width: 29, height: 12), size: 7.5, weight: .medium, color: .secondaryLabelColor)
+            text(snapshot.captureOnly ? L10n.tr("采集", "INPUT") : snapshot.demo ? L10n.tr("演示", "DEMO") : snapshot.connected ? L10n.tr("已连接", "LIVE") : L10n.tr("离线", "OFF"), rect: NSRect(x: liveX + 10, y: 17, width: 44, height: 15), size: 10, weight: .medium, color: .secondaryLabelColor)
+        }
+        if isPreview {
+            let transform = CGAffineTransform(scaleX: 1 / factor, y: 1 / factor)
+            symbol("gearshape", rect: settingsButton.frame.applying(transform).insetBy(dx: 6, dy: 6), color: .secondaryLabelColor)
+            symbol("xmark", rect: hideButton.frame.applying(transform).insetBy(dx: 6, dy: 6), color: .secondaryLabelColor)
         }
     }
 
     private func drawDevice() {
         if let image = deviceImage {
+            NSGraphicsContext.saveGraphicsState()
+            let shadow = NSShadow(); shadow.shadowColor = NSColor.black.withAlphaComponent(darkAppearance ? 0.28 : 0.17)
+            shadow.shadowBlurRadius = 12; shadow.shadowOffset = NSSize(width: 0, height: 5); shadow.set()
             image.draw(in: deviceRect, from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: [.interpolation: NSImageInterpolation.high])
+            NSGraphicsContext.restoreGraphicsState()
         } else {
             let config = NSImage.SymbolConfiguration(pointSize: 36, weight: .light)
             NSImage(systemSymbolName: deviceTemplate == .dualSense ? "gamecontroller" : deviceTemplate == .vibeKey ? "dial.medium" : "appletvremote.gen4", accessibilityDescription: L10n.tr("正在加载设备图片", "Device artwork loading"))?.withSymbolConfiguration(config)?.draw(in: NSRect(x: deviceRect.midX - 22, y: 104, width: 44, height: 44), from: .zero, operation: .sourceOver, fraction: 0.35, respectFlipped: true, hints: nil)
@@ -427,37 +474,168 @@ private final class CompanionView: NSView {
         symbol?.draw(in: NSRect(x: point.x - 6.5, y: point.y - 6.5, width: 13, height: 13), from: .zero, operation: .sourceOver, fraction: 0.72, respectFlipped: true, hints: nil)
     }
 
+    private var darkAppearance: Bool { effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua }
+    private var footerRect: NSRect { NSRect(x: 16, y: designSize.height - 80, width: designSize.width - 32, height: 42) }
+    private var gestureRect: NSRect { NSRect(x: 38, y: designSize.height - 30, width: designSize.width - 76, height: 22) }
+
+    private struct Callout {
+        var id: String
+        var rect: NSRect
+        var control: DeviceControl
+        var symbol: String
+        var caption: String
+        var emphasized = false
+        var fromBottom = false
+        var secondary: DeviceControl? = nil
+    }
+
+    private func capsuleCaption(_ control: DeviceControl) -> String {
+        guard let hint = HUDGuidance.primary(control, snapshot: snapshot) else { return L10n.tr("未分配", "Unassigned") }
+        return hint.kind == .hold || hint.kind == .long || hint.kind == .double ? hint.title : hint.caption
+    }
+
+    private func callouts() -> [Callout] {
+        func item(_ id: String, _ control: DeviceControl, _ rect: NSRect, _ symbol: String, fromBottom: Bool = false) -> Callout {
+            let hint = HUDGuidance.primary(control, snapshot: snapshot)
+            return Callout(id: id, rect: rect, control: control, symbol: symbol, caption: capsuleCaption(control),
+                emphasized: hint?.action == .confirmCandidate || hint?.action == .confirmApplication,
+                fromBottom: fromBottom)
+        }
+        if deviceTemplate == .dualSense {
+            let right: CGFloat = expanded ? 380 : 334
+            let width = designSize.width - right - 16
+            let y: CGFloat = expanded ? 153 : 143
+            let step: CGFloat = expanded ? 48 : 45
+            var result = [
+                item("voice", .voice, NSRect(x: right, y: y, width: width, height: 31), "mic"),
+                item("square", .dial, NSRect(x: right, y: y + step, width: width, height: 31), "delete.left"),
+                item("circle", .escape, NSRect(x: right, y: y + step * 2, width: width, height: 31), "arrow.uturn.backward"),
+                item("cross", .ok, NSRect(x: right - 8, y: y + step * 3, width: width + 8, height: 31), "xmark.circle")
+            ]
+            let navX: CGFloat = expanded ? 345 : 316
+            let previous = HUDGuidance.primary(.left, snapshot: snapshot)?.action
+            let next = HUDGuidance.primary(.right, snapshot: snapshot)?.action
+            let navigation: String
+            if previous == .scrollDown && next == .scrollUp {
+                navigation = L10n.tr("R1 下滚 · R2 上滚", "R1 Down · R2 Up")
+            } else if previous == .cursorLeft && next == .cursorRight {
+                navigation = L10n.tr("R1 左移 · R2 右移", "R1 Left · R2 Right")
+            } else if (previous == .previousCandidate && next == .nextCandidate) || (previous == .previousApplication && next == .nextApplication) {
+                navigation = L10n.tr("R1 上个 · R2 下个", "R1 Prev · R2 Next")
+            } else {
+                navigation = "R1/R2 · \(HUDGuidance.primary(.left, snapshot: snapshot)?.caption ?? "—")/\(HUDGuidance.primary(.right, snapshot: snapshot)?.caption ?? "—")"
+            }
+            result.append(Callout(id: "shoulders", rect: NSRect(x: navX, y: 65, width: designSize.width - navX - 16, height: 31),
+                control: .right, symbol: "", caption: navigation, fromBottom: true, secondary: .left))
+            result.append(Callout(id: "touch", rect: NSRect(x: expanded ? 183 : 160, y: 65, width: 146, height: 31),
+                control: .touchpad, symbol: "hand.draw", caption: L10n.tr("滑动 · 光标", "Slide · pointer"), fromBottom: true))
+            for index in result.indices where !["touch", "shoulders"].contains(result[index].id) {
+                let measured = (result[index].caption as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 11, weight: .medium)]).width
+                let desired = min(expanded ? 154 : 132, max(result[index].rect.width, ceil(measured) + 42))
+                result[index].rect.origin.x = designSize.width - 16 - desired
+                result[index].rect.size.width = desired
+            }
+            return result
+        }
+        let controls: [DeviceControl] = deviceTemplate == .vibeKey ? [.dial, .left, .voice, .ok, .escape] : [.voice, .dial, .left, .escape, .ok]
+        let x: CGFloat = deviceTemplate == .vibeKey ? 117 : 181
+        return controls.enumerated().map { index, control in
+            let descriptor = deviceTemplate.template.controls.first { $0.control == control }!
+            var callout = item(control.rawValue, control, NSRect(x: x, y: 67 + CGFloat(index) * 44, width: designSize.width - x - 16, height: 32), descriptor.symbol)
+            if control == .left {
+                callout.caption = "\(HUDGuidance.primary(.left, snapshot: snapshot)?.caption ?? "—")/\(HUDGuidance.primary(.right, snapshot: snapshot)?.caption ?? "—")"
+                callout.symbol = "arrow.left.arrow.right"; callout.secondary = .right
+            }
+            return callout
+        }
+    }
+
+    private func updateGlassShape() {
+        layer?.cornerRadius = 26 * factor; material.setCornerRadius(26 * factor)
+    }
+
     private func drawFooter() {
-        let width: CGFloat = expanded && deviceTemplate == .dualSense ? 274 : designSize.width - 26
-        text(snapshot.mode, rect: NSRect(x: 13, y: designSize.height - 44, width: width, height: 17), size: 11, weight: .medium, color: .labelColor, alignment: .center)
-        text(snapshot.action, rect: NSRect(x: 13, y: designSize.height - 26, width: width, height: 15), size: 9, weight: .regular, color: .secondaryLabelColor, alignment: .center)
+        let rect = footerRect
+        OverlayGlassSkin.pill(in: rect, dark: darkAppearance)
+        symbol(snapshot.scope == .sessions ? "list.bullet" : snapshot.scope == .editing ? "text.cursor" : "rectangle.stack", rect: NSRect(x: rect.minX + 13, y: rect.minY + 13, width: 15, height: 15), color: .labelColor)
+        text(snapshot.mode, rect: NSRect(x: rect.minX + 37, y: rect.minY + 13, width: rect.width * 0.43 - 36, height: 17), size: 11.5, weight: .semibold, color: .labelColor)
+        let footerHint = footerControls()
+        text(footerHint, rect: NSRect(x: rect.minX + rect.width * 0.43, y: rect.minY + 13, width: rect.width * 0.57 - 13, height: 17), size: 11, weight: .medium, color: .labelColor, alignment: .right)
+        if !extraGestureText().isEmpty {
+            OverlayGlassSkin.pill(in: gestureRect, dark: darkAppearance)
+            text(extraGestureText(), rect: gestureRect.insetBy(dx: 12, dy: 4), size: 10, weight: .medium, color: .secondaryLabelColor, alignment: .center)
+        }
+    }
+
+    private func footerControls() -> String {
+        if snapshot.captureOnly || (!snapshot.connected && !snapshot.demo) { return HUDGuidance.nextStep(snapshot) }
+        var confirm: String?, cancel: String?
+        for item in deviceTemplate.template.controls {
+            guard let hint = HUDGuidance.primary(item.control, snapshot: snapshot) else { continue }
+            if [.confirmCandidate, .confirmApplication].contains(hint.action) { confirm = HUDGuidance.shortName(item.control, template: deviceTemplate) }
+            if [.cancelPicker, .cancelApplication].contains(hint.action) { cancel = HUDGuidance.shortName(item.control, template: deviceTemplate) }
+        }
+        if let confirm, let cancel { return L10n.tr("\(confirm) 确认 · \(cancel) 返回", "\(confirm) Confirm · \(cancel) Back") }
+        return HUDGuidance.nextStep(snapshot)
     }
 
     private func actionCaption(_ control: DeviceControl) -> String {
         snapshot.controlActions[control] ?? L10n.tr("未分配", "Unassigned")
     }
 
-    private func drawExpandedLabels() {
-        let x: CGFloat = deviceTemplate == .dualSense ? 308 : deviceTemplate == .xiaomiRemote ? 152 : 149
-        let width = designSize.width - x - 15
-        text(snapshot.target, rect: NSRect(x: x, y: 39, width: width, height: 15), size: 10, weight: .medium, color: .secondaryLabelColor)
-        var controls: [DeviceControl]
-        switch deviceTemplate {
-        case .vibeKey: controls = [.dial, .left, .right, .voice, .ok, .escape]
-        case .dualSense: controls = [.left, .right, .dial, .ok, .escape, .voice, .rightStickUp, .rightStickDown]
-        case .xiaomiRemote: controls = [.voice, .dial, .left, .right, .escape, .ok]
+    private func drawGraphicalGuide() {
+        for callout in callouts() {
+            let start = callout.fromBottom ? NSPoint(x: callout.rect.midX, y: callout.rect.maxY + 2) : NSPoint(x: callout.rect.minX - 3, y: callout.rect.midY)
+            drawLeader(from: start, to: center(callout.control), control: callout.control, emphasized: callout.emphasized)
+            if let secondary = callout.secondary { drawLeader(from: start, to: center(secondary), control: secondary, emphasized: false) }
+            OverlayGlassSkin.pill(in: callout.rect, dark: darkAppearance, emphasized: callout.emphasized || isActive(callout.control))
+            let color: NSColor = callout.emphasized ? darkAppearance ? .init(srgbRed: 0.67, green: 0.84, blue: 1, alpha: 1) : .systemBlue : .labelColor
+            let inset: CGFloat = callout.symbol.isEmpty ? 10 : 33
+            if !callout.symbol.isEmpty { symbol(callout.symbol, rect: NSRect(x: callout.rect.minX + 11, y: callout.rect.midY - 7, width: 15, height: 15), color: color) }
+            text(callout.caption, rect: NSRect(x: callout.rect.minX + inset, y: callout.rect.midY - 7, width: callout.rect.width - inset - 9, height: 17), size: callout.id == "shoulders" ? 10 : 11, weight: .medium, color: color)
         }
-        // Keep an uncommon pressed control visible without turning the compact guide into a full editor.
-        if let active = deviceTemplate.template.controls.first(where: { isActive($0.control) && !controls.contains($0.control) }) {
-            controls[controls.count - 1] = active.control
+        if deviceTemplate == .dualSense {
+            let rect = NSRect(x: 40, y: deviceRect.maxY + 4, width: deviceRect.width - 46, height: 25)
+            OverlayGlassSkin.pill(in: rect, dark: darkAppearance)
+            let caption = "↑ \(HUDGuidance.primary(.rightStickUp, snapshot: snapshot)?.caption ?? "—") · ↓ \(HUDGuidance.primary(.rightStickDown, snapshot: snapshot)?.caption ?? "—")"
+            symbol("r.joystick", rect: NSRect(x: rect.minX + 11, y: rect.minY + 6, width: 13, height: 13), color: .secondaryLabelColor)
+            text(caption, rect: NSRect(x: rect.minX + 32, y: rect.minY + 5, width: rect.width - 42, height: 16), size: 10.5, weight: .medium, color: .secondaryLabelColor, alignment: .center)
         }
-        let rowHeight: CGFloat = deviceTemplate == .dualSense ? 31 : deviceTemplate == .xiaomiRemote ? 34 : 30
-        for (index, control) in controls.enumerated() {
-            guard let descriptor = deviceTemplate.template.controls.first(where: { $0.control == control }) else { continue }
-            let y = 60 + CGFloat(index) * rowHeight
-            text(descriptor.title, rect: NSRect(x: x, y: y, width: width, height: 14), size: 10, weight: isActive(control) ? .semibold : .medium, color: isActive(control) ? .controlAccentColor : .labelColor)
-            text(actionCaption(control), rect: NSRect(x: x, y: y + 14, width: width, height: 13), size: 8.5, weight: .regular, color: .secondaryLabelColor)
+    }
+
+    private func drawLeader(from start: NSPoint, to target: NSPoint, control: DeviceControl, emphasized: Bool) {
+        let color = emphasized ? NSColor.systemBlue : darkAppearance ? NSColor.white.withAlphaComponent(0.64) : NSColor(srgbRed: 0.32, green: 0.38, blue: 0.48, alpha: 0.52)
+        let path = NSBezierPath(); path.move(to: start)
+        if start.y < deviceRect.minY {
+            path.line(to: NSPoint(x: target.x, y: start.y)); path.line(to: target)
+        } else if deviceTemplate == .dualSense && control == .dial {
+            path.line(to: NSPoint(x: target.x + 14, y: target.y + 8)); path.line(to: target)
+        } else {
+            path.curve(to: target, controlPoint1: NSPoint(x: start.x - 19, y: start.y), controlPoint2: NSPoint(x: target.x + 24, y: target.y))
         }
+        color.setStroke(); path.lineWidth = emphasized ? 1.45 : 0.9; path.lineCapStyle = .round; path.lineJoinStyle = .round; path.stroke()
+        let radius: CGFloat = emphasized ? 2.3 : 1.7
+        color.setFill(); NSBezierPath(ovalIn: NSRect(x: target.x - radius, y: target.y - radius, width: radius * 2, height: radius * 2)).fill()
+        if emphasized { OverlayGlassSkin.focus(at: target, dark: darkAppearance) }
+    }
+
+    private func extraGestureText() -> String {
+        let controls: [DeviceControl] = deviceTemplate == .dualSense ? (expanded ? [.ok, .escape] : [.ok]) : (expanded ? [.dial, .ok] : [.dial])
+        let kinds: [GestureKind] = [.long, .double]
+        let result = controls.flatMap { control in
+            (snapshot.controlHints[control] ?? []).filter { kinds.contains($0.kind) }.map { "\(HUDGuidance.shortName(control, template: deviceTemplate)) \($0.title)" }
+        }
+        if result.isEmpty && snapshot.scope == .sessions && deviceTemplate == .dualSense {
+            return L10n.tr("R1 / R2 或摇杆选择", "Choose with R1/R2 or the stick")
+        }
+        return result.isEmpty ? snapshot.action : result.joined(separator: " · ")
+    }
+
+    private func symbol(_ name: String, rect: NSRect, color: NSColor) {
+        let configuration = NSImage.SymbolConfiguration(pointSize: rect.height, weight: .medium)
+            .applying(NSImage.SymbolConfiguration(paletteColors: [color]))
+        NSImage(systemSymbolName: name, accessibilityDescription: nil)?.withSymbolConfiguration(configuration)?
+            .draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
     }
 
     private func center(_ control: DeviceControl) -> NSPoint {
@@ -474,7 +652,7 @@ private final class CompanionView: NSView {
 
     private func isActive(_ control: DeviceControl) -> Bool { snapshot.pressed.contains(control) || (pulses[control] ?? 0) > Date.timeIntervalSinceReferenceDate }
     private func flash(_ control: DeviceControl) { pulses[control] = Date.timeIntervalSinceReferenceDate + 0.18; startAnimation() }
-    private func redraw() { drawing?.needsDisplay = true }
+    private func redraw() { drawing?.needsDisplay = true; deviceDrawing?.needsDisplay = true }
     private func startAnimation() {
         guard animationTimer == nil else { return }
         let timer = Timer(timeInterval: 1.0 / 60, repeats: true) { [weak self] _ in MainActor.assumeIsolated { self?.animationStep() } }
@@ -493,6 +671,7 @@ private final class CompanionView: NSView {
         if let control = mouseControl { mouseControl = nil; onControl(control, .cancel) }
     }
     override func mouseDown(with event: NSEvent) {
+        guard !isPreview else { return }
         guard snapshot.demo, let control = hitControl(event) else { window?.performDrag(with: event); onDragCompleted?(); return }
         flash(control)
         if control == .left || control == .right || control.isStickDirection { onControl(control, .pulse) }
@@ -501,6 +680,7 @@ private final class CompanionView: NSView {
     }
     override func mouseUp(with event: NSEvent) { if let control = mouseControl { mouseControl = nil; onControl(control, .up) } }
     override func scrollWheel(with event: NSEvent) {
+        guard !isPreview else { return }
         // Only VibeKey has a physical rotary control; scrolling must not emulate R1/R2 or a remote D-pad.
         guard snapshot.demo, deviceTemplate == .vibeKey else { return }
         let delta = abs(event.scrollingDeltaY) > abs(event.scrollingDeltaX) ? -event.scrollingDeltaY : event.scrollingDeltaX
@@ -571,16 +751,94 @@ private final class CompanionView: NSView {
 @MainActor
 private final class CompanionDrawing: NSView {
     private weak var owner: CompanionView?
-    init(owner: CompanionView) { self.owner = owner; super.init(frame: .zero) }
+    private let deviceLayer: Bool
+    init(owner: CompanionView, deviceLayer: Bool) { self.owner = owner; self.deviceLayer = deviceLayer; super.init(frame: .zero) }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     override var isFlipped: Bool { true }
-    override func draw(_ dirtyRect: NSRect) { owner?.drawContents() }
+    override func draw(_ dirtyRect: NSRect) { owner?.drawContents(deviceLayer: deviceLayer) }
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
 @MainActor
 private final class CompanionMaterial: NSVisualEffectView {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
+/// Real system Liquid Glass on macOS 26+, with a native older-system fallback.
+/// It has no hit target: the HUD's drag handling and gear/hide buttons own input.
+@MainActor
+final class CompanionBackdrop: NSView {
+    private var surface: NSView?
+    private var observer: NSObjectProtocol?
+    private let inWindow: Bool
+    private var radius: CGFloat
+    private var embeddedContent: NSView?
+    var exporting = false { didSet { if oldValue != exporting { updateMaterial() } } }
+    init(frame: NSRect = .zero, inWindow: Bool = false) {
+        self.inWindow = inWindow; radius = 26
+        super.init(frame: frame)
+        wantsLayer = true; layer?.cornerRadius = radius; layer?.masksToBounds = false
+        updateMaterial()
+        observer = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
+            object: nil, queue: .main) { [weak self] _ in MainActor.assumeIsolated { self?.updateMaterial() } }
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    deinit { if let observer { NSWorkspace.shared.notificationCenter.removeObserver(observer) } }
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard let result = super.hitTest(point), result is NSControl else { return nil }
+        return result
+    }
+    func setContent(_ value: NSView) { embeddedContent = value; updateMaterial() }
+    func setCornerRadius(_ value: CGFloat) {
+        guard radius != value else { return }
+        radius = value; layer?.cornerRadius = value
+        if #available(macOS 26.0, *), let glass = surface as? NSGlassEffectView { glass.cornerRadius = value }
+        else { surface?.layer?.cornerRadius = value }
+    }
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency { layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor }
+    }
+    private func updateMaterial() {
+        if #available(macOS 26.0, *), let glass = surface as? NSGlassEffectView { glass.contentView = nil }
+        embeddedContent?.removeFromSuperview()
+        embeddedContent?.isHidden = false
+        embeddedContent?.translatesAutoresizingMaskIntoConstraints = true
+        surface?.removeFromSuperview(); surface = nil
+        if exporting || NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency {
+            layer?.backgroundColor = exporting ? NSColor.clear.cgColor : NSColor.windowBackgroundColor.cgColor
+            if let embeddedContent { embeddedContent.frame = bounds; embeddedContent.autoresizingMask = [.width, .height]; addSubview(embeddedContent) }
+            return
+        }
+        layer?.backgroundColor = NSColor.clear.cgColor
+        let next: NSView
+        if #available(macOS 26.0, *) {
+            let glass = NSGlassEffectView(frame: bounds)
+            glass.style = .regular; glass.cornerRadius = radius
+            glass.contentView = embeddedContent
+            if #available(macOS 27.0, *) { glass.effectIsInteractive = true }
+            next = glass
+        } else {
+            let material = CompanionMaterial(frame: bounds)
+            material.material = .popover; material.blendingMode = inWindow ? .withinWindow : .behindWindow; material.state = .active
+            material.wantsLayer = true; material.layer?.cornerRadius = radius; material.layer?.masksToBounds = true
+            if let embeddedContent { embeddedContent.frame = material.bounds; embeddedContent.autoresizingMask = [.width, .height]; material.addSubview(embeddedContent) }
+            next = material
+        }
+        next.autoresizingMask = [.width, .height]
+        addSubview(next); surface = next
+        embeddedContent?.frame = bounds
+        embeddedContent?.needsLayout = true
+    }
+}
+
+@MainActor
+final class GlassControlContent: NSView {
+    override var isFlipped: Bool { true }
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let result = super.hitTest(point)
+        return result === self ? nil : result
+    }
 }
 
 /// Settings remains clickable while the nonactivating HUD is monitoring another app.

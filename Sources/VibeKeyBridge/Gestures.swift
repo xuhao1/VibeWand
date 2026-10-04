@@ -75,7 +75,7 @@ enum GestureAction: String, CaseIterable, Codable {
         case .nextCandidate: return L10n.tr("下一个候选（↓）", "Next item (↓)")
         case .confirmCandidate: return L10n.tr("确认候选", "Confirm selection")
         case .cancelPicker: return L10n.tr("取消选择", "Cancel selection")
-        case .dictation: return L10n.tr("听写（按住 Fn）", "Dictation (hold Fn)")
+        case .dictation: return L10n.tr("听写（按住说话）", "Dictation (hold to speak)")
         case .pointerClick: return L10n.tr("点击光标位置（鼠标左键）", "Click at pointer (left mouse button)")
         case .switchApplications: return L10n.tr("打开应用切换（⌘Tab）", "Open app switcher (⌘Tab)")
         case .previousApplication: return L10n.tr("上一个应用", "Previous app")

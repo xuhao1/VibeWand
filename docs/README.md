@@ -13,6 +13,7 @@ Start with setup, then learn the default workflow or customize it. User guides d
 | [Getting started](getting-started.en.md) | [快速开始](getting-started.md) | Download, permission, connection, dictation, first interaction / 下载、授权、连接、听写与第一次操作 |
 | [Default controls](core-experience.en.md) | [默认操作](core-experience.md) | VibeKey, Controller, Remote defaults and context behavior / 三种模板默认操作与场景行为 |
 | [Settings and remapping](settings.en.md) | [设置与改键](settings.md) | Button editor, action library, timing, import/export, overlay / 按键编辑、动作库、时间、导入导出与悬浮反馈 |
+| [Voice input](voice-input.md) | [语音输入](voice-input.md) | Speech SDK, API protocols, Keychain and local checks / 系统听写、API、钥匙串与本地测试 |
 | [Applications](applications.en.md) | [应用适配](applications.md) | Built-in adapters, custom shortcuts, known limits / 内置适配、自定义快捷键与已知边界 |
 | [Troubleshooting](troubleshooting.en.md) | [问题排查](troubleshooting.md) | Input capture, diagnostics, permission and connection problems / 采集、诊断、权限与连接问题 |
 
@@ -22,6 +23,7 @@ Start with setup, then learn the default workflow or customize it. User guides d
 | --- | --- |
 | [Device templates](device-templates.en.md) / [设备模板](device-templates.md) | Complete controls, integration status, microphone boundaries / 完整控件、接入状态与音频边界 |
 | [Gesture details / 手势细节](gesture-configuration.md) | Inheritance, hold priority, timing and cancellation / 继承、按住优先级、时序与取消 |
+| [DualSense Bluetooth voice / 手柄蓝牙语音](dualsense-microphone-integration.md) | Optional audio path, prerequisites and input behavior / 可选音频路径、要求与输入行为 |
 | [HID integration / HID 接入](hid-profiles.md) | Inspect interfaces and build measured profiles / 接口检查与实测配置 |
 
 ## Contribute / 参与开发
@@ -39,6 +41,7 @@ These records support implementation and provenance. They are not first-use inst
 - [Native controller and Bluetooth verification / 原生手柄与蓝牙实测](controller-input.md)
 - [AU05 protocol and historical checks / AU05 协议与历史检查](direct-device-plan.md)
 - [Settings design / 设置设计](settings-design.md)
+- [Liquid Glass HUD and action guidance / 液态玻璃悬浮窗与动作引导](overlay-liquid-glass.md)
 - [Appearance audit / 外观审查](ui-appearance-audit.md) and [screenshot gallery / 截图图集](ui-appearance-gallery.html)
 - [Device images and hotspots / 设备图像与热点](design-device-assets.md)
 - [Documentation image provenance / 文档图像来源](images/README.md)

@@ -91,8 +91,8 @@ final class DeviceTemplateTests: XCTestCase {
         XCTAssertEqual(config.action(.reading, .escape, .long), .models)
         XCTAssertEqual(config.action(.global, .touchpad, .single), .pointerClick)
         for scope in [GestureScope.sessions, .models, .efforts, .applications] {
-            XCTAssertEqual(config.action(scope, .escape, .single), scope == .applications ? .confirmApplication : .confirmCandidate)
-            XCTAssertEqual(config.action(scope, .ok, .single), scope == .applications ? .cancelApplication : .cancelPicker)
+            XCTAssertEqual(config.action(scope, .escape, .single), scope == .sessions ? .cancelPicker : scope == .applications ? .confirmApplication : .confirmCandidate)
+            XCTAssertEqual(config.action(scope, .ok, .single), scope == .sessions ? .confirmCandidate : scope == .applications ? .cancelApplication : .cancelPicker)
             XCTAssertEqual(config.action(scope, .dial, .single), .none)
             XCTAssertEqual(config.action(scope, .ok, .double), .none)
             XCTAssertEqual(config.action(scope, .escape, .long), .none)
@@ -101,6 +101,45 @@ final class DeviceTemplateTests: XCTestCase {
         _ = engine.receive(.dial, phase: .down, now: 0, scope: .editing, config: config)
         XCTAssertEqual(engine.receive(.dial, phase: .up, now: 0.05, scope: .editing, config: config).map(\.action), [.deleteBackward])
         XCTAssertTrue(engine.tick(now: 1).isEmpty, "Backspace must not also open a chat or app switcher")
+    }
+
+    func testSessionConfirmationMigrationOnlyChangesPriorDefaults() throws {
+        let defaults = isolatedDefaults()
+        let old = #"{"schemaVersion":1,"presetRevision":2,"selectedID":"dualSense","configurations":{"dualSense":{"schemaVersion":1,"doubleClickInterval":0.32,"longPressInterval":0.65,"overrides":{"sessions.ok.single":"cancelPicker","sessions.escape.single":"confirmCandidate","editing.ok.single":"openSettings","models.ok.single":"cancelPicker"}}},"profiles":{}}"#
+        defaults.set(Data(old.utf8), forKey: DeviceTemplateStore.storageKey)
+        let store = DeviceTemplateStore(defaults: defaults)
+        XCTAssertEqual(store.configuration().action(.sessions, .ok, .single), .confirmCandidate)
+        XCTAssertEqual(store.configuration().action(.sessions, .escape, .single), .cancelPicker)
+        XCTAssertEqual(store.configuration().action(.editing, .ok, .single), .openSettings)
+        XCTAssertEqual(store.configuration().action(.models, .ok, .single), .cancelPicker)
+        var config = store.configuration()
+        config.set(.sessions, .ok, .single, .cancelPicker)
+        try store.updateConfiguration(config)
+        XCTAssertEqual(DeviceTemplateStore(defaults: defaults).configuration().action(.sessions, .ok, .single), .cancelPicker)
+        let custom = old.replacingOccurrences(of: "\"sessions.ok.single\":\"cancelPicker\"", with: "\"sessions.ok.single\":\"toggleGuide\"")
+        defaults.set(Data(custom.utf8), forKey: DeviceTemplateStore.storageKey)
+        XCTAssertEqual(DeviceTemplateStore(defaults: defaults).configuration().action(.sessions, .ok, .single), .toggleGuide)
+    }
+
+    @MainActor
+    func testLongCrossOpensChatsAndNextCrossConfirmsWithoutWaiting() async throws {
+        let store = DeviceTemplateStore(defaults: isolatedDefaults())
+        try store.select(.dualSense)
+        let runtime = BridgeRuntime(templates: store)
+        runtime.demo = true
+        runtime.handle(.ok, phase: .down)
+        runtime.advanceGestures(now: ProcessInfo.processInfo.systemUptime + 0.7)
+        runtime.handle(.ok, phase: .up)
+        XCTAssertEqual(runtime.snapshot.scope, .sessions)
+        XCTAssertEqual(HUDGuidance.primary(.ok, snapshot: runtime.snapshot)?.action, .confirmCandidate)
+        XCTAssertTrue(HUDGuidance.nextStep(runtime.snapshot).hasPrefix("×"))
+        runtime.handle(.right, phase: .pulse)
+        runtime.handle(.ok, phase: .down); runtime.handle(.ok, phase: .up)
+        XCTAssertEqual(runtime.snapshot.scope, .reading)
+        XCTAssertEqual(runtime.snapshot.target, L10n.tr("修复登录问题", "Fix sign-in issue"))
+        runtime.advanceGestures(now: ProcessInfo.processInfo.systemUptime + 2)
+        XCTAssertFalse(runtime.snapshot.mode == InteractionMode.sessions.title)
+        runtime.stop()
     }
 
     func testOldPresetMigrationPreservesCustomMappingsAndOnlyRunsOnce() throws {

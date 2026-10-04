@@ -40,6 +40,10 @@ The 208 pt sidebar begins with a 56 pt brand mark beside an 18 pt rounded bold n
 
 208pt 宽的侧栏顶部采用 56pt 品牌图标，右侧排列 18pt 圆角粗体名称和 12pt 辅助文案。图标更突出，产品名称保持紧凑，并继续适配亮色与深色界面。
 
+UI copy focuses on actions, current state and app information. Design attribution and repeated promotional or privacy statements belong in documentation rather than settings footers or standalone cards.
+
+界面文案以操作、当前状态和应用信息为主。设计来源与重复的宣传或隐私声明放在文档中，不占用设置页的页脚或独立卡片。
+
 Version 0.5.2 extends the compact layout to every settings page and all four configuration sheets. It changes presentation and discoverability; it does not add a device backend or expand hardware compatibility.
 
 0.5.2 将紧凑布局扩展到全部设置页面和四种配置弹窗，修改外观、信息层级和操作入口，不新增设备后端或扩大硬件兼容性声明。
@@ -130,9 +134,9 @@ Applications separates built-in adapter switches from user-added apps. An app pi
 
 ## About / 关于
 
-The About page identifies **Dr. Hao Xu, Tenure-track Associate Professor at Nanjing University**, as the author. It includes the [personal website](http://xuhao1.me), [project website](https://vibewand.xuhao1.me), version, and PolyForm Noncommercial license. These are link destinations; this UI revision does not deploy a website.
+The About page identifies **Dr. Xu** as the author. It includes the [personal website](http://xuhao1.me), [project website](https://vibewand.xuhao1.me), version, and PolyForm Noncommercial license. These are link destinations; this UI revision does not deploy a website.
 
-关于页面注明作者为**南京大学徐浩博士，准聘（Tenure-track）副教授**，并提供[个人主页](http://xuhao1.me)、[项目主页](https://vibewand.xuhao1.me)、版本和 PolyForm Noncommercial 非商用许可信息。此次界面改版添加主页链接，不包含网站部署。
+关于页面注明作者为 **Dr. Xu**，并提供[个人主页](http://xuhao1.me)、[项目主页](https://vibewand.xuhao1.me)、版本和 PolyForm Noncommercial 非商用许可信息。此次界面改版添加主页链接，不包含网站部署。
 
 ## Hardware and audio boundaries / 硬件与音频边界
 

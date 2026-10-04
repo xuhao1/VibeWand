@@ -16,7 +16,7 @@ struct GeneralSettings: View {
                         Picker("Language / 语言", selection: $localization.language) {
                             ForEach(AppLanguage.allCases, id: \.self) { Text($0.label).tag($0) }
                         }.pickerStyle(.segmented).labelsHidden()
-                        SettingsNote(text: tr("切换立即生效，保留你的设备与按键配置。", "Switch instantly. Your device and button settings stay in place."))
+                        SettingsNote(text: tr("切换语言后立即生效。", "Language changes take effect immediately."))
                     }
                     SettingsCard(title: tr("辅助功能权限", "Accessibility access")) {
                         HStack(alignment: .top, spacing: 12) {
@@ -61,12 +61,11 @@ struct GeneralSettings: View {
                             VStack(alignment: .leading, spacing: 5) {
                                 Text(tr("按住说话，松开结束", "Hold to speak. Release to finish."))
                                     .font(.system(size: 16, weight: .semibold))
-                                SettingsNote(text: tr("为按键设置“听写（按住 Fn）”动作。", "Assign the “Dictation (hold Fn)” action to a button."))
+                                SettingsNote(text: tr("为按键设置“听写（按住说话）”动作。", "Assign the “Dictation (hold to speak)” action to a button."))
                             }.frame(maxWidth: .infinity, alignment: .leading)
                         }
                         Divider()
-                        Text(model.template.audioNote).font(.system(size: 14)).fixedSize(horizontal: false, vertical: true)
-                        SettingsNote(text: tr("使用系统或输入法所选音源。VibeWand 不录音，也不上传聊天内容。", "Uses the audio source selected by your system or input method. VibeWand does not record audio or upload conversations."))
+                        SettingsNavigationRow(symbol: "waveform", title: tr("语音输入", "Voice input"), detail: tr("选择外置输入法、系统听写或语音 API。", "Choose an external input method, macOS dictation or a speech API.")) { model.section = .speech }
                     }
                 }.frame(maxWidth: .infinity, alignment: .topLeading)
             }
@@ -77,11 +76,10 @@ struct GeneralSettings: View {
 struct OverlaySettings: View {
     @ObservedObject var model: SettingsModel
     @Environment(\.colorScheme) private var colorScheme
-    @State private var preview: NSImage?
-    @State private var previewTask: Task<Void, Never>?
     @AppStorage("hudScale") private var scale = 1.0
     @AppStorage("hudOpacity") private var opacity = 0.95
     @AppStorage("hudExpanded") private var expanded = false
+    @AppStorage("hudDisplayMode") private var displayMode = "full"
 
     var body: some View {
         StandardPage(title: tr("悬浮面板", "Overlay"), subtitle: tr("调整显示、大小和透明度，预览实际面板。", "Adjust visibility, size and opacity with a preview of your overlay.")) {
@@ -93,10 +91,17 @@ struct OverlaySettings: View {
                         }))
                         SettingsNote(text: tr("保持在应用上方，不占用输入焦点。", "Stays above your apps without taking keyboard focus."))
                         Divider()
-                        SettingsToggleRow(title: tr("展开按键说明", "Show button guide"), isOn: Binding(get: { expanded }, set: {
+                        Picker(tr("悬浮窗模式", "Overlay mode"), selection: Binding(get: { displayMode }, set: {
+                            displayMode = $0; model.overlay.setDisplayMode(OverlayDisplayMode(rawValue: $0) ?? .full); model.refresh()
+                        })) {
+                            ForEach(OverlayDisplayMode.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
+                        }.pickerStyle(.segmented).labelsHidden()
+                        SettingsNote(text: tr("小条保留语音状态、实时文字和原词／自动整理开关。隐藏由上方开关独立控制。", "The compact bar keeps voice status, live text and verbatim / polish controls. Visibility is a separate switch."))
+                        Divider()
+                        SettingsToggleRow(title: tr("显示更多手势", "Show additional gestures"), isOn: Binding(get: { expanded }, set: {
                             expanded = $0; model.overlay.setExpanded($0); model.refresh(); refreshPreview()
                         }))
-                        SettingsNote(text: tr("在面板旁显示当前按键功能。", "Show the current button actions beside the device."))
+                        SettingsNote(text: tr("补充双击和长按提示。", "Include double-press and long-press hints."))
                     }
                     SettingsCard(title: tr("外观", "Appearance")) {
                         HStack {
@@ -125,23 +130,21 @@ struct OverlaySettings: View {
                 }.frame(maxWidth: .infinity, alignment: .topLeading)
                 SettingsCard(title: tr("面板预览", "Overlay preview")) {
                     GeometryReader { geometry in
+                        let size = SpeechOverlayLayout.size(template: model.snapshot.deviceTemplate, expanded: expanded,
+                            mode: OverlayDisplayMode(rawValue: displayMode) ?? .full, voice: model.snapshot.voice)
+                        let fit = min((geometry.size.width - 28) / size.width, (geometry.size.height - 28) / size.height)
                         ZStack {
-                            RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: .windowBackgroundColor))
-                            if let preview {
-                                Image(nsImage: preview).resizable().scaledToFit()
-                                    .frame(width: min(preview.size.width, geometry.size.width - 24), height: min(preview.size.height, geometry.size.height - 24))
-                                    .opacity(opacity)
-                                    .shadow(color: .black.opacity(0.13), radius: 12, y: 4)
-                            } else {
-                                Label(tr("预览加载中", "Loading preview"), systemImage: "macwindow").font(.callout).foregroundStyle(.secondary)
-                            }
+                            OverlayPreviewBackdrop()
+                            OverlayLivePreview(snapshot: model.snapshot, expanded: expanded, opacity: opacity, mode: OverlayDisplayMode(rawValue: displayMode) ?? .full)
+                                .frame(width: size.width * fit, height: size.height * fit)
+                                .shadow(color: .black.opacity(0.22), radius: 18, y: 8)
                         }.frame(maxWidth: .infinity, maxHeight: .infinity)
-                    }.frame(height: 360)
+                    }.frame(height: expanded ? 510 : 475)
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(expanded ? tr("带按键说明", "With button guide") : tr("紧凑面板", "Compact overlay"))
+                            Text(expanded ? tr("完整手势提示", "Full gesture guide") : tr("核心按键提示", "Core button guide"))
                                 .font(.system(size: 14, weight: .medium))
-                            SettingsNote(text: tr("跟随外观设置更新；可刷新当前动作。", "Updates with appearance settings. Refresh to show the current action."))
+                            SettingsNote(text: tr("与悬浮窗共用真实组件，实时显示按键与玻璃效果。", "The actual overlay component, with live button feedback and glass."))
                         }
                         Spacer(minLength: 8)
                         Button(action: refreshPreview) { Image(systemName: "arrow.clockwise") }
@@ -152,22 +155,13 @@ struct OverlaySettings: View {
         }.task { refreshPreview() }
             .onChange(of: colorScheme) { _ in refreshPreview() }
             .onChange(of: model.snapshot.deviceTemplate) { _ in refreshPreview() }
-            .onDisappear { previewTask?.cancel() }
     }
 
     private func rangeLabels(_ low: String, _ high: String) -> some View {
         HStack { Text(low); Spacer(); Text(high) }.font(.system(size: 13)).foregroundStyle(.secondary).padding(.top, -6)
     }
 
-    private func refreshPreview() {
-        // Capture only on appearance edits or explicit refresh, never on the runtime's status polling.
-        previewTask?.cancel()
-        previewTask = Task { @MainActor in
-            // Coalesce slider updates and let AppKit finish resizing before drawing the preview.
-            do { try await Task.sleep(nanoseconds: 50_000_000) } catch { return }
-            preview = model.overlay.previewImage(appearance: NSAppearance(named: colorScheme == .dark ? .darkAqua : .aqua))
-        }
-    }
+    private func refreshPreview() { model.refresh() }
 }
 
 struct DeveloperSettings: View {
@@ -221,9 +215,6 @@ struct DeveloperSettings: View {
                             Button(tr("导出诊断…", "Export diagnostics…"), action: model.exportDiagnostics)
                             Button(tr("重新连接", "Reconnect")) { model.runtime.reconnectDevice(); model.refresh() }
                         }
-                        Divider()
-                        Label(tr("不包含聊天正文、音频或凭证。", "Excludes conversation text, audio and credentials."), systemImage: "lock")
-                            .font(.system(size: 13)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     }
                 }.frame(maxWidth: .infinity, alignment: .topLeading)
             }
@@ -256,10 +247,10 @@ struct AboutSettings: View {
     private var version: String { SettingsStyle.version }
 
     var body: some View {
-        StandardPage(title: tr("关于 VibeWand", "About VibeWand"), subtitle: tr("用手中的实体控制器，连接你的日常工作。", "Connect the controls in your hand to your everyday workflow.")) {
+        StandardPage(title: tr("关于 VibeWand", "About VibeWand"), subtitle: tr("版本、作者与项目链接。", "Version, author and project links.")) {
             HStack(alignment: .top, spacing: 16) {
                 VStack(spacing: 16) {
-                    SettingsCard(title: tr("把操作握在手中", "Your controls. Your flow.")) {
+                    SettingsCard(title: tr("应用信息", "App information")) {
                         HStack(spacing: 14) {
                             BrandMark(size: 62)
                             VStack(alignment: .leading, spacing: 5) {
@@ -267,31 +258,18 @@ struct AboutSettings: View {
                                 Text(tr("版本 ", "Version ") + version).font(.system(size: 14)).foregroundStyle(.secondary)
                             }
                         }.padding(.vertical, 4)
-                        Text(tr("旋转浏览、按键切换、按住听写。为 AI、浏览器和日常沟通设计，也为你的操作习惯留出空间。", "Browse, switch and dictate with the controls in your hand. Built for AI, browsers and everyday conversations, with room to make it yours."))
+                        Text(tr("旋转浏览、按键切换、按住听写。", "Turn to browse, press to switch, hold to dictate."))
                             .font(.system(size: 15)).lineSpacing(4).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                         Divider()
-                        HStack(spacing: 7) {
-                            aboutTag("macOS", symbol: "macwindow")
-                            aboutTag(tr("源码公开", "Source available"), symbol: "curlybraces")
-                            aboutTag(tr("非商用", "Noncommercial"), symbol: "doc.text")
-                        }
-                    }
-                    SettingsCard(title: tr("在本机运行", "Runs on your Mac")) {
-                        Label(tr("设备输入、手势和配置均在本机处理。", "Device input, gestures and settings are processed locally."), systemImage: "desktopcomputer")
-                            .font(.system(size: 14)).fixedSize(horizontal: false, vertical: true)
-                        SettingsNote(text: tr("VibeWand 不录音，也不上传聊天内容。听写使用系统或输入法提供的服务。", "VibeWand does not record audio or upload conversations. Dictation uses the service provided by your system or input method."))
+                        SettingsValueRow(label: tr("使用许可", "Usage license"), value: tr("个人非商用", "Personal noncommercial use"))
+                        SettingsNote(text: tr("商用请联系作者取得授权。", "Contact the author for commercial authorization."))
                     }
                 }.frame(maxWidth: .infinity, alignment: .topLeading)
                 VStack(spacing: 16) {
                     SettingsCard(title: tr("作者", "Created by")) {
                         HStack(alignment: .top, spacing: 12) {
                             SettingsIcon(symbol: "person.crop.circle", tint: .accentColor)
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text(tr("徐浩博士", "Dr. Hao Xu")).font(.system(size: 21, weight: .semibold))
-                                Text(tr("南京大学", "Nanjing University")).font(.system(size: 15))
-                                Text(tr("准聘（Tenure-track）副教授", "Tenure-track Associate Professor"))
-                                    .font(.system(size: 14)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                            }
+                            Text("Dr. Xu").font(.system(size: 21, weight: .semibold))
                         }.padding(.vertical, 4)
                     }
                     SettingsCard(title: tr("了解更多", "Find out more")) {
@@ -301,15 +279,8 @@ struct AboutSettings: View {
                     }
                 }.frame(maxWidth: .infinity, alignment: .topLeading)
             }
-            Text(tr("按键布局与动作编辑方式参考 Steam Input。VibeWand 源码公开，允许个人非商用使用；商用必须联系作者徐浩并取得授权。", "The layout and action editors are inspired by Steam Input. VibeWand is source-available for personal noncommercial use. Commercial use requires contacting Hao Xu for authorization."))
-                .font(.system(size: 13)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-        }
-    }
 
-    private func aboutTag(_ title: String, symbol: String) -> some View {
-        Label(title, systemImage: symbol).font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
-            .padding(.horizontal, 8).padding(.vertical, 5)
-            .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 5))
+        }
     }
 
     private func websiteRow(_ title: String, host: String, symbol: String, url: String) -> some View {
@@ -348,7 +319,7 @@ private struct SettingsToggleRow: View {
     }
 }
 
-private struct SettingsNote: View {
+struct SettingsNote: View {
     let text: String
     var body: some View {
         Text(text).font(.system(size: 13)).foregroundStyle(.secondary).lineSpacing(3)

@@ -50,7 +50,7 @@ The remote layout takes its direction ring, center, voice, menu, and back arrang
 
 Version 0.5.5 reverses default reading navigation: dial left, R1, stick up/left scroll down; dial right, R2, stick down/right scroll up. Caret movement and previous/next selection keep their directions. Explicit Scroll up/down actions retain their named meaning.
 
-Face buttons follow the user-requested convention: ○ confirms, □ deletes and × goes back. This differs from [Sony’s current PS5 system-menu defaults](https://www.playstation.com/en-us/support/hardware/ps5-button-functions/), where × selects and ○ cancels. In pickers, ○ confirms immediately, × cancels and □ does nothing. Existing baseline bindings migrate once while differing custom mappings and timings remain intact.
+Face buttons follow the user-requested convention: ○ confirms, □ deletes and × goes back. This differs from [Sony’s current PS5 system-menu defaults](https://www.playstation.com/en-us/support/hardware/ps5-button-functions/), where × selects and ○ cancels. In the chat picker, × confirms and ○ goes back. Model/effort pickers and app switching use ○ to confirm and × to cancel. Confirmation is immediate; □ does nothing in pickers. Existing baseline bindings migrate once while differing custom mappings and timings remain intact.
 
 ## Gestures and persistence
 
@@ -73,7 +73,7 @@ The generic backend supports explicitly selected interfaces with buttons, edge p
 
 ## Microphones and audio
 
-VibeWand currently sends a held Fn dictation trigger. It does not capture audio, select a recording device, or provide speech recognition. macOS or the user's dictation application selects the microphone.
+External dictation sends held Fn and leaves microphone selection to the input method. Built-in dictation uses the macOS default microphone with system recognition or a configured speech API; it does not switch recording devices. See [Voice input](voice-input.md).
 
 For the DualSense reference controller, distinguish transports. [JoyHarness's firsthand investigation](https://github.com/nixihz/JoyHarness/blob/main/docs/research/dualsense-wireless-microphone.md) reports a USB audio input on macOS 26.5.2. On 2026-10-04 this project received and decoded microphone Opus frames from the current Bluetooth controller on Mac, and a later standalone prototype published a system input and reduced sequence gaps through Game Mode. Residual gaps remain, and controller navigation pauses during capture. See the [Bluetooth microphone investigation](dualsense-microphone.md). The current release still uses a Mac or external microphone for Bluetooth control; missing software support does not establish a hardware limitation.
 

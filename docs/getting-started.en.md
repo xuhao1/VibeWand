@@ -4,7 +4,7 @@
 
 ## 1. Download and open
 
-Download **[VibeWand-0.5.5-macOS-arm64.zip](https://github.com/xuhao1/VibeWand/releases/download/v0.5.5/VibeWand-0.5.5-macOS-arm64.zip)** from [GitHub Releases](https://github.com/xuhao1/VibeWand/releases/latest). This package requires **macOS 13+** and an **Apple Silicon Mac**; it does not include an Intel binary.
+Download **[VibeWand-0.6.0-macOS-arm64.zip](https://github.com/xuhao1/VibeWand/releases/download/v0.6.0/VibeWand-0.6.0-macOS-arm64.zip)** from [GitHub Releases](https://github.com/xuhao1/VibeWand/releases/latest). This package requires **macOS 13+** and an **Apple Silicon Mac**; it does not include an Intel binary.
 
 1. Double-click the ZIP in Finder to extract **VibeWand.app**.
 2. Drag it into **Applications**.
@@ -32,9 +32,9 @@ Open **Connect device…** and check the live device name and connection status.
 
 ## 4. Set up dictation
 
-Choose your microphone in macOS or your input method. Configure the speech service to accept a held Fn trigger, then focus an editable field and test the trigger with the keyboard before trying VibeWand.
+Open Settings → Voice input. External mode uses your input method configured for held Fn. Built-in mode offers macOS dictation, Alibaba Qwen Realtime and compatible transcription APIs. Keys stay in Keychain and are excluded from exports. Use Start test to check recognition and permissions.
 
-Hold the VibeKey microphone key or Controller △; release to finish. VibeWand sends Fn press/release and does not record or transcribe audio itself. On Bluetooth, use your Mac or an external microphone. For USB controller audio, check the actual macOS input-device list separately.
+Focus an editable field, hold the VibeKey microphone key or Controller △, and release to finish. Review text before sending. Built-in mode normally uses the macOS default microphone. An optional DualSense Bluetooth microphone path is available in Devices & inputs; see [requirements and setup](dualsense-microphone-integration.md). For USB controller audio, check the actual macOS input-device list separately. See [Voice input](voice-input.md).
 
 ## 5. Try the default workflow
 

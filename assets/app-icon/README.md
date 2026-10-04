@@ -20,4 +20,4 @@ The built-in image generation tool was used for background-extraction trials. Th
 
 The settings sidebar and About page share `BrandMark`, using the light artwork in light appearance and the approved app icon in dark appearance.
 
-The menu bar uses `MenuBarIcon.make()`, a 22 × 18 pt native vector template with a diagonal wand, separated code brackets and five small voice bars. AppKit controls its light/dark and highlighted tint; Retina rendering remains sharp. `MenuBarIcon.svg` records the equivalent shape for design tools.
+The menu bar uses the original macOS `dial.medium` SF Symbol. The alternate wand artwork is retained as a design exploration and is not used by the application.

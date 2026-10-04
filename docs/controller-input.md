@@ -1,6 +1,6 @@
 # 原生手柄接入 / Native controller input
 
-VibeWand 0.5.5 的手柄模板默认接入 macOS GameController。USB 和系统已配对的蓝牙手柄使用同一输入路径，无需手填厂商编号或导入 HID 配置；已有自定义 HID 配置仍是显式覆盖。
+VibeWand 0.5.6 的手柄模板默认接入 macOS GameController。USB 和系统已配对的蓝牙手柄使用同一输入路径，无需手填厂商编号或导入 HID 配置；已有自定义 HID 配置仍是显式覆盖。
 
 The Controller layout uses macOS GameController by default. USB and system-paired Bluetooth controllers share the same input path; no vendor-ID setup or HID profile is required. An existing custom HID profile remains an explicit override.
 
@@ -24,9 +24,9 @@ Version 0.5.5 reads the native `touchpadPrimary` finger coordinates over the sam
 
 The existing Accessibility permission applies. Demo/capture modes send no pointer events, and changing templates detaches the old callback. Only single-finger movement and short-press clicks are implemented, without taps, two-finger scrolling or dragging. The legacy native API reports `(0, 0)` without a separate contact flag, so crossing the exact center re-anchors too. A generic HID override does not supply native touch coordinates.
 
-默认面键按用户习惯改成 **○ 确认 / Enter、□ 退格、× 返回**；× 双击切应用、长按会话 / 标签页，○ 长按模型 / 强度，△ 按住听写。选择器 / 应用切换器中 ○ 立即确认、× 立即取消、□ 不执行。默认阅读滚屏方向反转，文字光标、候选和应用前后方向保持原有逻辑。旧默认配置一次性升级，手动改配与时序保留。
+默认面键按用户习惯改成 **○ 确认 / Enter、□ 退格、× 返回**；× 双击切应用、长按会话 / 标签页，○ 长按模型 / 强度，△ 按住听写。会话选择器中 × 立即确认、○ 返回；模型 / 强度 / 应用切换中 ○ 立即确认、× 返回。选择器内 □ 不执行。默认阅读滚屏方向反转，文字光标、候选和应用前后方向保持原有逻辑。旧默认配置一次性升级，手动改配与时序保留。
 
-Face buttons follow the requested **○ confirm / Enter, □ Backspace, × back** convention. Double × switches apps; long × opens chats/tabs; long ○ opens models/effort; hold △ dictates. In pickers/app switching, ○ confirms immediately, × cancels immediately and □ does nothing. Default reading scroll directions are reversed, while caret/selection/app navigation keep their directions. Old baseline mappings upgrade once; custom remaps and timings are preserved.
+Face buttons follow the requested **○ confirm / Enter, □ Backspace, × back** convention. Double × switches apps; long × opens chats/tabs; long ○ opens models/effort; hold △ dictates. The chat picker uses × to confirm and ○ to cancel. Model/effort pickers and app switching retain ○ confirm / × cancel. All picker confirmations are immediate and □ does nothing there. Default reading scroll directions are reversed, while caret/selection/app navigation keep their directions. Old baseline mappings upgrade once; custom remaps and timings are preserved.
 
 该面键习惯与 [Sony 当前 PS5 系统菜单说明](https://www.playstation.com/en-us/support/hardware/ps5-button-functions/)中 × 选择、○ 取消不同；文档不将用户定制映射声称为 PS5 的统一默认。触摸接口参照 [Apple touchpadPrimary](https://developer.apple.com/documentation/gamecontroller/gcdualsensegamepad/touchpadprimary)，无接触与坐标方向约定参照 [Chromium 原生 GameController 实现](https://chromium.googlesource.com/chromium/src/+/refs/tags/149.0.7827.155/device/gamepad/game_controller_gamepad.mm)。
 
@@ -51,3 +51,7 @@ USB is implemented through the same native backend, but no physical USB trial wa
 0.5.5：137 项自动测试通过，新增触摸相对位移、抬手/断连/休眠、屏幕边界、采集/演示不注入事件、默认映射迁移与文字按键检查。触摸板实机验证单独记录；此前 84 条设备事件仅证明按钮/摇杆输入。
 
 Version 0.5.5: all 137 automated tests passed, including relative touch motion, lift/disconnect/sleep, display bounds, capture/demo suppression, preset migration and text-button mappings. Physical touch verification is recorded separately; the earlier 84 events validate button/stick input only.
+
+0.5.6：会话默认流程调整为长按 × 打开、单击 × 确认、○ 返回；141 项自动测试通过。原生液态玻璃与上下文箭头提示见 [悬浮窗设计和实现](overlay-liquid-glass.md)。
+
+Version 0.5.6: long × opens chats, press × confirms, ○ goes back; all 141 automated tests pass. See the linked overlay record for native Liquid Glass and context-dependent callouts.

@@ -44,9 +44,9 @@ struct ApplicationSettings: View {
                         builtInCard(profile)
                     }
                     VStack(alignment: .leading, spacing: 8) {
-                        Label(tr("按自己的方式操作", "Make it your own"), systemImage: "slider.horizontal.3")
+                        Label(tr("自定义适配", "Custom integrations"), systemImage: "slider.horizontal.3")
                             .font(.system(size: 14, weight: .semibold))
-                        Text(tr("自定义配置优先于内置适配。听写结束不会自动发送消息。", "Custom profiles take priority over built-in rules. Ending dictation never sends a message."))
+                        Text(tr("自定义配置优先于内置适配。", "Custom profiles take priority over built-in rules."))
                             .font(.system(size: 14)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     }
                     .frame(maxWidth: .infinity, minHeight: 82, alignment: .leading).padding(16)

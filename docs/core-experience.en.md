@@ -2,7 +2,7 @@
 
 [简体中文](core-experience.md) · [Getting started](getting-started.en.md) · [Documentation](README.md)
 
-These are the 0.5.5 template defaults. Saved custom mappings take precedence; reset the active template if you want its defaults. Complete controls and hardware boundaries are in [Device templates](device-templates.en.md).
+These are the 0.6.0 template defaults. Saved custom mappings take precedence; reset the active template if you want its defaults. Complete controls and hardware boundaries are in [Device templates](device-templates.en.md).
 
 ## Navigation follows context
 
@@ -24,7 +24,7 @@ A shortcut alone does not establish that a picker opened. Supported adapters ins
 | Dial press | Open conversations; next browser tab; confirm in a picker |
 | Dial double-press | Open macOS app switching |
 | Dial long press | Open models / reasoning controls where supported |
-| Microphone hold / release | Start / finish held Fn dictation |
+| Microphone hold / release | Start / finish dictation |
 | OK press | Confirm / Return |
 | ESC press | Delete before the caret or a selection in an observed editable draft; otherwise cancel |
 | ESC long press | Native Escape |
@@ -39,10 +39,10 @@ In the app switcher, turn to choose, press the dial or OK to confirm, and use ES
 | ○ | Confirm / Return; long press opens model controls |
 | □ | Backspace in an editable draft; no action in pickers |
 | × | Back; double-press switches apps; long press opens conversations / next browser tab |
-| △ hold / release | Start / finish held Fn dictation |
+| △ hold / release | Start / finish dictation |
 | Touchpad | Single-finger movement controls the pointer; short press left-clicks, when exposed by macOS |
 
-This is VibeWand's mapping. The defaults put confirmation on ○. Both sticks offer independently editable directions; tilting repeats navigation until centered. Up / left scroll down, down / right scroll up while reading. Extra buttons start unassigned. Touchpad taps, two-finger scrolling, and dragging are not implemented.
+In the chat picker, × confirms and ○ goes back. Model/effort pickers and app switching keep ○ confirmation / × cancellation. Editing retains ○ confirmation / □ deletion. Both sticks offer independently editable directions; tilting repeats navigation until centered. Up / left scroll down, down / right scroll up while reading. Extra buttons start unassigned. Touchpad taps, two-finger scrolling, and dragging are not implemented.
 
 ## Remote: configurable preset
 
@@ -50,7 +50,7 @@ Left / right navigate, center confirms, double-center switches apps, and long-ce
 
 ## Dictate, edit, then confirm
 
-Focus a draft → hold the microphone key or △ → speak → release → move the caret or delete → confirm when ready. The input method controls audio and transcription. Releasing a dictation hold does not also click, confirm, or send.
+Focus a draft → hold the microphone key or △ → speak → release → move the caret or delete → confirm when ready. Your selected external input method, system SDK or speech API handles recognition. Releasing a dictation hold does not also click, confirm, or send.
 
 Return can send or insert a newline depending on the target app. Check its preference before using confirmation on a real conversation. Application-specific shortcuts and support limits are in [Applications](applications.en.md).
 

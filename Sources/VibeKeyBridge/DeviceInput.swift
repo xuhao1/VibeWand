@@ -58,7 +58,7 @@ final class FnDictation {
 extension DeviceControl {
     var label: String {
         switch self {
-        case .voice: return L10n.tr("听写（按住 Fn）", "Dictation (hold Fn)")
+        case .voice: return L10n.tr("听写（按住说话）", "Dictation (hold to speak)")
         case .ok: return L10n.tr("确认 / Enter", "Confirm / Enter")
         case .escape: return L10n.tr("取消 / 删除", "Cancel / delete")
         case .dial: return L10n.tr("旋钮按压 / 会话", "Dial press / chats")

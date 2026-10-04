@@ -24,6 +24,7 @@ struct TargetObservation {
     var status = L10n.tr("请将支持的应用切到前台", "Bring a supported app to the foreground")
     var window: AXUIElement?
     var focused: AXUIElement?
+    var editor: AXUIElement?
     var menuHashes: Set<CFHashCode> = []
     var nativeMenu = false
     var pickerFrame: CGRect?
@@ -83,7 +84,7 @@ private struct AXSampleResult {
 
 @MainActor
 final class AccessibilityAdapter {
-    static let syntheticMarker: Int64 = 0x564942454B4559
+    nonisolated static let syntheticMarker: Int64 = 0x564942454B4559
     private let worker = DispatchQueue(label: "vibekey.accessibility", qos: .userInteractive)
     private var cached = TargetObservation()
     private var pendingPicker: PendingPicker?
@@ -360,6 +361,34 @@ final class AccessibilityAdapter {
 
     private var unassignedAction: String { L10n.tr("此应用动作未分配快捷键", "No shortcut assigned for this app action") }
 
+    /// Insert into the original editor only. No clipboard, Return or auto-send.
+    @discardableResult
+    func insertDictation(_ text: String, target: TargetIdentity, observation: TargetObservation) -> Bool {
+        guard trusted, !text.isEmpty, text.utf16.count <= 16000,
+              observe().identity == target,
+              DictationDelivery.accepts(target: target, observation: observation,
+                  frontmostPID: NSWorkspace.shared.frontmostApplication?.processIdentifier) else { return false }
+        let source = CGEventSource(stateID: .privateState)
+        // Chunk at Character boundaries to preserve emoji and surrogate pairs.
+        var chunks: [String] = [], chunk = ""
+        for character in text {
+            if chunk.utf16.count + String(character).utf16.count > 20, !chunk.isEmpty { chunks.append(chunk); chunk = "" }
+            chunk.append(character)
+        }
+        if !chunk.isEmpty { chunks.append(chunk) }
+        for chunk in chunks {
+            let units = Array(chunk.utf16)
+            for down in [true, false] {
+                guard let event = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: down) else { return false }
+                units.withUnsafeBufferPointer { event.keyboardSetUnicodeString(stringLength: units.count, unicodeString: $0.baseAddress) }
+                event.flags = []
+                event.setIntegerValueField(.eventSourceUserData, value: Self.syntheticMarker)
+                event.postToPid(target.pid)
+            }
+        }
+        return true
+    }
+
     private func post(_ stroke: KeyStroke, pid: pid_t, systemMenu: Bool = false) {
         let source = CGEventSource(stateID: systemMenu ? .privateState : .hidSystemState)
         for down in [true, false] {
@@ -547,10 +576,12 @@ private final class AXSampler {
             focusTrail[textIndex].selection = range(attribute(textOwner, kAXSelectedTextRangeAttribute))
         }
         result.context.editorFocused = AccessibilityHints.editorFocused(in: focusTrail, forceEditing: request.forceEditing)
+        if result.context.editorFocused { result.editor = textOwner }
         // Browser fields never redirect the wheel into caret navigation. This
         // also keeps the runtime's editing gesture scope from bypassing reduce.
         if profile.alwaysScrolls { result.context.editorFocused = false }
         if result.context.editorFocused, let textOwner {
+            result.editor = textOwner
             // Prefer length metadata. Only the confirmed composer may fall back
             // to its value; immediately reduce it to presence, never persist text.
             let count = (attribute(textOwner, kAXNumberOfCharactersAttribute) as? NSNumber)?.intValue

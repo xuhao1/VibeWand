@@ -4,7 +4,7 @@
 
 ## 1. 下载并打开
 
-从 [GitHub Releases](https://github.com/xuhao1/VibeWand/releases/latest) 下载 **[VibeWand-0.5.5-macOS-arm64.zip](https://github.com/xuhao1/VibeWand/releases/download/v0.5.5/VibeWand-0.5.5-macOS-arm64.zip)**。本包要求 **macOS 13+**、**Apple Silicon Mac**，不含 Intel 可执行文件。
+从 [GitHub Releases](https://github.com/xuhao1/VibeWand/releases/latest) 下载 **[VibeWand-0.6.0-macOS-arm64.zip](https://github.com/xuhao1/VibeWand/releases/download/v0.6.0/VibeWand-0.6.0-macOS-arm64.zip)**。本包要求 **macOS 13+**、**Apple Silicon Mac**，不含 Intel 可执行文件。
 
 1. 在 Finder 中双击 ZIP，解压得到 **VibeWand.app**。
 2. 拖入「应用程序」。
@@ -32,9 +32,9 @@
 
 ## 4. 配置听写
 
-在 macOS 或输入法中选择麦克风，让听写服务接受「按住 Fn」触发。先聚焦可编辑输入框，用键盘确认这个触发方式能够工作，再用 VibeWand。
+打开「设置 → 语音输入」。外置模式继续使用 Typeless、豆包等，需让输入法接受「按住 Fn」触发。内置模式可选择 macOS 系统听写、阿里 Qwen 实时语音，或兼容语音转文字 API。密钥进入钥匙串，不随配置导出。先用设置页的「开始测试」检查识别与权限。
 
-按住 VibeKey 麦克风键或手柄 △，说完松开。VibeWand 只发送 Fn 按下 / 松开，不录音、不转写。蓝牙手柄使用 Mac 或外接麦克风；USB 手柄音频需单独检查系统输入设备列表。
+聚焦可编辑输入框，按住 VibeKey 麦克风键或手柄 △，说完松开，检查文字后再发送。内置模式通常使用 macOS 默认麦克风。「设备与按键」提供可选 DualSense 蓝牙语音，要求与操作见[接入说明](dualsense-microphone-integration.md)；USB 手柄音频需单独检查系统输入设备列表。详见[语音输入](voice-input.md)。
 
 ## 5. 试一次默认流程
 

@@ -5,7 +5,7 @@ import AU05Device
 private func tr(_ zh: String, _ en: String) -> String { L10n.tr(zh, en) }
 
 enum SettingsStyle {
-    static var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.5.5" }
+    static var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.6.0" }
 }
 
 /// A system material that follows the window appearance without intercepting controls above it.

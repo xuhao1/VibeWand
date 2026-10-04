@@ -6,7 +6,8 @@ import AU05Device
 private func tr(_ zh: String, _ en: String) -> String { L10n.tr(zh, en) }
 
 enum SettingsSection: Int, CaseIterable {
-    case general, devices, applications, overlay, developer, about
+    case general, devices, applications, overlay, developer, about, speech
+    static let allCases: [SettingsSection] = [.general, .devices, .speech, .applications, .overlay, .developer, .about]
     var title: String {
         switch self {
         case .general: return tr("通用", "General")
@@ -15,6 +16,7 @@ enum SettingsSection: Int, CaseIterable {
         case .overlay: return tr("悬浮面板", "Overlay")
         case .developer: return tr("开发者", "Developer")
         case .about: return tr("关于", "About")
+        case .speech: return tr("语音输入", "Voice input")
         }
     }
     var symbol: String {
@@ -25,6 +27,7 @@ enum SettingsSection: Int, CaseIterable {
         case .overlay: return "macwindow"
         case .developer: return "chevron.left.forwardslash.chevron.right"
         case .about: return "info.circle"
+        case .speech: return "waveform"
         }
     }
 }
@@ -88,7 +91,7 @@ final class SettingsController: NSWindowController {
             L10n.shared.language = oldLanguage; model.section = oldSection
             window.appearance = oldAppearance; window.setFrame(oldFrame, display: true)
         }
-        let names = ["general", "devices", "applications", "overlay", "developer", "about"]
+        let names = ["general", "devices", "applications", "overlay", "developer", "about", "speech"]
         let variants: [(String, AppLanguage, NSAppearance.Name, NSSize)] = [
             ("zh", .zhHans, .aqua, NSSize(width: 1220, height: 790)),
             ("en-compact", .english, .aqua, NSSize(width: 1100, height: 750)),
@@ -263,6 +266,7 @@ private struct SettingsShell: View {
                 case .overlay: OverlaySettings(model: model)
                 case .developer: DeveloperSettings(model: model)
                 case .about: AboutSettings()
+                case .speech: SpeechSettings(model: model, voice: model.runtime.voiceInput)
                 }
             }.id(localization.language).frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -341,6 +345,17 @@ private struct DeviceSettings: View {
                 Button(action: model.importGestures) { Label(tr("导入", "Import"), systemImage: "square.and.arrow.down") }
                 Button(action: model.exportGestures) { Label(tr("导出", "Export"), systemImage: "square.and.arrow.up") }
                 Button { model.runtime.resetConfiguration(); model.refresh() } label: { Label(tr("恢复默认", "Reset"), systemImage: "arrow.counterclockwise") }
+            }
+            if model.template.id == .dualSense {
+                HStack(spacing: 12) {
+                    Toggle(tr("启用手柄蓝牙语音", "Enable controller Bluetooth microphone"), isOn: Binding(
+                        get: { model.runtime.dualSenseVoiceEnabled },
+                        set: { enabled in model.perform { try model.runtime.setDualSenseVoiceEnabled(enabled) }; model.refresh() }
+                    )).toggleStyle(.switch).disabled(!DualSenseMicrophoneSource.supported || model.runtime.templates.profile(for: .dualSense) != nil)
+                    Spacer()
+                    Text(model.runtime.connectionSummary).font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+                SettingsNote(text: tr("实验版 · 开启后内置语音输入使用 DualSense 麦克风，按键由 VibeWand 接收。连接时会暂时开启游戏模式；USB 或其他手柄继续使用常规输入。外置输入法需自行选择 VibeWand DualSense Mic。", "Experimental · Built-in dictation uses the DualSense microphone while enabled; VibeWand receives its buttons. Game Mode is temporarily enabled while connected. USB and other controllers use normal input. Select VibeWand DualSense Mic in an external input method."))
             }
             GeometryReader { area in
                 HStack(alignment: .top, spacing: 14) {

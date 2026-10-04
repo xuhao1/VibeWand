@@ -1,4 +1,14 @@
 import Foundation
+import SpeechInput
+
+struct VoiceHUDSnapshot {
+    var enabled = false
+    var state: DictationState = .idle
+    var style: DictationTextStyle = .verbatim
+    var text = ""
+    var status = ""
+    var showsText: Bool { enabled && (state.active || !text.isEmpty) }
+}
 
 enum DeviceControl: String, CaseIterable, Codable {
     case dial, left, right, ok, escape, voice, settings, forceEscape
@@ -23,8 +33,11 @@ enum InputPhase: String, Codable {
 }
 
 struct HUDSnapshot {
+    var voice = VoiceHUDSnapshot()
     var deviceTemplate: DeviceTemplateID = .vibeKey
     var controlActions: [DeviceControl: String] = [:]
+    var scope: GestureScope = .reading
+    var controlHints: [DeviceControl: [HUDGestureHint]] = [:]
     var mode = L10n.tr("等待输入", "Waiting for input")
     var action = L10n.tr("按旋钮选会话，转动移动光标", "Press the dial for chats; turn to move the cursor")
     var status = "VibeWand"

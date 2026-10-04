@@ -11,10 +11,11 @@ A native macOS companion for **vibe coding without a mouse or keyboard**, with b
 ## Why VibeWand
 
 - **Controls that follow context.** Scroll through a conversation, move the caret in a draft, or choose an item in a recognized picker using the same navigation controls.
-- **Hold to dictate.** Hold the microphone key or △, speak, and release to finish. VibeWand sends the Fn trigger to your configured dictation service.
+- **Hold to dictate.** Hold the microphone key or △, speak, and release to finish. Choose an external input method, macOS dictation, or your own speech API.
+- **Live words, clean drafts.** Built-in dictation previews text as you speak, with verbatim or polished output. It updates only the current dictation range and never submits the message.
 - **Switch without reaching for the keyboard.** Open conversations, move between browser tabs, or choose another macOS app.
 - **Make the layout yours.** Click a control in the device picture to remap its gestures. Each hardware template keeps its own settings.
-- **Native and local.** A quiet floating panel, Chinese and English interfaces, and local configuration. No VibeWand cloud account or API key is required.
+- **Native and local.** A native device HUD or compact voice bar, Chinese and English interfaces, and local configuration. No VibeWand cloud account or API key is required.
 
 ![VibeWand native device editor, with device picture, input list, and gesture inspector](docs/images/ui-audit/en-compact-devices.png)
 
@@ -25,7 +26,7 @@ A native macOS companion for **vibe coding without a mouse or keyboard**, with b
 | Supported type | Connection | Default experience | Typical supported devices |
 | --- | --- | --- | --- |
 | **VibeKey**<br><img src="assets/device/controller.png" height="110" alt="VibeKey dial controller"> | Built-in receiver backend | Turn to navigate, hold to dictate, and press OK / ESC to confirm or return. | Ulanzi VibeKey (AU05) |
-| **Controller**<br><img src="assets/device/gamepad.png" height="90" alt="Gamepad controller"> | USB or Bluetooth through macOS GameController | R1 / R2 navigate, ○ confirms, □ deletes, × returns, and △ holds dictation. Touchpad movement controls the pointer. | Sony DualSense (PS5) |
+| **Controller**<br><img src="assets/device/gamepad.png" height="90" alt="Gamepad controller"> | USB or Bluetooth through macOS GameController | Context-aware navigation, confirm / back / delete, held dictation, and touchpad pointer control. | Sony DualSense (PS5) |
 | **Remote Controller**<br><img src="assets/device/remote.png" height="110" alt="Handheld remote controller"> | Device-specific HID profile | Navigate with the direction ring, confirm with the center button, and use voice / back / menu controls. | Xiaomi Bluetooth Remote 2 Pro |
 
 Connection setup, model-specific capabilities, and validation details are in the [hardware guide](docs/device-templates.en.md).
@@ -40,7 +41,7 @@ Built-in adapters cover **Codex, DeepSeek Harness, browsers, WeChat, and Feishu*
 
 ## Download and install
 
-**[Download VibeWand for macOS — Apple Silicon](https://github.com/xuhao1/VibeWand/releases/download/v0.5.5/VibeWand-0.5.5-macOS-arm64.zip)** · [Release notes](https://github.com/xuhao1/VibeWand/releases/latest)
+**[Download VibeWand for macOS — Apple Silicon](https://github.com/xuhao1/VibeWand/releases/download/v0.6.0/VibeWand-0.6.0-macOS-arm64.zip)** · [Release notes](https://github.com/xuhao1/VibeWand/releases/latest)
 
 Requires **macOS 13+** and an **Apple Silicon Mac** (M series). Download the ZIP, extract it in Finder, drag **VibeWand.app** into **Applications**, then double-click to open it. No development tools are needed.
 
@@ -50,7 +51,7 @@ This release is ad-hoc signed and is not Apple-notarized; see [Getting started](
 
 ### Build from source
 
-For your own build, install **Xcode** with a **Swift 5.9+ toolchain**, download the source, and run this in the project folder:
+For your own build, install **Xcode 26 or later** and **Homebrew Opus** on an Apple Silicon Mac, download the source, and run this in the project folder:
 
 ```sh
 bash scripts/build-app.sh
@@ -60,16 +61,16 @@ Then open `dist/VibeWand.app` in Finder. See the [compilation guide](docs/develo
 
 ## Documentation
 
-[Default controls](docs/core-experience.en.md) · [Settings and remapping](docs/settings.en.md) · [Applications](docs/applications.en.md) · [Troubleshooting](docs/troubleshooting.en.md) · [Development](docs/development.md)
+[Default controls](docs/core-experience.en.md) · [Settings and remapping](docs/settings.en.md) · [Voice input](docs/voice-input.md) · [Applications](docs/applications.en.md) · [Troubleshooting](docs/troubleshooting.en.md) · [Development](docs/development.md)
 
 The [documentation index](docs/README.md) includes Chinese guides, hardware references, and engineering records. For contributions and bug reports, see [Contributing](CONTRIBUTING.md).
 
 ## Privacy and license
 
-VibeWand processes device input and configuration locally. It uses Accessibility and local keyboard/pointer events; it does not record audio or upload conversations. Dictation is handled by macOS or your chosen input method, whose own privacy policy applies.
+VibeWand processes device input and configuration locally. External mode sends Fn only. Built-in mode records your selected microphone into memory. System recognition prefers on-device processing when supported and may use Apple’s online service for other languages; API mode streams audio to your configured endpoint while recording. API keys stay in macOS Keychain and are excluded from exports. Dictation inserts into the original editor without submitting. See [Voice input](docs/voice-input.md).
 
 Source is available under [PolyForm Noncommercial 1.0.0](LICENSE). **Personal noncommercial use, modification, and redistribution are permitted under its terms. Commercial use requires contacting [Hao Xu](https://github.com/xuhao1) and obtaining a separate license before use.** [Ask about commercial licensing](https://github.com/xuhao1/VibeWand/issues/new?title=Commercial%20licensing%20inquiry).
 
 Because it restricts commercial use, this is a source-available license rather than an OSI-approved open-source license. Third-party components retain their original licenses; see [acknowledgments](third-party/README.md).
 
-Created by **Dr. Hao Xu**, Tenure-track Associate Professor at Nanjing University. [Personal website](http://xuhao1.me) · [GitHub](https://github.com/xuhao1)
+Created by **Dr. Xu**. [Personal website](http://xuhao1.me) · [GitHub](https://github.com/xuhao1)

@@ -5,14 +5,19 @@ let package = Package(
     name: "VibeWand",
     platforms: [.macOS(.v13)],
     products: [
+        .library(name: "SpeechInput", targets: ["SpeechInput"]),
+        .executable(name: "SpeechAPICheck", targets: ["SpeechAPICheck"]),
         .library(name: "AU05Device", targets: ["AU05Device"]),
         .executable(name: "AU05Capture", targets: ["AU05Capture"]),
         .executable(name: "VibeWand", targets: ["VibeKeyBridge"])
     ],
     targets: [
+        .target(name: "SpeechInput"),
+        .executableTarget(name: "SpeechAPICheck", dependencies: ["SpeechInput"]),
         .target(name: "AU05Device"),
         .executableTarget(name: "AU05Capture", dependencies: ["AU05Device"]),
-        .executableTarget(name: "VibeKeyBridge", dependencies: ["AU05Device"]),
+        .executableTarget(name: "VibeKeyBridge", dependencies: ["AU05Device", "SpeechInput"]),
+        .testTarget(name: "SpeechInputTests", dependencies: ["SpeechInput"]),
         .testTarget(name: "AU05DeviceTests", dependencies: ["AU05Device"]),
         .testTarget(name: "VibeKeyBridgeTests", dependencies: ["VibeKeyBridge"])
     ]
