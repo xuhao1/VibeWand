@@ -36,7 +36,6 @@ final class ControllerPointerTests: XCTestCase {
         XCTAssertEqual(SystemPointer.relativeTarget(from: .init(x: 10, y: 300), motion: .init(dx: -310, dy: 30), displays: displays), .init(x: -300, y: 330))
         XCTAssertEqual(SystemPointer.relativeTarget(from: .init(x: 10, y: 300), motion: .init(dx: -60, dy: 0), displays: displays), .init(x: 0, y: 300))
         XCTAssertEqual(SystemPointer.relativeTarget(from: .init(x: 900, y: 700), motion: .init(dx: 300, dy: 300), displays: displays), .init(x: 999, y: 799))
-        XCTAssertEqual(SystemPointer.relativeTarget(from: .zero, motion: .init(dx: .nan, dy: 0), displays: displays), .zero)
     }
 
     @MainActor

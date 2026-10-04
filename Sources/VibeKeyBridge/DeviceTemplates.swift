@@ -43,7 +43,7 @@ struct DeviceTemplate {
             // Cross=ok. Only the controller preset changes their actions.
             configuration.set(.global, .dial, .single, .deleteBackward)
             configuration.set(.global, .dial, .double, GestureAction.none)
-            configuration.set(.global, .dial, .long, GestureAction.none)
+            configuration.set(.global, .dial, .long, .deleteBackward)
             configuration.set(.global, .escape, .single, .contextConfirm)
             configuration.set(.global, .escape, .long, .models)
             configuration.set(.global, .ok, .single, .escape)
@@ -120,14 +120,14 @@ struct DeviceTemplate {
                 direction(.left, L10n.tr("左旋", "Turn left"), 0.18, 0.27), direction(.right, L10n.tr("右旋", "Turn right"), 0.82, 0.27),
                 button(.voice, L10n.tr("麦克风键", "Microphone"), L10n.tr("按住听写，松开结束", "Hold to dictate; release to finish"), "mic.fill", 0.50, 0.55),
                 button(.ok, L10n.tr("OK 键", "OK"), L10n.tr("确认 / Enter", "Confirm / Enter"), "return", 0.50, 0.72),
-                button(.escape, L10n.tr("ESC 键", "ESC"), L10n.tr("删除 / 返回 · 长按 Escape", "Delete / back · long press for Escape"), "delete.left", 0.50, 0.88)
+                button(.escape, L10n.tr("ESC 键", "ESC"), L10n.tr("删除 / 返回 · 编辑时按住连续删除", "Delete / back · hold to keep deleting while editing"), "delete.left", 0.50, 0.88)
             ]),
         DeviceTemplate(id: .dualSense, title: L10n.tr("手柄", "Controller"), subtitle: L10n.tr("右手完成全部操作 · 按键可自定义", "Everything within your right hand · fully remappable"),
             connectionNote: L10n.tr("通过 USB 连接，或先在 macOS 蓝牙设置中配对。系统支持的手柄会自动识别，无需导入 HID 配置。按键支持以设备实际提供的输入为准。", "Connect over USB or pair in macOS Bluetooth settings. Supported controllers are detected automatically, without an HID profile. Available buttons depend on the device."),
             audioNote: L10n.tr("USB 麦克风以系统输入设备实际识别为准；蓝牙使用 Mac 或外接麦克风。△ 按住听写。", "For USB microphones, check macOS input devices. With Bluetooth, use your Mac or an external microphone. Hold △ to dictate."),
             controls: [
                 direction(.left, "R1", 0.79, 0.21), direction(.right, "R2", 0.78, 0.10),
-                button(.dial, L10n.tr("□ 方形键", "□ Square"), L10n.tr("单击退格，删除光标前字符或选区", "Press to backspace: delete the previous character or selection"), "square", 0.75, 0.38),
+                button(.dial, L10n.tr("□ 方形键", "□ Square"), L10n.tr("单击退格 · 按住连续删除", "Press to backspace · hold to keep deleting"), "square", 0.75, 0.38),
                 button(.ok, L10n.tr("× 交叉键", "× Cross"), L10n.tr("单击返回 · 双击切应用 · 长按会话 / 标签页", "Press to go back · double press to switch apps · long press for chats / tabs"), "xmark", 0.82, 0.47),
                 button(.escape, L10n.tr("○ 圆形键", "○ Circle"), L10n.tr("单击确认 / Enter · 长按模型 / 强度", "Press to confirm / Enter · long press for models / effort"), "circle", 0.89, 0.38),
                 button(.voice, L10n.tr("△ 三角键", "△ Triangle"), L10n.tr("右拇指按住听写；食指可同时使用 R1 / R2 导航", "Hold with your right thumb to dictate while navigating with R1 / R2."), "triangle", 0.82, 0.29),
@@ -160,7 +160,7 @@ struct DeviceTemplate {
                 button(.voice, L10n.tr("语音键", "Voice"), L10n.tr("按住听写，松开结束", "Hold to dictate; release to finish"), "mic.fill", 0.50, 0.16),
                 button(.dial, L10n.tr("中央确认键", "Center button"), L10n.tr("单击确认 · 双击切应用 · 长按会话", "Press to confirm · double press to switch apps · long press for chats"), "circle.circle", 0.50, 0.38),
                 direction(.left, L10n.tr("方向左", "Left"), 0.19, 0.38), direction(.right, L10n.tr("方向右", "Right"), 0.81, 0.38),
-                button(.escape, L10n.tr("返回键", "Back"), L10n.tr("删除 / 返回 · 长按 Escape", "Delete / back · long press for Escape"), "arrow.uturn.backward", 0.29, 0.64),
+                button(.escape, L10n.tr("返回键", "Back"), L10n.tr("删除 / 返回 · 编辑时按住连续删除", "Delete / back · hold to keep deleting while editing"), "arrow.uturn.backward", 0.29, 0.64),
                 button(.ok, L10n.tr("菜单键", "Menu"), L10n.tr("单击切换会话 / 标签页 · 长按模型 · 选择器中确认", "Press to switch chats / tabs · long press for models · confirm in pickers"), "line.3.horizontal", 0.71, 0.64),
                 unassigned(.power, "power", 0.50, 0.07),
                 unassigned(.dpadUp, "arrow.up", 0.50, 0.29),
@@ -195,7 +195,7 @@ final class DeviceTemplateStore {
         var configurations: [String: GestureConfiguration] = [:]
         var profiles: [String: HIDDeviceProfile] = [:]
         // Optional for the v1 store written before controller pointer support.
-        var presetRevision: Int? = 4
+        var presetRevision: Int? = 5
     }
     private let defaults: UserDefaults
     private var state: State
@@ -216,6 +216,7 @@ final class DeviceTemplateStore {
             migratePresetDefaults()
             migrateSessionConfirmation()
             migrateEffortModelEntry()
+            migrateHeldDelete()
         } else {
             state = State()
             state.presetRevision = 1
@@ -223,6 +224,7 @@ final class DeviceTemplateStore {
             migratePresetDefaults()
             migrateSessionConfirmation()
             migrateEffortModelEntry()
+            migrateHeldDelete()
         }
     }
 
@@ -350,6 +352,17 @@ final class DeviceTemplateStore {
             state.configurations[id.rawValue] = saved
         }
         state.presetRevision = 4
+        try? persist()
+    }
+    /// Revision 5: holding the controller's delete button keeps deleting.
+    private func migrateHeldDelete() {
+        guard (state.presetRevision ?? 1) < 5 else { return }
+        if var saved = state.configurations[DeviceTemplateID.dualSense.rawValue] {
+            let key = GestureConfiguration.key(.global, .dial, .long)
+            if saved.overrides[key] == nil || saved.overrides[key] == GestureAction.none { saved.overrides[key] = .deleteBackward }
+            state.configurations[DeviceTemplateID.dualSense.rawValue] = saved
+        }
+        state.presetRevision = 5
         try? persist()
     }
     private func migrateSessionConfirmation() {

@@ -4,27 +4,10 @@ import AU05Device
 
 struct InputMappings: Codable {
     var bindings: [String: String] = [:]
-    private var held: [AU05Control: DeviceControl] = [:]
-    enum CodingKeys: String, CodingKey { case bindings }
     func resolve(_ input: AU05Control) -> DeviceControl? {
         let value = bindings[input.rawValue] ?? input.rawValue
         return DeviceControl(rawValue: value) // "disabled" resolves to nil.
     }
-    mutating func route(_ input: AU05Control, phase: AU05Phase) -> [(DeviceControl, InputPhase)] {
-        switch phase {
-        case .pulse:
-            return resolve(input).map { [($0, .pulse)] } ?? []
-        case .down:
-            guard held[input] == nil, let control = resolve(input) else { return [] }
-            let alreadyHeld = held.values.contains(control)
-            held[input] = control
-            return alreadyHeld ? [] : [(control, .down)]
-        case .up, .cancel:
-            guard let control = held.removeValue(forKey: input) else { return [] }
-            return held.values.contains(control) ? [] : [(control, phase == .up ? .up : .cancel)]
-        }
-    }
-    mutating func reset() { held.removeAll() }
 }
 
 @MainActor

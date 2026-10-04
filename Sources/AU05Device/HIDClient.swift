@@ -188,9 +188,7 @@ public final class AU05HIDClient {
         let path = "/tmp/vibekey-au05-\(getuid()).lock"
         let fd = Darwin.open(path, O_CREAT | O_RDWR | O_NOFOLLOW, S_IRUSR | S_IWUSR)
         guard fd >= 0 else { return false }
-        var info = stat()
-        guard fstat(fd, &info) == 0, info.st_uid == getuid(), (info.st_mode & S_IFMT) == S_IFREG,
-              flock(fd, LOCK_EX | LOCK_NB) == 0 else { close(fd); return false }
+        guard flock(fd, LOCK_EX | LOCK_NB) == 0 else { close(fd); return false }
         lockFD = fd; return true
     }
 }

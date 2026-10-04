@@ -165,7 +165,8 @@ struct GestureConfiguration: Codable {
         case (.dial, .heldRight), (.right, .rotate): return .contextRight
         case (.ok, .single): return .contextConfirm
         case (.escape, .single): return .contextEscape
-        case (.escape, .long): return .escape
+        // Same scene rule as the press; while editing, the runtime repeats it until release.
+        case (.escape, .long): return .contextEscape
         case (.voice, .hold): return .dictation
         case (.settings, .single): return .models
         case (.forceEscape, .single): return .escape

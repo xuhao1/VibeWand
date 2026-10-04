@@ -73,7 +73,6 @@ struct InteractionContext {
     var modalOpen: Bool
     var compositionActive: Bool
     var picker: InteractionMode?
-    var compositionKnown: Bool = true
     var hasDraftText: Bool? = nil
     var applicationProfile: ApplicationProfile = .codex
 
@@ -88,8 +87,6 @@ struct InteractionContext {
 
 struct InteractionState {
     var mode: InteractionMode = .browse
-    var ownerPID: Int32?
-    var pickerConfirmed = false
 }
 
 enum BridgeEffect: Equatable {

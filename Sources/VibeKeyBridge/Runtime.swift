@@ -57,6 +57,9 @@ final class BridgeRuntime {
     private var demoApplicationIndex = 0
     private struct GestureOwner { var identity: TargetIdentity?; var pid: pid_t? }
     private var gestureOwners: [UInt64: GestureOwner] = [:]
+    /// A long press that deleted keeps deleting until its key is released.
+    private var deleteRepeat: (signal: GestureSignal, due: TimeInterval)?
+    static let deleteRepeatInterval: TimeInterval = 0.07
     private var dictationHolders: Set<DeviceControl> = []
     private var hardwarePressed: Set<DeviceControl> = []
     private var hardwarePulseTimers: [DeviceControl: Timer] = [:]
@@ -377,14 +380,12 @@ final class BridgeRuntime {
         syncCompanions()
     }
     func configureDevice(profile: HIDDeviceProfile?) throws {
-        try profile?.validate()
         try templates.setProfile(profile, for: templates.selectedID)
         try replaceDevice(profile: profile, template: templates.selectedID)
         onSettingsChanged?()
     }
     func selectTemplate(_ id: DeviceTemplateID) throws {
         let profile = templates.profile(for: id)
-        try profile?.validate()
         // A layout that is already listening becomes current without a reconnect.
         if id != templates.selectedID, companions[id] != nil { promote(id); return }
         let configuration = try templates.select(id, currentConfiguration: self.configuration)
@@ -399,13 +400,9 @@ final class BridgeRuntime {
         if inputStarted { connectDevice(); syncCompanions() }
     }
     func updateConfiguration(_ value: GestureConfiguration) throws {
-        try value.validate(); try templates.updateConfiguration(value)
+        try templates.updateConfiguration(value)
         cancelAll(); configuration = value; refresh(); onSettingsChanged?()
     }
-    func openApplicationSwitcher() {
-        dispatch(GestureSignal(control: .dial, kind: .double, action: .switchApplications, phase: .pulse, token: 0))
-    }
-    func cancelApplicationSwitcher() { applicationSwitcher.cancel(); demoSwitcherActive = false; refresh() }
     func resetConfiguration() {
         if let value = try? templates.resetConfiguration() { cancelAll(); configuration = value; refresh(); onSettingsChanged?() }
     }
@@ -430,8 +427,7 @@ final class BridgeRuntime {
         }
     }
     func receivePointerMotion(_ motion: ControllerPointerMotion) {
-        guard inputStarted, inputReady, templates.selectedID == .dualSense,
-              motion.dx.isFinite, motion.dy.isFinite else { return }
+        guard inputStarted, inputReady, templates.selectedID == .dualSense else { return }
         snapshot.action = L10n.tr("触摸板 · 移动光标", "Touchpad · move pointer")
         if !captureOnly && !demo && adapter.trusted {
             if let sendPointerMotion { sendPointerMotion(motion) }
@@ -499,6 +495,22 @@ final class BridgeRuntime {
     func advanceGestures(now: TimeInterval = ProcessInfo.processInfo.systemUptime) {
         guard !captureOnly else { return }
         gestureEngine.tick(now: now).forEach(dispatch)
+        repeatDelete(now: now)
+    }
+    /// Like a keyboard's Backspace. Repeats are plain deletions, so emptying the
+    /// draft cannot turn the rest of the hold into Escape.
+    private func repeatDelete(now: TimeInterval) {
+        guard let repeating = deleteRepeat else { return }
+        guard gestureEngine.token(for: repeating.signal.control) == repeating.signal.token else { deleteRepeat = nil; return }
+        guard now >= repeating.due else { return }
+        deleteRepeat?.due = now + Self.deleteRepeatInterval
+        if demo { execute(repeating.signal, observation: demoObservation()); return }
+        // The last sample is at most one poll old; each repeat asks for the next one.
+        let observation = adapter.observe()
+        if let identity = observation.identity, identity == gestureOwners[repeating.signal.token]?.identity {
+            execute(repeating.signal, observation: observation)
+        }
+        refresh()
     }
     private var switcherActive: Bool { demo ? demoSwitcherActive : applicationSwitcher.active }
     private func currentScope(_ context: InteractionContext) -> GestureScope {
@@ -512,7 +524,6 @@ final class BridgeRuntime {
         }
     }
     private func dispatch(_ signal: GestureSignal) {
-        guard !captureOnly else { return }
         if signal.action == .pointerClick {
             guard signal.phase == .pulse || signal.phase == .down else { return }
             if !demo && adapter.trusted {
@@ -530,7 +541,7 @@ final class BridgeRuntime {
             let wasHeld = !dictationHolders.isEmpty
             if signal.phase == .down { dictationHolders.insert(signal.control) }
             else if signal.phase == .up || signal.phase == .cancel { dictationHolders.remove(signal.control) }
-            if !demo && !captureOnly && adapter.trusted {
+            if !demo && adapter.trusted {
                 if voiceInput.configuration.mode == .external {
                     if signal.phase == .pulse { dictation.pulse() }
                     else { dictation.setHeld(!dictationHolders.isEmpty) }
@@ -580,7 +591,7 @@ final class BridgeRuntime {
         let owner = gestureOwners[signal.token]
         let requestGeneration = generation, started = ProcessInfo.processInfo.systemUptime
         adapter.requestRefresh { [weak self] observation in
-            guard let self, !self.demo, !self.captureOnly, self.generation == requestGeneration,
+            guard let self, self.generation == requestGeneration,
                   ProcessInfo.processInfo.systemUptime - started < 0.5,
                   observation.context.targetAvailable,
                   let original = owner?.identity, let current = observation.identity,
@@ -620,6 +631,11 @@ final class BridgeRuntime {
         case .confirmCandidate: effect = .confirmCandidate
         case .cancelPicker: effect = .cancelPicker
         default: effect = .none
+        }
+        if effect == .deleteBackward, signal.kind == .long, deleteRepeat == nil,
+           gestureEngine.token(for: signal.control) == signal.token {
+            var next = signal; next.action = .deleteBackward
+            deleteRepeat = (next, ProcessInfo.processInfo.systemUptime + Self.deleteRepeatInterval)
         }
         let title = observation.context.applicationProfile.title(for: effect)
         snapshot.action = title; record(signal, action: title)
@@ -680,26 +696,6 @@ final class BridgeRuntime {
             value["hidMetrics"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(au05.diagnostics))
         }
         return value
-    }
-
-    // MARK: Automation entry points (same paths as hardware; see Automation.swift)
-
-    func simulate(_ control: DeviceControl, phase: InputPhase, device id: DeviceTemplateID?) throws {
-        if let id, id != templates.selectedID { try selectTemplate(id) }
-        if let input = AU05Control(rawValue: control.rawValue), let wire = AU05Phase(rawValue: phase.rawValue) {
-            receiveHardware(AU05Event(control: input, phase: wire, sequence: 0, uptime: ProcessInfo.processInfo.systemUptime))
-        } else { handle(control, phase: phase); emit() }
-    }
-
-    func automationDictate(previews: [String], interval: TimeInterval, polished: Bool) {
-        voiceInput.engineOverride = { _ in TranscriptReplayEngine(previews: previews, interval: interval) }
-        voiceInput.styleOverride = polished ? nil : .verbatim
-        replaySpeech(duration: Double(previews.count) * interval, tail: 0.4)
-    }
-
-    func automationListen(seconds: TimeInterval) {
-        voiceInput.engineOverride = nil; voiceInput.styleOverride = nil
-        replaySpeech(duration: seconds, tail: 0)
     }
 
     private func refresh() {
@@ -815,12 +811,12 @@ final class BridgeRuntime {
         }
     }
     private func previewDictation(_ text: String) {
-        guard !demo, !captureOnly, dictationTarget != nil, liveDraft != nil else { return }
+        guard dictationTarget != nil, liveDraft != nil else { return }
         pendingDictationPreview = text
         flushDictationDraft()
     }
     private func deliverDictation(_ text: String) {
-        guard dictationTarget != nil, !demo, !captureOnly else { return }
+        guard dictationTarget != nil else { return }
         if liveDraft != nil { pendingDictationFinal = text; flushDictationDraft(); return }
         if liveDraftDiverged {
             finishDictation(L10n.tr("草稿在听写时被修改，已保留写入的文字", "The draft changed while dictating; the text already written was kept"))
@@ -931,19 +927,19 @@ final class BridgeRuntime {
         do { try voiceInput.toggleTextStyle() }
         catch { voiceInput.report((error as? SpeechInputError)?.displayMessage ?? error.localizedDescription) }
     }
-    func replaySpeech(duration: Double, tail: Double = 2) {
+    func replaySpeech(duration: Double) {
         guard !demo, !captureOnly else { return }
         adapter.requestRefresh { [weak self] _ in
             guard let self else { return }
             self.beginDictation(replay: true)
             Task { @MainActor [weak self] in
-                try? await Task.sleep(nanoseconds: UInt64((duration + tail) * 1_000_000_000))
+                try? await Task.sleep(nanoseconds: UInt64((duration + 2) * 1_000_000_000))
                 guard let self, self.voiceInput.state == .recording else { return }; self.voiceInput.end()
             }
         }
     }
     func updateSpeechConfiguration(_ value: SpeechConfiguration) throws {
-        try value.validate(); cancelAll(); try voiceInput.update(value); onSettingsChanged?()
+        cancelAll(); try voiceInput.update(value); onSettingsChanged?()
     }
     private func demoObservation() -> TargetObservation {
         var observation = TargetObservation()

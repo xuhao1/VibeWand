@@ -17,7 +17,7 @@
     "global.ok.hold": "none",
     "global.escape.single": "contextEscape",
     "global.escape.double": "none",
-    "global.escape.long": "escape",
+    "global.escape.long": "contextEscape",
     "global.escape.hold": "none",
     "global.left.rotate": "contextLeft",
     "global.right.rotate": "contextRight",

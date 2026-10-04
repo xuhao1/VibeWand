@@ -66,10 +66,6 @@ cat > "$task_staged_app/Contents/Info.plist" <<'PLIST'
 <key>NSSpeechRecognitionUsageDescription</key><string>使用 macOS 语音识别，将你主动录制的语音转换为文字。</string>
 </dict></plist>
 PLIST
-# Development bundles can stay visible to screen-inspection tools as a normal app.
-if [ "${VIBEWAND_DOCK_APP:-0}" = "1" ]; then
-  /usr/libexec/PlistBuddy -c "Delete :LSUIElement" "$task_staged_app/Contents/Info.plist"
-fi
 task_signing_identity="${VIBEWAND_SIGNING_IDENTITY:-${VIBEKEY_SIGNING_IDENTITY:-}}"
 if [ -z "$task_signing_identity" ]; then
   task_identity_list="$(security find-identity -v -p codesigning | awk '/Apple Development:/ { print $2 }')"

@@ -35,12 +35,6 @@ For behavior changes, run the test suite with the same Xcode toolchain:
 swift test
 ```
 
-## End-to-end checks / 端到端检查
-
-`scripts/dev-run.sh` builds a debug bundle, signs it with your Apple Development identity (so the Accessibility grant survives rebuilds) and starts it with `--automation-socket`. `scripts/vwctl '<json>'` then drives the same entry points the hardware uses: `{"cmd":"tap","control":"dial"}`, `{"cmd":"turn","control":"right","count":2}`, `{"cmd":"dictate","previews":["…"]}` (replayed transcript, no microphone), `{"cmd":"listen","seconds":6}` (real microphone), `{"cmd":"field"}` (read back the focused editor), `{"cmd":"ax"}` (accessibility dump) and `{"cmd":"overlay","toggle":true}`. The socket exists only with that flag, accepts the same user only, and its raw key command refuses Return, so a check cannot send a draft.
-
-`scripts/dev-run.sh` 构建调试包、用开发证书签名（重新编译后辅助功能授权仍然有效），并带 `--automation-socket` 启动。`scripts/vwctl` 走的是与硬件相同的入口，可以注入按键、回放听写、读回输入框、导出界面结构。套接字只在带该参数时存在，仅限同一用户，原始按键命令拒绝 Return，检查过程不会把草稿发出去。
-
 ## Source layout / 源码布局
 
 `AU05Capture` emits normalized input as NDJSON and writes connection status to stderr. The CLI and GUI cannot own the AU05 simultaneously. Normal exit, SIGINT, and SIGTERM release the interface and temporary hooks.

@@ -20,7 +20,7 @@ final class InteractionTests: XCTestCase {
 
     func testNoControlReachesAnotherApplication() {
         for control in DeviceControl.allCases {
-            var state = InteractionState(mode: .sessions, ownerPID: 42, pickerConfirmed: true)
+            var state = InteractionState(mode: .sessions)
             let effect = reduce(
                 state: &state,
                 control: control,
@@ -28,8 +28,6 @@ final class InteractionTests: XCTestCase {
             )
             XCTAssertEqual(effect, .none, "Unexpected effect for \(control)")
             XCTAssertEqual(state.mode, .unavailable)
-            XCTAssertNil(state.ownerPID)
-            XCTAssertFalse(state.pickerConfirmed)
         }
     }
 
@@ -39,18 +37,15 @@ final class InteractionTests: XCTestCase {
         XCTAssertEqual(state.mode, .browse, "Sending a shortcut must not pretend its UI opened")
         XCTAssertEqual(reduce(state: &state, control: .right, context: context(picker: .sessions)), .moveCandidate(1))
         XCTAssertEqual(reduce(state: &state, control: .dial, context: context(picker: .sessions)), .confirmCandidate)
-        XCTAssertTrue(state.pickerConfirmed)
 
         XCTAssertEqual(reduce(state: &state, control: .right, context: context(editing: true)), .moveCursor(1))
         XCTAssertEqual(state.mode, .editing)
-        XCTAssertFalse(state.pickerConfirmed)
     }
 
     func testMissingPickerRecoversFromStaleStateInsteadOfSendingReturn() {
-        var state = InteractionState(mode: .sessions, ownerPID: 42, pickerConfirmed: true)
+        var state = InteractionState(mode: .sessions)
         XCTAssertEqual(reduce(state: &state, control: .dial, context: context(editing: true)), .openSessions)
         XCTAssertEqual(state.mode, .editing)
-        XCTAssertFalse(state.pickerConfirmed)
     }
 
     func testFocusSwitchImmediatelyChangesRotationAndEscape() {
@@ -100,7 +95,6 @@ final class InteractionTests: XCTestCase {
             XCTAssertEqual(reduce(state: &state, control: .right, context: observed), .none)
             XCTAssertEqual(reduce(state: &state, control: .settings, context: observed), .none)
             XCTAssertEqual(reduce(state: &state, control: .dial, context: observed), .sendReturn)
-            XCTAssertFalse(state.pickerConfirmed, "IME confirmation must not confirm the enclosing picker")
         }
     }
 
@@ -110,9 +104,7 @@ final class InteractionTests: XCTestCase {
             let observed = context(editing: true, modal: true, picker: picker)
             XCTAssertEqual(reduce(state: &state, control: .left, context: observed), .moveCandidate(-1))
             XCTAssertEqual(reduce(state: &state, control: .ok, context: observed), .confirmCandidate)
-            XCTAssertTrue(state.pickerConfirmed)
             XCTAssertEqual(reduce(state: &state, control: .escape, context: observed), .cancelPicker)
-            XCTAssertFalse(state.pickerConfirmed)
             XCTAssertEqual(state.mode, picker, "Cancellation does not prove the modal closed")
         }
     }
@@ -122,10 +114,8 @@ final class InteractionTests: XCTestCase {
         XCTAssertEqual(reduce(state: &state, control: .settings, context: context(editing: true)), .openModels)
         XCTAssertEqual(state.mode, .editing)
         XCTAssertEqual(reduce(state: &state, control: .dial, context: context(picker: .models)), .confirmCandidate)
-        XCTAssertTrue(state.pickerConfirmed)
         XCTAssertEqual(reduce(state: &state, control: .right, context: context(picker: .efforts)), .moveCandidate(1))
         XCTAssertEqual(state.mode, .efforts)
-        XCTAssertFalse(state.pickerConfirmed)
     }
 
     func testNativeReturnAndEscapeRemainAvailable() {

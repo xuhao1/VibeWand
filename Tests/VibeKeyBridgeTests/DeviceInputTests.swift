@@ -3,24 +3,6 @@ import AU05Device
 @testable import VibeKeyBridge
 
 final class DeviceInputTests: XCTestCase {
-    func testRemappingLatchesUntilReleaseAndCanDisableAControl() {
-        var mappings = InputMappings()
-        mappings.bindings["voice"] = "ok"
-        XCTAssertEqual(mappings.route(.voice, phase: .down).first?.0, .ok)
-        mappings.bindings["voice"] = "escape"
-        XCTAssertEqual(mappings.route(.voice, phase: .up).first?.0, .ok)
-        mappings.bindings["right"] = "disabled"
-        XCTAssertTrue(mappings.route(.right, phase: .pulse).isEmpty)
-    }
-    func testMultiplePhysicalKeysSharingVoiceHaveOneRelease() {
-        var mappings = InputMappings()
-        mappings.bindings["ok"] = "voice"
-        XCTAssertEqual(mappings.route(.voice, phase: .down).count, 1)
-        XCTAssertTrue(mappings.route(.ok, phase: .down).isEmpty)
-        XCTAssertTrue(mappings.route(.voice, phase: .up).isEmpty)
-        XCTAssertEqual(mappings.route(.ok, phase: .cancel).first?.1, .cancel)
-        XCTAssertTrue(mappings.route(.ok, phase: .up).isEmpty)
-    }
     func testFnCancellationAlwaysReleasesAndDemoNeverInjects() async {
         await MainActor.run {
             let runtime = BridgeRuntime()

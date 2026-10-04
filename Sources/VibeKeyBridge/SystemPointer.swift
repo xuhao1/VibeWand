@@ -11,9 +11,8 @@ enum SystemPointer {
         event?.post(tap: .cghidEventTap)
     }
     static func relativeTarget(from origin: CGPoint, motion: ControllerPointerMotion, displays: [CGRect]) -> CGPoint {
-        guard motion.dx.isFinite, motion.dy.isFinite else { return origin }
         let target = CGPoint(x: origin.x + motion.dx, y: origin.y + motion.dy)
-        let candidates = displays.filter { !$0.isEmpty && !$0.isInfinite && !$0.isNull }.map { rect in
+        let candidates = displays.map { rect in
             CGPoint(x: min(rect.maxX - 1, max(rect.minX, target.x)),
                     y: min(rect.maxY - 1, max(rect.minY, target.y)))
         }

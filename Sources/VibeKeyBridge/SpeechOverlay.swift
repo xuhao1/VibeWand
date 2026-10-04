@@ -49,11 +49,6 @@ final class SpeechOverlayHost: NSView {
         bar.onToggleMode = { [weak self] in self?.onToggleMode?() }
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) is unsupported") }
-    /// Screen rectangle of the compact/full switch, for layout checks.
-    var toggleButtonScreenFrame: NSRect? {
-        guard let window else { return nil }
-        return window.convertToScreen(bar.convert(bar.toggleFrame, to: nil))
-    }
     func update(_ snapshot: HUDSnapshot, mode: OverlayDisplayMode, expanded: Bool) {
         self.snapshot = snapshot; self.mode = mode; self.expanded = expanded
         fullView.isHidden = mode == .compact; bar.update(snapshot, mode: mode); needsLayout = true
@@ -80,7 +75,6 @@ final class SpeechOverlayHost: NSView {
 private final class SpeechOverlayBar: NSView {
     var onToggleMode: (() -> Void)?
     var onDragCompleted: (() -> Void)?
-    var toggleFrame: NSRect { resizeButton.frame }
     var exporting = false { didSet { glass.exporting = exporting; needsDisplay = true } }
     private var mode = OverlayDisplayMode.full
     private let glass: CompanionBackdrop

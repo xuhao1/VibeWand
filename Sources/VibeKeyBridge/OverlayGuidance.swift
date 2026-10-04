@@ -27,8 +27,10 @@ enum HUDGuidance {
         Dictionary(uniqueKeysWithValues: template.controls.map { item in
             (item.control, item.gestures.compactMap { kind in
                 let action = configuration.action(scope, item.control, kind)
+                let deletes = action == .deleteBackward || (action == .contextEscape && scope == .editing)
                 return action == .none ? nil : HUDGestureHint(kind: kind, action: action,
-                    caption: caption(action, scope: scope, profile: profile))
+                    caption: kind == .long && deletes ? L10n.tr("连续退格", "Keep deleting")
+                        : caption(action, scope: scope, profile: profile))
             })
         })
     }

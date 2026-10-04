@@ -27,7 +27,7 @@ A shortcut alone does not establish that a picker opened. Supported adapters ins
 | Microphone hold / release | Start / finish dictation |
 | OK press | Confirm / Return |
 | ESC press | Delete before the caret or a selection in an observed editable draft; otherwise cancel |
-| ESC long press | Native Escape |
+| ESC long press | Keeps deleting while a draft is being edited, until released; elsewhere the same as a press |
 
 In the app switcher, turn to choose, press the dial or OK to confirm, and use ESC to cancel. Switching cancels after 15 seconds of device inactivity.
 
@@ -37,7 +37,7 @@ In the app switcher, turn to choose, press the dial or OK to confirm, and use ES
 | --- | --- |
 | R1 / R2 | Previous / next navigation by context |
 | ○ | Confirm / Return; long press opens model controls |
-| □ | Backspace in an editable draft; no action in pickers |
+| □ | Backspace in an editable draft, hold to keep deleting; no action in pickers |
 | × | Back; double-press switches apps; long press opens conversations / next browser tab |
 | △ hold / release | Start / finish dictation |
 | Touchpad | Single-finger movement controls the pointer; short press left-clicks, when exposed by macOS |

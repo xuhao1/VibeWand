@@ -240,16 +240,13 @@ final class AccessibilityAdapter {
             if sidebar.pid == app.processIdentifier, Date().timeIntervalSince(sidebar.touched) < 20 { request.sessionList = sidebar.list }
             else { sidebarPicker = nil; selectionTitle = ""; restorePointer() }
         }
-        if preparedProcesses.count > 64 { preparedProcesses = [app.processIdentifier] }
         worker.async { [weak self] in
             let result = AXSampler.sample(request)
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     guard let self else { return }
                     self.refreshInFlight = false
-                    if token == self.generation,
-                       NSWorkspace.shared.frontmostApplication?.processIdentifier == request.pid,
-                       let front = NSWorkspace.shared.frontmostApplication, self.accepts(front) {
+                    if token == self.generation, NSWorkspace.shared.frontmostApplication?.processIdentifier == request.pid {
                         if self.candidateNavigation.root != nil && self.candidateNavigation.root != result.observation.pickerRoot { self.restorePointer() }
                         self.cached = result.observation
                         self.boundPicker = result.binding
@@ -273,12 +270,10 @@ final class AccessibilityAdapter {
     func perform(_ effect: BridgeEffect, observation: TargetObservation) -> String {
         guard effect != .none else { return observation.status }
         guard trusted else { return L10n.tr("请先开启辅助功能权限", "Enable Accessibility permission first") }
+        // `observe()` only ever returns a sample of the accepted frontmost app.
         let current = observe()
-        guard let pid = observation.pid,
-              current.pid == pid, current.context.targetAvailable,
-              let identity = observation.identity, identity == current.identity,
-              NSWorkspace.shared.frontmostApplication?.processIdentifier == pid,
-              let front = NSWorkspace.shared.frontmostApplication, accepts(front) else {
+        guard let pid = observation.pid, let identity = observation.identity,
+              identity == current.identity, current.context.targetAvailable else {
             return L10n.tr("目标 / 焦点状态已变化，操作已取消", "Target or focus changed; action canceled")
         }
         switch effect {
@@ -490,34 +485,6 @@ final class AccessibilityAdapter {
 
     private var unassignedAction: String { L10n.tr("此应用动作未分配快捷键", "No shortcut assigned for this app action") }
 
-    /// Insert into the original editor only. No clipboard, Return or auto-send.
-    @discardableResult
-    func insertDictation(_ text: String, target: TargetIdentity, observation: TargetObservation) -> Bool {
-        guard trusted, !text.isEmpty, text.utf16.count <= 16000,
-              observe().identity == target,
-              DictationDelivery.accepts(target: target, observation: observation,
-                  frontmostPID: NSWorkspace.shared.frontmostApplication?.processIdentifier) else { return false }
-        let source = CGEventSource(stateID: .privateState)
-        // Chunk at Character boundaries to preserve emoji and surrogate pairs.
-        var chunks: [String] = [], chunk = ""
-        for character in text {
-            if chunk.utf16.count + String(character).utf16.count > 20, !chunk.isEmpty { chunks.append(chunk); chunk = "" }
-            chunk.append(character)
-        }
-        if !chunk.isEmpty { chunks.append(chunk) }
-        for chunk in chunks {
-            let units = Array(chunk.utf16)
-            for down in [true, false] {
-                guard let event = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: down) else { return false }
-                units.withUnsafeBufferPointer { event.keyboardSetUnicodeString(stringLength: units.count, unicodeString: $0.baseAddress) }
-                event.flags = []
-                event.setIntegerValueField(.eventSourceUserData, value: Self.syntheticMarker)
-                event.postToPid(target.pid)
-            }
-        }
-        return true
-    }
-
     private func post(_ stroke: KeyStroke, pid: pid_t, systemMenu: Bool = false) {
         let source = CGEventSource(stateID: systemMenu ? .privateState : .hidSystemState)
         for down in [true, false] {
@@ -579,12 +546,12 @@ enum LabelledControlFinder {
         func text(_ node: AXUIElement, _ name: String) -> String { attribute(node, name) as? String ?? "" }
         var roots: [AXUIElement] = []
         var node = element(attribute(application, kAXFocusedUIElementAttribute))
-        while let current = node, roots.count < 48 { roots.append(current); node = element(attribute(current, kAXParentAttribute)) }
+        while let current = node { roots.append(current); node = element(attribute(current, kAXParentAttribute)) }
         if let window = element(attribute(application, kAXFocusedWindowAttribute)) { roots.append(window) }
         var seen: Set<CFHashCode> = []
         for root in roots {
             var stack = [root]
-            while let current = stack.popLast(), seen.count < 6000 {
+            while let current = stack.popLast() {
                 guard ProcessInfo.processInfo.systemUptime < stop else { return nil }
                 guard seen.insert(CFHash(current)).inserted else { continue }
                 let role = text(current, kAXRoleAttribute)
@@ -822,14 +789,11 @@ private final class AXSampler {
                                                scrollArea: profile.alwaysScrolls ? nil : scrollArea, popup: result.pickerFrame, viewport: viewport)
         result.context.modalOpen = modal
         result.context.picker = picker
-        result.context.compositionKnown = !request.inputSourceCanCompose
         if let compositionOwner = textOwner ?? focused,
            let marked = range(attribute(compositionOwner, "AXMarkedTextRange")) {
-            result.context.compositionKnown = true
             result.context.compositionActive = marked.length > 0
         }
         if request.inputSourceCanCompose && !overBudget && Self.visibleCandidateWindow() {
-            result.context.compositionKnown = true
             result.context.compositionActive = true
         }
         result.sampledAt = Date()

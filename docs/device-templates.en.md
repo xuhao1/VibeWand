@@ -30,7 +30,8 @@ Every layout covers dictation, navigation, sessions, model / reasoning selection
 | Model / reasoning | Hold dial | Long press ○ | Hold Menu |
 | Switch applications | Double-click dial | Double-click × | Double-click center |
 | Delete / back | ESC | □ Backspace; × Back | Back |
-| Native Escape | Hold ESC | Press × | Hold Back |
+| Keep deleting (while editing) | Hold ESC | Hold □ | Hold Back |
+| Native Escape | ESC with an empty draft | Press × | Back with an empty draft |
 | Dictation | Hold microphone key | Hold △ | Hold voice key |
 | Confirm app switch | Dial or OK | ○ | Center or Menu |
 

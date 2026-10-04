@@ -7,8 +7,6 @@ func reduce(
 ) -> BridgeEffect {
     guard context.targetAvailable else {
         state.mode = .unavailable
-        state.ownerPID = nil
-        state.pickerConfirmed = false
         return .none
     }
 
@@ -18,16 +16,9 @@ func reduce(
     default: picker = nil
     }
     let editsWithDial = context.editingDraft && !context.applicationProfile.alwaysScrolls
-    let observedMode = picker ?? (editsWithDial ? .editing : .browse)
-    if state.mode != observedMode || picker == nil {
-        state.pickerConfirmed = false
-    }
-    state.mode = observedMode
+    state.mode = picker ?? (editsWithDial ? .editing : .browse)
 
-    if control == .forceEscape {
-        state.pickerConfirmed = false
-        return .sendEscape
-    }
+    if control == .forceEscape { return .sendEscape }
     if control == .voice {
         // The independent Fn dictation adapter owns this action.
         return .none
@@ -49,12 +40,8 @@ func reduce(
         switch control {
         case .left: return .moveCandidate(-1)
         case .right: return .moveCandidate(1)
-        case .dial, .ok:
-            state.pickerConfirmed = true
-            return .confirmCandidate
-        case .escape:
-            state.pickerConfirmed = false
-            return .cancelPicker
+        case .dial, .ok: return .confirmCandidate
+        case .escape: return .cancelPicker
         case .settings:
             // Inside a combined effort popover, the model action opens its model list.
             return picker == .efforts ? .openModels : .none

@@ -30,11 +30,10 @@ final class ApplicationProfileTests: XCTestCase {
     }
 
     func testAppSwitchDiscardsStalePickerAndStillHonorsComposition() {
-        var state = InteractionState(mode: .models, ownerPID: 10, pickerConfirmed: true)
+        var state = InteractionState(mode: .models)
         var browser = InteractionContext(targetAvailable: true, editorFocused: true,
             modalOpen: false, compositionActive: false, picker: nil, applicationProfile: .browser)
         XCTAssertEqual(reduce(state: &state, control: .dial, context: browser), .openSessions)
-        XCTAssertFalse(state.pickerConfirmed)
         browser.compositionActive = true
         XCTAssertEqual(reduce(state: &state, control: .right, context: browser), .none)
         XCTAssertEqual(reduce(state: &state, control: .dial, context: browser), .sendReturn)
