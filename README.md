@@ -20,15 +20,17 @@ A native macOS companion for **vibe coding without a mouse or keyboard**, with b
 
 *Implemented settings interface, captured in 0.5.3. Current bindings are described in the [default-controls guide](docs/core-experience.en.md).*
 
-## Hardware
+## Hardware support
 
-| Type | Connection | Default experience |
-| --- | --- | --- |
-| **VibeKey / Ulanzi AU05** | Built-in receiver backend | Turn the dial to navigate; hold the microphone key to dictate; OK / ESC confirm and return. |
-| **Gamepad / Controller** | Automatic macOS GameController discovery over USB or paired Bluetooth | R1 / R2 navigate, ○ confirms, □ deletes, × returns, △ holds dictation. Supported touchpads move the pointer. |
-| **Remote** | Requires a verified HID profile | Direction, center, back, and voice preset; hardware integration is experimental. |
+| Supported type | Connection | Default experience | Typical supported devices |
+| --- | --- | --- | --- |
+| **VibeKey**<br><img src="assets/device/controller.png" height="110" alt="VibeKey dial controller"> | Built-in receiver backend | Turn to navigate, hold to dictate, and press OK / ESC to confirm or return. | Ulanzi VibeKey (AU05) |
+| **Controller**<br><img src="assets/device/gamepad.png" height="90" alt="Gamepad controller"> | USB or Bluetooth through macOS GameController | R1 / R2 navigate, ○ confirms, □ deletes, × returns, and △ holds dictation. Touchpad movement controls the pointer. | Sony DualSense (PS5) |
+| **Remote Controller**<br><img src="assets/device/remote.png" height="110" alt="Handheld remote controller"> | Device-specific HID profile | Navigate with the direction ring, confirm with the center button, and use voice / back / menu controls. | Xiaomi Bluetooth Remote 2 Pro |
 
-AU05 input and a local Bluetooth controller have been observed on hardware. Controller button coverage depends on what macOS exposes; USB and touchpad behavior need validation on your model. The Remote preset is a configurable layout, not a plug-and-play compatibility claim. See [hardware and complete mappings](docs/device-templates.en.md).
+Connection setup, model-specific capabilities, and validation details are in the [hardware guide](docs/device-templates.en.md).
+
+**VibeWand is an independent project with no affiliation, sponsorship, endorsement, or other relationship with Ulanzi, Sony, Xiaomi, or any other device manufacturer. Product names and trademarks belong to their respective owners.**
 
 ## A few controls, a complete workflow
 

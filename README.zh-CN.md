@@ -20,15 +20,17 @@
 
 *来自 0.5.3 的已实现设置界面；当前默认映射见[默认操作指南](docs/core-experience.md)。*
 
-## 硬件类型
+## 硬件支持
 
-| 类型 | 接入方式 | 默认体验 |
-| --- | --- | --- |
-| **VibeKey / Ulanzi AU05** | 内置接收器后端 | 转动旋钮导航，按住麦克风键听写，OK / ESC 确认与返回。 |
-| **手柄 / Controller** | macOS GameController 自动识别 USB 或已配对蓝牙手柄 | R1 / R2 导航，○ 确认，□ 删除，× 返回，△ 按住听写；系统支持的触摸板可移动光标。 |
-| **遥控器 / Remote** | 需要实测 HID 配置 | 提供方向、中央确认、返回与语音预设，硬件接入仍为实验功能。 |
+| 默认支持类型 | 接入方式 | 默认体验 | 典型支持设备 |
+| --- | --- | --- | --- |
+| **VibeKey**<br><img src="assets/device/controller.png" height="110" alt="VibeKey 旋钮控制器"> | 内置接收器后端 | 转动导航、按住听写，OK / ESC 确认与返回。 | Ulanzi VibeKey（AU05） |
+| **Controller（手柄）**<br><img src="assets/device/gamepad.png" height="90" alt="游戏手柄"> | macOS GameController，USB 或蓝牙接入 | R1 / R2 导航，○ 确认，□ 删除，× 返回，△ 按住听写；触摸板移动光标。 | Sony DualSense（PS5 手柄） |
+| **Remote Controller（遥控器）**<br><img src="assets/device/remote.png" height="110" alt="遥控器"> | 对应设备的 HID 配置 | 方向环导航、中央键确认，语音 / 返回 / 菜单键完成常用操作。 | 小米蓝牙遥控器 2 Pro |
 
-AU05 输入和本机蓝牙手柄已有实机记录。手柄按键覆盖取决于 macOS 暴露的控件；USB 和触摸板体验需在你的型号上验证。遥控器是可配置模板，并不代表即插即用。详见[硬件与完整映射](docs/device-templates.md)。
+连接设置、各型号能力与实测范围见[硬件指南](docs/device-templates.md)。
+
+**VibeWand 是独立项目，与 Ulanzi、Sony、小米及其他设备提供商没有任何隶属、合作、赞助、背书或其他关系。产品名称与商标归各自所有者。**
 
 ## 少量控件，串起日常操作
 

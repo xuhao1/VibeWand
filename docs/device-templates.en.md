@@ -84,3 +84,9 @@ For the DualSense reference controller, distinguish transports. [JoyHarness's fi
 ## Extension boundary
 
 Templates describe physical controls and gestures; application adapters execute actions. A new device should first supply a verified event source and then reuse the logical controls. New application or agent actions belong in the action and application layers. Templates do not store scripts, access tokens, or arbitrary commands.
+
+## Validation scope and vendor independence
+
+The README groups supported input types and shows typical device models; model-specific capabilities depend on the actual input path and profile. AU05 input and a local Bluetooth controller have been observed on hardware. Controller button coverage depends on what macOS exposes; USB and touchpad behavior need validation on the intended model. The Remote preset requires a measured HID profile and does not establish universal plug-and-play compatibility. For historical checks, see [AU05 records](direct-device-plan.md) and [controller records](controller-input.md).
+
+VibeWand is independent of Ulanzi, Sony, Xiaomi, and other device manufacturers. There is no affiliation, partnership, sponsorship, or endorsement. Names, trademarks, and model examples identify device layouts and compatibility targets; they do not imply a vendor relationship.
