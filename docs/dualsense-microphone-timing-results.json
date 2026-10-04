@@ -1,0 +1,278 @@
+{
+  "date": "2026-10-04",
+  "transport_screen": [
+    {
+      "path": "minimal-0-500.csv",
+      "frames": 1872,
+      "missing": 128,
+      "missing_fraction": 0.064,
+      "seconds": 20.03331500000786,
+      "report_rate": 125.84038138465904,
+      "mic_deltas": {
+        "1": 1798,
+        "4": 6,
+        "2": 47,
+        "3": 14,
+        "5": 3,
+        "7": 1,
+        "10": 1,
+        "9": 1
+      },
+      "report_deltas": {
+        "1": 2521
+      },
+      "toc": {
+        "212": 1872
+      },
+      "gap_count": 73,
+      "max_gap_ms": 90,
+      "input_interval_ms_p50": 7.5029999716207385,
+      "input_interval_ms_p99": 22.43299991823733,
+      "decode_callback_ms_p99": 0.146,
+      "decode_callback_ms_max": 2.213,
+      "write_ms_p99": 0.816
+    },
+    {
+      "path": "minimal-1-30.csv",
+      "frames": 1907,
+      "missing": 90,
+      "missing_fraction": 0.045067601402103155,
+      "seconds": 20.00453799997922,
+      "report_rate": 128.0709407036874,
+      "mic_deltas": {
+        "1": 1855,
+        "2": 27,
+        "3": 15,
+        "5": 2,
+        "6": 2,
+        "4": 5
+      },
+      "report_deltas": {
+        "1": 2562
+      },
+      "toc": {
+        "212": 1907
+      },
+      "gap_count": 51,
+      "max_gap_ms": 50,
+      "input_interval_ms_p50": 7.501999964006245,
+      "input_interval_ms_p99": 22.414000006392598,
+      "decode_callback_ms_p99": 0.146,
+      "decode_callback_ms_max": 0.5770000000000001,
+      "write_ms_p99": 1.645
+    },
+    {
+      "path": "minimal-2-500.csv",
+      "frames": 1930,
+      "missing": 69,
+      "missing_fraction": 0.03451725862931466,
+      "seconds": 20.025794000015594,
+      "report_rate": 129.33319897318344,
+      "mic_deltas": {
+        "1": 1894,
+        "2": 13,
+        "5": 2,
+        "4": 8,
+        "3": 12
+      },
+      "report_deltas": {
+        "1": 2590
+      },
+      "toc": {
+        "212": 1930
+      },
+      "gap_count": 35,
+      "max_gap_ms": 40,
+      "input_interval_ms_p50": 7.502000080421567,
+      "input_interval_ms_p99": 22.422000067308545,
+      "decode_callback_ms_p99": 0.177,
+      "decode_callback_ms_max": 0.757,
+      "write_ms_p99": 0.641
+    },
+    {
+      "path": "screen-0-500.csv",
+      "frames": 1922,
+      "missing": 77,
+      "missing_fraction": 0.03851925962981491,
+      "seconds": 20.02604100003373,
+      "report_rate": 128.73238399919674,
+      "mic_deltas": {
+        "1": 1884,
+        "2": 11,
+        "3": 14,
+        "5": 2,
+        "4": 10
+      },
+      "report_deltas": {
+        "1": 2578
+      },
+      "toc": {
+        "212": 1922
+      },
+      "gap_count": 37,
+      "max_gap_ms": 40,
+      "input_interval_ms_p50": 7.5029999716207385,
+      "input_interval_ms_p99": 22.40599994547665,
+      "decode_callback_ms_p99": 0.166,
+      "decode_callback_ms_max": 0.898,
+      "write_ms_p99": 0.5289999999999999
+    },
+    {
+      "path": "screen-1-30.csv",
+      "frames": 1892,
+      "missing": 104,
+      "missing_fraction": 0.052104208416833664,
+      "seconds": 19.9883559999289,
+      "report_rate": 127.37415723479492,
+      "mic_deltas": {
+        "1": 1835,
+        "2": 32,
+        "3": 13,
+        "5": 4,
+        "9": 1,
+        "4": 4,
+        "6": 2
+      },
+      "report_deltas": {
+        "1": 2546
+      },
+      "toc": {
+        "212": 1892
+      },
+      "gap_count": 56,
+      "max_gap_ms": 80,
+      "input_interval_ms_p50": 7.50000006519258,
+      "input_interval_ms_p99": 22.47300010640174,
+      "decode_callback_ms_p99": 0.118,
+      "decode_callback_ms_max": 1.217,
+      "write_ms_p99": 0.959
+    },
+    {
+      "path": "screen-2-100.csv",
+      "frames": 1861,
+      "missing": 134,
+      "missing_fraction": 0.06716791979949875,
+      "seconds": 19.980528000043705,
+      "report_rate": 125.67235460416799,
+      "mic_deltas": {
+        "1": 1776,
+        "2": 52,
+        "3": 19,
+        "4": 10,
+        "5": 1,
+        "6": 2
+      },
+      "report_deltas": {
+        "1": 2511
+      },
+      "toc": {
+        "212": 1861
+      },
+      "gap_count": 84,
+      "max_gap_ms": 50,
+      "input_interval_ms_p50": 7.504999986849725,
+      "input_interval_ms_p99": 22.48899999540299,
+      "decode_callback_ms_p99": 0.212,
+      "decode_callback_ms_max": 1.915,
+      "write_ms_p99": 1.885
+    },
+    {
+      "path": "screen-3-10.csv",
+      "frames": 1904,
+      "missing": 101,
+      "missing_fraction": 0.050374064837905234,
+      "seconds": 20.07806700002402,
+      "report_rate": 127.55211943445234,
+      "mic_deltas": {
+        "1": 1852,
+        "3": 15,
+        "2": 23,
+        "7": 1,
+        "4": 6,
+        "5": 6
+      },
+      "report_deltas": {
+        "1": 2561
+      },
+      "toc": {
+        "212": 1904
+      },
+      "gap_count": 51,
+      "max_gap_ms": 60,
+      "input_interval_ms_p50": 7.499999948777258,
+      "input_interval_ms_p99": 22.39299996290356,
+      "decode_callback_ms_p99": 0.14300000000000002,
+      "decode_callback_ms_max": 0.739,
+      "write_ms_p99": 24.351000000000003
+    }
+  ],
+  "queue_comparison": [
+    {
+      "condition": "queue-legacy-stress",
+      "frames": 3059,
+      "missing": 136,
+      "duplicates": 0,
+      "invalid": 0,
+      "resets": 0,
+      "underruns": 16,
+      "overflows": 0,
+      "missing_fraction": 0.042566510172143975,
+      "median_abs_peak_correlation": 0.3609191994902017,
+      "median_300_3400Hz_coherence": 0.19678939034871856,
+      "clipped_fraction": 0.0,
+      "matched_delay_spread_ms": 10.04166666666697
+    },
+    {
+      "condition": "queue-worker-stress",
+      "frames": 3081,
+      "missing": 136,
+      "duplicates": 0,
+      "invalid": 0,
+      "resets": 0,
+      "underruns": 1,
+      "overflows": 0,
+      "missing_fraction": 0.042275411874417156,
+      "median_abs_peak_correlation": 0.4362722937192365,
+      "median_300_3400Hz_coherence": 0.680556335435097,
+      "clipped_fraction": 1.782513037809648e-05,
+      "matched_delay_spread_ms": 0.20833333333393966
+    },
+    {
+      "condition": "queue-worker-normal",
+      "frames": 3014,
+      "missing": 180,
+      "duplicates": 0,
+      "invalid": 0,
+      "resets": 0,
+      "underruns": 1,
+      "overflows": 0,
+      "missing_fraction": 0.056355666875391355,
+      "median_abs_peak_correlation": 0.5001135994893794,
+      "median_300_3400Hz_coherence": 0.70973578998401,
+      "clipped_fraction": 1.280317928548017e-06,
+      "matched_delay_spread_ms": 0.22916666666651508
+    },
+    {
+      "condition": "queue-legacy-normal",
+      "frames": 3066,
+      "missing": 128,
+      "duplicates": 0,
+      "invalid": 0,
+      "resets": 0,
+      "underruns": 2,
+      "overflows": 0,
+      "missing_fraction": 0.040075140889167186,
+      "median_abs_peak_correlation": 0.4943172794009846,
+      "median_300_3400Hz_coherence": 0.7651919091247974,
+      "clipped_fraction": 1.921106557377049e-06,
+      "matched_delay_spread_ms": 0.0625
+    }
+  ],
+  "limitations": [
+    "One 20-second run per screening condition; full 500ms repeated at end; not evidence of a winning interval.",
+    "One 32-second acoustic capture per queue condition; stress injects 250ms main-thread sleep every 2s.",
+    "Transport sequence gaps and PCM underruns are distinct; independent queue did not establish lower transport loss.",
+    "Acoustic metrics depend on speaker, room, noise and controller processing; no new human speech acceptance.",
+    "All received TOC bytes in screening were 0xd4: CELT-only 10ms stereo SWB; bridge requests mono decoder output."
+  ]
+}

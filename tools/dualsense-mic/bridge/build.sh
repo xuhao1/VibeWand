@@ -26,6 +26,7 @@ cat > "$task_app/Contents/Info.plist" <<'PLIST'
 <key>NSBluetoothAlwaysUsageDescription</key><string>连接已配对的 DualSense 手柄麦克风。</string>
 </dict></plist>
 PLIST
+if [ -f "$task_app/Contents/Frameworks/libopus.0.dylib" ]; then chmod u+w "$task_app/Contents/Frameworks/libopus.0.dylib"; fi
 cp /opt/homebrew/opt/opus/lib/libopus.0.dylib "$task_app/Contents/Frameworks/libopus.0.dylib"
 cp /opt/homebrew/opt/opus/COPYING "$task_app/Contents/Resources/Opus-COPYING.txt"
 install_name_tool -change /opt/homebrew/opt/opus/lib/libopus.0.dylib '@executable_path/../Frameworks/libopus.0.dylib' "$task_app/Contents/MacOS/VibeWandMic"

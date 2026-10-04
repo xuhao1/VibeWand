@@ -18,6 +18,7 @@ static atomic_bool stopWriter;
 static atomic_uint receivedReports;
 static unsigned intervalMS = 500, writeErrors, cleanupErrors;
 static bool fullInitialization;
+static bool microphoneOnly;
 static bool quietSensors;
 static int requestedReportUS;
 static unsigned captureSeconds = 6;
@@ -27,6 +28,14 @@ static int previousMic = -1, previousReport = -1, peak;
 static unsigned long samples;
 static double energy, firstAudio, lastAudio;
 static uint8_t input[4096];
+// Each array has a single writer. Export only after the writer thread has joined.
+// Metadata only: never persist the microphone payload.
+#define TRACE_CAPACITY 131072
+static struct { double time, duration; int kind, report, mic, toc; } trace[TRACE_CAPACITY];
+static struct { double time, duration; unsigned sequence; int on, result; } writes[16384];
+static unsigned traceCount, writeCount, traceDropped;
+static const char *tracePath;
+
 
 static double now(void) {
     struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t);
@@ -37,8 +46,20 @@ static void receive(void *context, IOReturn result, void *sender, IOHIDReportTyp
                     uint32_t reportID, uint8_t *bytes, CFIndex count) {
     (void)context; (void)sender; (void)type; (void)reportID;
     if (result || count <= 0) return;
+    double arrival=now();
     reports++; atomic_fetch_add(&receivedReports, 1);
+    uint8_t normalized[78];
+    if (reportID==0x31 && count==77) { normalized[0]=0x31; memcpy(normalized+1,bytes,77); bytes=normalized; count=78; }
     DSReportKind kind = ds_classify(bytes, (size_t)count);
+    unsigned traceIndex=traceCount;
+    if (tracePath && traceCount<TRACE_CAPACITY) {
+        trace[traceCount].time=arrival; trace[traceCount].kind=kind;
+        trace[traceCount].report=count>1 ? bytes[1]>>4 : -1;
+        trace[traceCount].mic=kind==DS_MIC ? bytes[2] : -1;
+        trace[traceCount].toc=kind==DS_MIC ? bytes[3] : -1;
+        traceCount++;
+    } else if (tracePath) traceDropped++;
+
     if (kind == DS_INVALID) { invalid++; return; }
     if (kind == DS_OTHER) return;
     int sequence = bytes[1] >> 4;
@@ -57,6 +78,7 @@ static void receive(void *context, IOReturn result, void *sender, IOHIDReportTyp
         int v = abs((int)pcm[i]); if (v > peak) peak = v;
         energy += (double)pcm[i] * pcm[i];
     }
+    if (tracePath && traceIndex<traceCount) trace[traceIndex].duration=now()-arrival;
 }
 static IOReturn write_mic(unsigned sequence, bool on) {
     uint8_t packet[DS_MIC_CONTROL_BYTES]; ds_mic_control(packet, sequence, on);
@@ -65,7 +87,17 @@ static IOReturn write_mic(unsigned sequence, bool on) {
         packet[11] = 0x92; packet[12] = 0x40;
         ds_store32(packet + 138, ds_crc(0xa2, packet, 138));
     }
+    if (microphoneOnly) {
+        memset(packet+2,0,sizeof(packet)-2);
+        packet[2]=0x91; packet[3]=1; packet[4]=on ? 3 : 2;
+        ds_store32(packet+138,ds_crc(0xa2,packet,138));
+    }
+    double writeStarted=now();
     IOReturn result = IOHIDDeviceSetReport(device, kIOHIDReportTypeOutput, packet[0], packet, sizeof(packet));
+    if (tracePath && writeCount<16384) {
+        writes[writeCount].time=writeStarted; writes[writeCount].duration=now()-writeStarted;
+        writes[writeCount].sequence=sequence; writes[writeCount].on=on; writes[writeCount].result=result; writeCount++;
+    }
     if (result) { writeErrors++; if (!on) cleanupErrors++; }
     if (result || !on || sequence == 0) {
         printf("write on=%d sequence=%u result=0x%08x\n", on, sequence, result); fflush(stdout);
@@ -108,6 +140,8 @@ int main(int argc, char **argv) {
     for (int i = 1; i < argc; ++i) {
         if (!strcmp(argv[i], "--enable")) enable = true;
         else if (!strcmp(argv[i], "--exclusive")) exclusive = true;
+        else if (!strcmp(argv[i], "--trace") && i+1<argc) tracePath=argv[++i];
+        else if (!strcmp(argv[i], "--mic-only-control")) { microphoneOnly=true; fullInitialization=true; }
         else if (!strcmp(argv[i], "--full-init")) fullInitialization = true;
         else if (!strcmp(argv[i], "--quiet-sensors")) { quietSensors = true; fullInitialization = true; }
         else if (!strcmp(argv[i], "--report-us") && i + 1 < argc) {
@@ -125,7 +159,7 @@ int main(int argc, char **argv) {
             if (!argv[i][0] || *end || value < 10 || value > 500) return 2;
             intervalMS = (unsigned)value;
         } else {
-            fprintf(stderr, "usage: %s [--enable --exclusive] [--full-init] [--quiet-sensors] [--interval-ms 10..500] [--report-us 1000..16000] [--seconds 1..120]\n", argv[0]); return 2;
+            fprintf(stderr, "usage: %s [--enable --exclusive] [--full-init] [--quiet-sensors] [--interval-ms 10..500] [--report-us 1000..16000] [--seconds 1..120] [--trace metadata.csv] [--mic-only-control]\n", argv[0]); return 2;
         }
     }
     if (enable && !exclusive) { fprintf(stderr, "--enable requires --exclusive to isolate audio from gamepad input.\n"); return 2; }
@@ -196,6 +230,17 @@ cleanup:
     if (opened) IOHIDDeviceClose(device, 0);
     if (devices) CFRelease(devices);
     CFRelease(match); CFRelease(vendor); CFRelease(product); CFRelease(manager);
+    if (tracePath) {
+        FILE *f=fopen(tracePath,"wx");
+        if (!f) { perror("trace (must be a new file)"); if (!exitCode) exitCode=10; }
+        else {
+            fprintf(f,"event,time,duration,kind,report,mic,toc,sequence,on,result\n");
+            for (unsigned i=0;i<traceCount;i++) fprintf(f,"input,%.9f,%.9f,%d,%d,%d,%d,,,\n",trace[i].time,trace[i].duration,trace[i].kind,trace[i].report,trace[i].mic,trace[i].toc);
+            for (unsigned i=0;i<writeCount;i++) fprintf(f,"write,%.9f,%.9f,,,,,%u,%d,%d\n",writes[i].time,writes[i].duration,writes[i].sequence,writes[i].on,writes[i].result);
+            if (fclose(f)) { perror("trace close"); if (!exitCode) exitCode=10; }
+            printf("traceInput=%u traceWrites=%u traceDropped=%u\n",traceCount,writeCount,traceDropped);
+        }
+    }
     opus_decoder_destroy(decoder);
     return exitCode;
 }

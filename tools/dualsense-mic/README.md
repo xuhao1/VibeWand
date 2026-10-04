@@ -39,3 +39,10 @@ Exit codes:
 Protocol references: [DS5Dongle](https://github.com/awalol/DS5Dongle), [DS4Windows](https://github.com/hbashton/DS4Windows), [dualsense-bridge](https://github.com/tomarai85/dualsense-bridge). The implementation here is a small native probe, not a copied Windows driver or redistributed community application.
 
 Additional development flags: `--full-init` adds the audio state and silent-haptics section; `--quiet-sensors` also temporarily powers down touch/motion during the probe; `--report-us 1000..16000` requests and restores the HID interval property (acceptance does not prove a transport-rate change); `--seconds 1..120` changes the active capture interval. None enables Game Mode automatically. These flags are experiments, not established fixes.
+
+
+### 逐包时序诊断
+
+`--trace output/dualsense-mic/new-trace.csv` 将元数据先写入有界内存，采集结束后导出；目标必须是新文件。只保存到达时间、报告/音频序号、Opus TOC 和控制写入耗时，不保存音频负载。`python3 tools/dualsense-mic/analyze-timing.py <trace.csv>` 输出缺口、接收间隔、回调耗时和控制写入时间关系。探针不自动开启游戏模式，比较时必须保持其策略一致并负责恢复。
+
+`--mic-only-control` 仅用于协议对照：保留状态初始化，但发送 DS5Dongle 风格的精简 0x32 麦克风开关。当前未显示稳定优于默认包，因此应用仍采用原协议、500 ms 发送间隔。详见 `docs/dualsense-microphone-timing-results.json`。

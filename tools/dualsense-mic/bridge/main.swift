@@ -113,6 +113,14 @@ final class Microphone {
     let ring:OpaquePointer
     let gameMode=GameModeLease()
     let writer=DispatchQueue(label:"VibeWandMic.output")
+    let receiver=DispatchQueue(label:"VibeWandMic.input",qos:.userInteractive)
+    let legacyInput=CommandLine.arguments.contains("--legacy-main-input")
+    // Owned by the input queue while activated, or by main in the legacy test.
+    private var acceptingInput=false
+    func snapshot()->(frames:Int,missing:Int,lastArrival:Double,level:Float) {
+        let read={ (self.frames,self.missing,self.lastArrival,self.level) }
+        return legacyInput ? read() : receiver.sync(execute:read)
+    }
     var manager:IOHIDManager?
     var device:IOHIDDevice?
     let buffer=UnsafeMutablePointer<UInt8>.allocate(capacity:4096)
@@ -152,7 +160,14 @@ final class Microphone {
                 guard let context,result==0,count>0 else { return }
                 Unmanaged<Microphone>.fromOpaque(context).takeUnretainedValue().receive(id:id,bytes:bytes,count:Int(count))
             },Unmanaged.passUnretained(self).toOpaque())
-            IOHIDDeviceScheduleWithRunLoop(d,CFRunLoopGetMain(),CFRunLoopMode.commonModes.rawValue)
+            acceptingInput=true
+            if legacyInput {
+                IOHIDDeviceScheduleWithRunLoop(d,CFRunLoopGetMain(),CFRunLoopMode.commonModes.rawValue)
+            } else {
+                IOHIDDeviceSetDispatchQueue(d,receiver)
+                IOHIDDeviceSetCancelHandler(d) { [weak self] in self?.completeStopOnMain() }
+                IOHIDDeviceActivate(d)
+            }
             writer.async { [self] in
                 do {
                     try self.state(on:true)
@@ -192,7 +207,7 @@ final class Microphone {
         for i in 0..<4 { p[138+i]=UInt8(truncatingIfNeeded:crc >> (8*i)) }; try send(p)
     }
     private func receive(id:UInt32,bytes:UnsafeMutablePointer<UInt8>,count:Int) {
-        guard active,!stopping,let decoder else { return }
+        guard acceptingInput,let decoder else { return }
         var packet=Array(UnsafeBufferPointer(start:bytes,count:count))
         if count==77,id==0x31 { packet.insert(0x31,at:0) }
         let kind=packet.withUnsafeBufferPointer { ds_classify($0.baseAddress,$0.count) }
@@ -221,31 +236,40 @@ final class Microphone {
         if let wav {
             let amplified=(0..<count).map { Int16(max(-32768,min(32767,Int(floats[$0]*32767)))) }
             let data=amplified.withUnsafeBytes { Data($0) }
-            do { try wav.write(contentsOf:data); wavSamples+=UInt32(count) } catch { onFailure?("录音写入失败") }
+            do { try wav.write(contentsOf:data); wavSamples+=UInt32(count) } catch { DispatchQueue.main.async { self.onFailure?("录音写入失败") } }
         }
     }
     func stop(completion:@escaping()->Void) {
         stopWaiters.append(completion)
         guard !stopping else { return }
         stopping=true; active=false
+        if legacyInput { acceptingInput=false } else { receiver.sync { acceptingInput=false } }
         writer.async { [self] in
             self.timer?.cancel(); self.timer=nil
             if self.device != nil {
                 for _ in 0..<3 { do { try self.control(on:false) } catch { log("Disable failed: \(error)") }; usleep(100000) }
                 do { try self.state(on:false) } catch { log("Mute failed: \(error)") }
             }
-            CFRunLoopPerformBlock(CFRunLoopGetMain(),CFRunLoopMode.commonModes.rawValue) {
-                if let d=self.device { IOHIDDeviceUnscheduleFromRunLoop(d,CFRunLoopGetMain(),CFRunLoopMode.commonModes.rawValue); IOHIDDeviceClose(d,0) }
-                dsm_enable(self.ring,false)
-                self.device=nil; self.manager=nil
-                if let decoder=self.decoder { opus_decoder_destroy(decoder); self.decoder=nil }
-                self.finishWav(); self.gameMode.release(); self.stopping=false
-                log("frames=\(self.frames) missing=\(self.missing) duplicates=\(self.duplicates) invalid=\(self.invalid) resets=\(self.discontinuities) underruns=\(dsm_underruns(self.ring))")
-                let waiters=self.stopWaiters;self.stopWaiters=[]
-                for waiter in waiters { waiter() }
-            }
-            CFRunLoopWakeUp(CFRunLoopGetMain())
+            if let d=self.device,!self.legacyInput { IOHIDDeviceCancel(d) }
+            else { self.completeStopOnMain() }
         }
+    }
+    private func completeStopOnMain() {
+        // Run-loop scheduling also works during AppKit's deferred termination.
+        CFRunLoopPerformBlock(CFRunLoopGetMain(),CFRunLoopMode.commonModes.rawValue) {
+            if let d=self.device {
+                if self.legacyInput { IOHIDDeviceUnscheduleFromRunLoop(d,CFRunLoopGetMain(),CFRunLoopMode.commonModes.rawValue) }
+                IOHIDDeviceClose(d,0)
+            }
+            dsm_enable(self.ring,false)
+            self.device=nil; self.manager=nil
+            if let decoder=self.decoder { opus_decoder_destroy(decoder); self.decoder=nil }
+            self.finishWav(); self.gameMode.release(); self.stopping=false
+            log("frames=\(self.frames) missing=\(self.missing) duplicates=\(self.duplicates) invalid=\(self.invalid) resets=\(self.discontinuities) underruns=\(dsm_underruns(self.ring)) overflows=\(dsm_overflows(self.ring))")
+            let waiters=self.stopWaiters;self.stopWaiters=[]
+            for waiter in waiters { waiter() }
+        }
+        CFRunLoopWakeUp(CFRunLoopGetMain())
     }
     private func finishWav() {
         guard let wav else { return }
@@ -312,8 +336,10 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var quitting=false
     var lastFailure:String?
     var tapCheck:TapCheck?
+    var verificationProcess:Process?
     var captureRecorder:TapCheck?
     var toneTimer:Timer?
+    var stressTimer:Timer?
     var checkStart:Double=0
     var phase:Double=0
     var signals:[DispatchSourceSignal]=[]
@@ -342,11 +368,11 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         do { try publisher.prepare(); label.stringValue="已发布麦克风，尚未采集声音"; button.isEnabled=true }
         catch { publisher.close();label.stringValue="准备失败：\(error)";log("Prepare failed: \(error)") }
         ticker=Timer.scheduledTimer(withTimeInterval:0.25,repeats:true) { [weak self] _ in
-            guard let self else{return};let total=self.mic.frames+self.mic.missing
-            if self.mic.active && ProcessInfo.processInfo.systemUptime-max(self.mic.startedAt,self.mic.lastArrival)>3 {
+            guard let self else{return};let stats=self.mic.snapshot();let total=stats.frames+stats.missing
+            if self.mic.active && ProcessInfo.processInfo.systemUptime-max(self.mic.startedAt,stats.lastArrival)>3 {
                 self.lastFailure="手柄没有继续上报声音，已停止；请按 PS 键重新连接";self.stop()
             }
-            self.metrics.stringValue=String(format:"音频帧 %d   补帧 %.1f%%   电平 %.3f",self.mic.frames,total>0 ? Double(self.mic.missing)*100/Double(total):0,self.mic.level)
+            self.metrics.stringValue=String(format:"音频帧 %d   补帧 %.1f%%   电平 %.3f",stats.frames,total>0 ? Double(stats.missing)*100/Double(total):0,stats.level)
         }
         if let index=CommandLine.arguments.firstIndex(of:"--test-seconds"),index+1<CommandLine.arguments.count,let seconds=Double(CommandLine.arguments[index+1]),seconds>0,seconds<=120 {
             DispatchQueue.main.asyncAfter(deadline:.now()+2) { [self] in
@@ -355,35 +381,44 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     if CommandLine.arguments.contains("--capture-system") {
                         let recorder=TapCheck(device:publisher.aggregate,recording:true);try recorder.start();captureRecorder=recorder
                     }
-                    try mic.start(record:url);label.stringValue="本地测试录音中：\(Int(seconds)) 秒";button.title="停止" }
+                    try mic.start(record:url)
+                    if CommandLine.arguments.contains("--stress-ui") {
+                        stressTimer=Timer.scheduledTimer(withTimeInterval:2,repeats:true) { _ in Thread.sleep(forTimeInterval:0.25) }
+                    }
+                    label.stringValue="本地测试录音中：\(Int(seconds)) 秒";button.title="停止" }
                 catch { captureRecorder?.stop();captureRecorder=nil;label.stringValue="启动失败：\(error)";log("Start failed: \(error)");return }
                 DispatchQueue.main.asyncAfter(deadline:.now()+seconds) { [self] in stop() }
             }
         }
     }
     @objc func verifyTap() {
-        guard !mic.active,!mic.stopping,tapCheck==nil,publisher.aggregate != 0 else { return }
-        do {
-            let reader=TapCheck(device:publisher.aggregate);tapCheck=reader;try reader.start()
-            button.isEnabled=false;verifyButton.isEnabled=false
-            label.stringValue="正在验证系统输入。如出现系统音频录制提示，请允许本程序。"
-            checkStart=ProcessInfo.processInfo.systemUptime;phase=0;dsm_enable(publisher.ring,true)
-            toneTimer=Timer.scheduledTimer(withTimeInterval:0.01,repeats:true) { [weak self] _ in
-                guard let self,let reader=self.tapCheck else{return}
-                var wave=[Float](repeating:0,count:480)
-                for i in wave.indices {wave[i]=Float(sin(self.phase)*0.03);self.phase+=2*Double.pi*440/48000}
-                wave.withUnsafeBufferPointer { _=dsm_push(self.publisher.ring,$0.baseAddress,wave.count) }
-                let (count,rms,peak)=reader.snapshot()
-                let elapsed=ProcessInfo.processInfo.systemUptime-self.checkStart
-                if (count>=48000 && rms>0.005) || elapsed>60 {
-                    self.toneTimer?.invalidate();self.toneTimer=nil;dsm_enable(self.publisher.ring,false)
-                    reader.stop();self.tapCheck=nil;self.button.isEnabled=true;self.verifyButton.isEnabled=true
-                    let passed=count>=48000 && rms>0.005 && peak<0.04
-                    self.label.stringValue=passed ? "系统输入验证通过，语音应用可以读取声音" : "系统输入没有通过验证，请检查系统音频录制授权"
-                    log("tapCheck passed=\(passed) count=\(count) rms=\(rms) peak=\(peak)")
-                }
+        guard !mic.active,!mic.stopping,verificationProcess==nil,publisher.aggregate != 0 else { return }
+        // Core Audio input startup can stall on this macOS beta. Isolate the
+        // diagnostic consumer so it cannot freeze the UI or own the HID device.
+        let process=Process(),output=Pipe()
+        process.executableURL=URL(fileURLWithPath:CommandLine.arguments[0])
+        process.arguments=["--verify-system-input"]
+        process.standardOutput=output;process.standardError=output
+        do { try process.run() } catch { label.stringValue="验证启动失败：\(error)";return }
+        verificationProcess=process;button.isEnabled=false;verifyButton.isEnabled=false
+        label.stringValue="正在验证系统输入…"
+        checkStart=ProcessInfo.processInfo.systemUptime;phase=0;dsm_enable(publisher.ring,true)
+        toneTimer=Timer.scheduledTimer(withTimeInterval:0.01,repeats:true) { [weak self] _ in
+            guard let self else{return}
+            var wave=[Float](repeating:0,count:480)
+            for i in wave.indices {wave[i]=Float(sin(self.phase)*0.03);self.phase+=2*Double.pi*440/48000}
+            wave.withUnsafeBufferPointer { _=dsm_push(self.publisher.ring,$0.baseAddress,wave.count) }
+            let timeout=ProcessInfo.processInfo.systemUptime-self.checkStart>10
+            if !process.isRunning || timeout {
+                self.toneTimer?.invalidate();self.toneTimer=nil;dsm_enable(self.publisher.ring,false)
+                if process.isRunning {process.terminate()}
+                let text=timeout ? "verification timed out" : String(data:output.fileHandleForReading.readDataToEndOfFile(),encoding:.utf8) ?? ""
+                self.verificationProcess=nil;self.button.isEnabled=true;self.verifyButton.isEnabled=true
+                let passed=text.contains("tapCheck passed=true")
+                self.label.stringValue=passed ? "系统输入验证通过，语音应用可以读取声音" : "系统输入验证未完成；可停止并重新打开实验版后重试"
+                log(text)
             }
-        } catch { tapCheck?.stop();tapCheck=nil;label.stringValue="系统输入验证失败：\(error)";log("Tap check error: \(error)") }
+        }
     }
     @objc func toggle() {
         if mic.active { stop() } else {
@@ -393,6 +428,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
     func stop() {
+        stressTimer?.invalidate();stressTimer=nil
         button.isEnabled=false
         mic.stop { [weak self] in
             guard let self else{return}
@@ -406,11 +442,36 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     func applicationShouldTerminate(_ sender:NSApplication)->NSApplication.TerminateReply {
         if quitting { return .terminateNow }; quitting=true;button.isEnabled=false
+        stressTimer?.invalidate();stressTimer=nil
+        if let process=verificationProcess,process.isRunning {process.terminate()};verificationProcess=nil
         toneTimer?.invalidate();toneTimer=nil;tapCheck?.stop();tapCheck=nil;captureRecorder?.stop();captureRecorder=nil
         mic.stop { [self] in publisher.close();NSApp.reply(toApplicationShouldTerminate:true) }
         return .terminateLater
     }
     func windowShouldClose(_ sender:NSWindow)->Bool { NSApp.terminate(nil);return false }
+}
+// Bounded verification runs in a separate consumer process, before the app's
+// single-instance lock. It never opens HID or changes Game Mode/default input.
+if CommandLine.arguments.contains("--verify-system-input") {
+    do {
+        // AudioObjectIDs belong to the resolving process; pass identity via UID.
+        var id:AudioObjectID=0,uid=deviceUID as CFString
+        var address=AudioObjectPropertyAddress(mSelector:kAudioHardwarePropertyTranslateUIDToDevice,mScope:kAudioObjectPropertyScopeGlobal,mElement:kAudioObjectPropertyElementMain)
+        var size=UInt32(MemoryLayout<AudioObjectID>.size)
+        let status=withUnsafePointer(to:&uid) { pointer in
+            AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject),&address,UInt32(MemoryLayout<CFString>.size),pointer,&size,&id)
+        }
+        try check(status,"查找实验麦克风")
+        guard id != 0 else {throw Failure("实验麦克风不存在")}
+
+        let reader=TapCheck(device:id);try reader.start()
+        Thread.sleep(forTimeInterval:2)
+        let (count,rms,peak)=reader.snapshot()
+        let passed=count>=48000 && rms>0.005 && peak<0.04
+        log("tapCheck passed=\(passed) count=\(count) rms=\(rms) peak=\(peak)")
+        // Process exit releases the diagnostic input even if a HAL stop stalls.
+        exit(passed ? 0 : 2)
+    } catch { log("tapCheck failed: \(error)");exit(2) }
 }
 let lockPath=NSTemporaryDirectory()+"local.vibewand.dualsense-mic.experimental.lock"
 let instanceLock=open(lockPath,O_CREAT|O_RDWR,0o600)
