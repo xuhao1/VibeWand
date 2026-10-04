@@ -1,21 +1,50 @@
-# VibeWand documentation / 文档
+# Documentation / 文档
 
-Start with the experience guide for current behavior. Engineering records retain historical observations and are not a current compatibility promise.
+[Project home](../README.md) · [中文首页](../README.zh-CN.md)
 
-当前功能以核心体验文档为准；施工记录保留历史版本的观察，不代表当前全部兼容性已经通过验收。
+Start with setup, then learn the default workflow or customize it. User guides describe current behavior; engineering records preserve dated observations.
 
-| Document / 文档 | Contents / 内容 |
+先完成安装与连接，再了解默认操作或按自己的习惯配置。使用指南描述当前行为；工程记录保留特定版本的实测和设计历史。
+
+## Use VibeWand / 使用指南
+
+| Guide | 中文 | What you will find / 内容 |
+| --- | --- | --- |
+| [Getting started](getting-started.en.md) | [快速开始](getting-started.md) | Build, permission, connection, dictation, first interaction / 构建、授权、连接、听写与第一次操作 |
+| [Default controls](core-experience.en.md) | [默认操作](core-experience.md) | VibeKey, Controller, Remote defaults and context behavior / 三种模板默认操作与场景行为 |
+| [Settings and remapping](settings.en.md) | [设置与改键](settings.md) | Button editor, action library, timing, import/export, overlay / 按键编辑、动作库、时间、导入导出与悬浮反馈 |
+| [Applications](applications.en.md) | [应用适配](applications.md) | Built-in adapters, custom shortcuts, known limits / 内置适配、自定义快捷键与已知边界 |
+| [Troubleshooting](troubleshooting.en.md) | [问题排查](troubleshooting.md) | Input capture, diagnostics, permission and connection problems / 采集、诊断、权限与连接问题 |
+
+## Hardware and advanced configuration / 硬件与进阶配置
+
+| Reference / 参考 | Contents / 内容 |
 | --- | --- |
-| [Core experience](core-experience.en.md) / [核心体验](core-experience.md) | Workflow, settings, app behavior, hardware boundaries / 工作流、设置、应用行为与硬件边界 |
-| [Settings design / 设置设计](settings-design.md) | Version 0.5.1 layout, photo editor, stick directions, custom app rules and About / 0.5.1 布局、照片式编辑器、摇杆方向、自定义应用与关于页面 |
-| [Device photography / 设备图像](design-device-assets.md) | Generated photos, provenance and physical-control hotspots / 生成照片、来源及实体按键热点 |
-| [Device templates](device-templates.en.md) / [设备模板](device-templates.md) | Right-hand controller defaults, remote layout and audio boundaries / 单右手手柄、遥控器与音频边界 |
-| [Gesture configuration / 手势配置](gesture-configuration.md) | Default gestures, inheritance, timing and cleanup / 默认手势、继承、时间与清理 |
-| [HID profiles / HID 接入](hid-profiles.md) | Interface discovery and generic controller profiles / 接口发现与通用设备配置 |
-| [AU05 direct-device record / AU05 直连记录](direct-device-plan.md) | Protocol sources, historical implementation and physical verification / 协议来源、历史实现与实机记录 |
-| [Device illustration / 设备插画](../assets/device/README.md) | Generated asset provenance / 生成素材说明 |
-| [Third-party notices / 第三方记录](../third-party/README.md) | Protocol attribution and license / 协议署名与许可 |
+| [Device templates](device-templates.en.md) / [设备模板](device-templates.md) | Complete controls, integration status, microphone boundaries / 完整控件、接入状态与音频边界 |
+| [Gesture details / 手势细节](gesture-configuration.md) | Inheritance, hold priority, timing and cancellation / 继承、按住优先级、时序与取消 |
+| [HID integration / HID 接入](hid-profiles.md) | Inspect interfaces and build measured profiles / 接口检查与实测配置 |
 
-[English README](../README.md) · [中文 README](../README.zh-CN.md)
+## Contribute / 参与开发
 
-- [原生手柄接入与实测 / Native controller input](controller-input.md)
+[Development / 开发指南](development.md) covers build/test tools, source layout and signing. Read [Contributing / 贡献说明](../CONTRIBUTING.md) before reporting an issue or submitting a change.
+
+开发指南包含构建测试、源码布局与签名；问题报告和修改流程见贡献说明。
+
+## Engineering and design records / 工程与设计记录
+
+These records support implementation and provenance. They are not first-use instructions or a promise of current hardware compatibility.
+
+以下内容供实现与来源追溯参考，不作为首次使用步骤，也不代表当前硬件兼容性承诺。
+
+- [Native controller and Bluetooth verification / 原生手柄与蓝牙实测](controller-input.md)
+- [AU05 protocol and historical checks / AU05 协议与历史检查](direct-device-plan.md)
+- [Settings design / 设置设计](settings-design.md)
+- [Appearance audit / 外观审查](ui-appearance-audit.md) and [screenshot gallery / 截图图集](ui-appearance-gallery.html)
+- [Device images and hotspots / 设备图像与热点](design-device-assets.md)
+- [Documentation image provenance / 文档图像来源](images/README.md)
+
+## License and attribution / 许可与署名
+
+[PolyForm Noncommercial license / 非商用许可证](../LICENSE) · [Third-party notices / 第三方记录](../third-party/README.md) · [Device artwork / 设备插画](../assets/device/README.md)
+
+Personal noncommercial use is permitted under the license. Commercial use requires contacting [Hao Xu](https://github.com/xuhao1) and obtaining a separate license. 允许按条款个人非商用使用；商用必须联系徐浩并取得单独授权。

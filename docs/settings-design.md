@@ -124,9 +124,9 @@ VibeWand 分类目前提供本地动作，为未来内置智能体留出扩展�
 
 ## Custom application rules / 自定义应用规则
 
-Applications separates built-in adapter switches from user-added apps. An app picker reads the selected bundle identity; each rule chooses Chat app, Browser, or Custom as a starting point and exposes editable key / modifier mappings. Rules apply only to that exact app identity, can be disabled or deleted, and persist locally. A custom rule overrides the built-in adapter for the same identity. Browser rules preserve viewport scrolling, while Custom makes no chat-picker assumption. See [the behavior guide](core-experience.en.md#add-a-custom-application) for preset defaults and precedence.
+Applications separates built-in adapter switches from user-added apps. An app picker reads the selected bundle identity; each rule chooses Chat app, Browser, or Custom as a starting point and exposes editable key / modifier mappings. Rules apply only to that exact app identity, can be disabled or deleted, and persist locally. A custom rule overrides the built-in adapter for the same identity. Browser rules preserve viewport scrolling, while Custom makes no chat-picker assumption. See [the behavior guide](applications.en.md#add-a-custom-application) for preset defaults and precedence.
 
-应用适配将内置开关与用户添加的应用分开。选择本机应用后读取其标识，选择聊天工具、浏览器或自定义作为起点，再修改各动作的按键与修饰键。规则只匹配这个完整应用标识，可禁用、删除并在本机保存；同一应用的自定义规则优先于内置适配。浏览器规则保持页面滚屏，自定义规则不推定聊天选择器。预设与优先级详见[核心体验](core-experience.md#添加自定义应用)。
+应用适配将内置开关与用户添加的应用分开。选择本机应用后读取其标识，选择聊天工具、浏览器或自定义作为起点，再修改各动作的按键与修饰键。规则只匹配这个完整应用标识，可禁用、删除并在本机保存；同一应用的自定义规则优先于内置适配。浏览器规则保持页面滚屏，自定义规则不推定聊天选择器。预设与优先级详见[核心体验](applications.md#添加自定义应用)。
 
 ## About / 关于
 
@@ -136,9 +136,9 @@ The About page identifies **Dr. Hao Xu, Tenure-track Associate Professor at Nanj
 
 ## Hardware and audio boundaries / 硬件与音频边界
 
-The connection sheet separates the chosen input method from live connection status. Controller defaults to automatic macOS detection after USB connection or Bluetooth pairing, with direct access to Bluetooth settings and a detection retry. HID overrides are optional under Advanced compatibility, and removing an override restores automatic detection. Remote still requires a measured profile. A saved layout does not pair a device or create an audio endpoint. USB and Bluetooth microphones require separate verification; dictation uses the macOS / input-method audio source. See the [experience guide](core-experience.en.md#dictation-and-audio).
+The connection sheet separates the chosen input method from live connection status. Controller defaults to automatic macOS detection after USB connection or Bluetooth pairing, with direct access to Bluetooth settings and a detection retry. HID overrides are optional under Advanced compatibility, and removing an override restores automatic detection. Remote still requires a measured profile. A saved layout does not pair a device or create an audio endpoint. USB and Bluetooth microphones require separate verification; dictation uses the macOS / input-method audio source. See the [experience guide](getting-started.en.md#4-set-up-dictation).
 
-连接页面区分布局配置与真实输入状态。保存手柄或遥控器布局不等于完成配对，也不会创建音频端点。USB 与蓝牙麦克风需分别验证，听写使用 macOS / 输入法所选音源。详见[核心体验](core-experience.md#听写与音频)。
+连接页面区分布局配置与真实输入状态。保存手柄或遥控器布局不等于完成配对，也不会创建音频端点。USB 与蓝牙麦克风需分别验证，听写使用 macOS / 输入法所选音源。详见[核心体验](getting-started.md#4-配置听写)。
 
 ## Native implementation and verification / 原生实现与验证
 

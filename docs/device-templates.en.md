@@ -1,5 +1,7 @@
 # Device templates
 
+[Getting started](getting-started.en.md) · [Default controls](core-experience.en.md) · [Documentation](README.md)
+
 [中文](device-templates.md) · [Core experience](core-experience.en.md) · [HID integration](hid-profiles.md)
 
 VibeWand includes three switchable logical layouts: **VibeKey, Controller, and Remote**. Select a control in the diagram to edit its click, double-click, long-press, hold, or navigation action. Each template retains its own timing and context overrides.

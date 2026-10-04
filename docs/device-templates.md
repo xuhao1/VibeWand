@@ -1,5 +1,7 @@
 # 设备模板
 
+[快速开始](getting-started.md) · [默认操作](core-experience.md) · [文档目录](README.md)
+
 [English](device-templates.en.md) · [核心体验](core-experience.md) · [HID 接入](hid-profiles.md)
 
 VibeWand 提供 **VibeKey、手柄、遥控器** 三套可切换的逻辑模板。按键图展示各个控件；选择控件后可以修改单击、双击、长按、按住或方向操作。场景覆盖与手势时间单独保存，切换设备不会覆盖另一套配置。

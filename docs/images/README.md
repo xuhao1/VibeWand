@@ -1,4 +1,15 @@
-# Settings design assets
+# Documentation image provenance / 文档图像来源
+
+## Project overview images / 项目首页图片
+
+- `workflow-hero.png`: AI-generated three-scene illustration (Read / Edit / Dictate), created on 2026-10-04 with the built-in imagegen tool. The device artwork in `assets/device/controller.png` and `assets/device/gamepad.png` supplied shape references. The laptops, hands, screen contents and usage scenes are illustrative, not actual application captures or evidence of hardware compatibility. Dictation uses the microphone selected by macOS/the input method. The complete final prompt is retained in [workflow-hero-prompt.txt](workflow-hero-prompt.txt).
+- `ui-audit/en-compact-devices.png` and `settings-native.png`: captures/renderings of the implemented native settings view from 0.5.3. The README captions identify the version; displayed historical bindings do not override the current default-controls guide.
+
+首页保留一张 AI 场景示意图与一张已实现界面图。场景图不证明实机兼容性；真实界面图用于展示编辑方式，默认映射以当前使用指南为准。
+
+The records below retain older design concepts and prompts. Concepts are not product screenshots.
+
+## Historical settings design assets
 
 ## Approved 0.5 redesign
 
