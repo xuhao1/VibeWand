@@ -274,5 +274,82 @@
     "Transport sequence gaps and PCM underruns are distinct; independent queue did not establish lower transport loss.",
     "Acoustic metrics depend on speaker, room, noise and controller processing; no new human speech acceptance.",
     "All received TOC bytes in screening were 0xd4: CELT-only 10ms stereo SWB; bridge requests mono decoder output."
-  ]
+  ],
+  "final_authorized_validation": {
+    "frames": 3009,
+    "missing": 182,
+    "missing_fraction": 0.057035412096521465,
+    "invalid": 0,
+    "resets": 0,
+    "underruns": 2,
+    "overflows": 0,
+    "system_samples": 1561088,
+    "gui_input_verification": "passed after refreshing existing AudioCapture permission",
+    "game_mode_restored": "auto",
+    "metrics": {
+      "capture_seconds": 32.522666666666666,
+      "reference_seconds": 21.0,
+      "alignment_offset_ms": 3742.8333333333335,
+      "peak": 1.0,
+      "clipped_fraction": 9.67274106264349e-05,
+      "rms": 0.3131351806347065,
+      "block_matches": [
+        {
+          "reference_second": 4.0,
+          "delay_ms": 3742.541666666667,
+          "correlation": -0.45855039267850317
+        },
+        {
+          "reference_second": 5.0,
+          "delay_ms": 3742.541666666667,
+          "correlation": -0.3605589109153671
+        },
+        {
+          "reference_second": 6.0,
+          "delay_ms": 3742.541666666667,
+          "correlation": -0.33367668600710937
+        },
+        {
+          "reference_second": 7.0,
+          "delay_ms": 3742.541666666667,
+          "correlation": -0.10113928874631688
+        },
+        {
+          "reference_second": 8.0,
+          "delay_ms": 3742.541666666667,
+          "correlation": -0.20487880371006145
+        },
+        {
+          "reference_second": 9.0,
+          "delay_ms": 3742.541666666667,
+          "correlation": -0.4166742051300929
+        },
+        {
+          "reference_second": 10.0,
+          "delay_ms": 3742.5625,
+          "correlation": -0.40638619356954436
+        },
+        {
+          "reference_second": 11.0,
+          "delay_ms": 3742.5625,
+          "correlation": -0.22621225252787094
+        },
+        {
+          "reference_second": 12.0,
+          "delay_ms": 3742.5625,
+          "correlation": -0.2629703724960997
+        },
+        {
+          "reference_second": 13.0,
+          "delay_ms": 3742.5625,
+          "correlation": -0.3572467075126828
+        }
+      ],
+      "matched_delay_spread_ms": 0.02083333333303017,
+      "median_abs_peak_correlation": 0.3454616967598961,
+      "estimated_test_to_background_db": -3.005453745359265,
+      "median_300_3400Hz_coherence": 0.38292428214966007,
+      "note": "Alignment offset includes playback start delay and acoustic path; it is not a pure Bluetooth latency. Correlation is affected by speakers, room, controller voice processing and concealment. Background SNR is a stationary-noise estimate using known silent sections, not calibrated microphone SNR."
+    }
+  }
 }
