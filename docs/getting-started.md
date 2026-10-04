@@ -10,7 +10,7 @@
 2. 拖入「应用程序」。
 3. 双击 **VibeWand**，通过菜单栏图标打开「设置…」或显示悬浮面板。
 
-本包使用临时签名，尚未通过 Apple 公证。若首次打开被 macOS 阻止，可按 [Apple 的首次打开说明](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unidentified-developer-mh40616/mac)在「系统设置 → 隐私与安全性」处理，无需命令行启动。
+本包使用临时签名，尚未通过 Apple 公证。若首次打开被 macOS 阻止，可按 [Apple 的首次打开说明](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unidentified-developer-mh40616/mac)在「系统设置 → 隐私与安全性」处理。
 
 没有设备时，在「设置 → 开发者 → 演示模式」体验；使用设备前切回「实时控制」。自行编译见[从源码编译](development.md#build-from-source--从源码编译)，完成后在 Finder 中打开生成的应用。
 
