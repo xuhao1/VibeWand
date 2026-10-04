@@ -13,6 +13,13 @@ final class BridgeRuntime {
     var sendPointerMotion: ((ControllerPointerMotion) -> Void)? // Test seam.
     var sendPointerClick: (() -> Void)? // Test seam.
     private var device: any HIDEventSource
+    /// Other layouts with a usable backend keep listening, so the first press
+    /// on another device makes it current. The selected layout stays `device`.
+    private var companions: [DeviceTemplateID: any HIDEventSource] = [:]
+    static let autoSwitchKey = "deviceAutoSwitch"
+    private(set) var followsActiveDevice = UserDefaults.standard.object(forKey: BridgeRuntime.autoSwitchKey) as? Bool ?? true
+    /// Settings pins the layout being edited while its window is in front.
+    var autoSwitchSuspended = false
     let dictation = FnDictation()
     let voiceInput: VoiceInputController
     private(set) var dualSenseVoiceEnabled = UserDefaults.standard.bool(forKey: "dualSenseVoiceEnabled")
@@ -27,9 +34,15 @@ final class BridgeRuntime {
         UserDefaults.standard.set(enabled,forKey: "dualSenseVoiceEnabled")
         SpeechAudioInput.deviceUID = enabled ? DualSenseMicrophoneSource.deviceUID : nil
         if templates.selectedID == .dualSense { try replaceDevice(profile: templates.profile(), template: .dualSense) }
+        else { dropCompanion(.dualSense); syncCompanions() }
         onSettingsChanged?()
     }
     private var dictationTarget: TargetIdentity?
+    private var dictationApp: (pid: pid_t, bundleID: String)?
+    private let inserter = TextInserter()
+    /// A live preview was written, then the field changed under it and could not be restored.
+    private var liveDraftDiverged = false
+    private var lastInsertion = ""
     private var liveDraft: LiveDictationDraft?
     private var pendingDictationPreview: String?
     private var pendingDictationFinal: String?
@@ -108,6 +121,11 @@ final class BridgeRuntime {
         self.voiceInput.onCancel = { [weak self] in
             self?.cancelLiveDraft(); self?.dictationTarget = nil; self?.generation &+= 1
         }
+        adapter.onStatus = { [weak self] status in
+            guard let self else { return }
+            self.snapshot.status = status; self.lastDispatch["async"] = status; self.emit()
+            Timer.scheduledTimer(withTimeInterval: 0.25, repeats: false) { [weak self] _ in MainActor.assumeIsolated { self?.refresh() } }
+        }
         languageObserver = NotificationCenter.default.addObserver(forName: L10n.languageDidChange,
             object: L10n.shared, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.refreshLanguage() }
@@ -162,27 +180,131 @@ final class BridgeRuntime {
         self.gestureTimer = gestureTimer; RunLoop.main.add(gestureTimer, forMode: .common)
         snapshot.demo = demo
         inputStarted = true
+        unreadySince = ProcessInfo.processInfo.systemUptime
         connectDevice()
+        syncCompanions()
         refresh()
         pollTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.reconcileControllerVoiceRoute(); self?.refresh() }
+            MainActor.assumeIsolated { self?.reconcileControllerVoiceRoute(); self?.fallBackToConnectedDevice(); self?.refresh() }
         }
     }
 
     private func reconcileControllerVoiceRoute() {
-        guard inputStarted, templates.selectedID == .dualSense, dualSenseVoiceEnabled,
-              templates.profile() == nil, !(device is DualSenseMicrophoneSource) else { return }
+        guard inputStarted, dualSenseVoiceEnabled, templates.profile(for: .dualSense) == nil else { return }
+        let current = templates.selectedID == .dualSense ? device : companions[.dualSense]
+        guard let current, !(current is DualSenseMicrophoneSource) else { return }
         let now = ProcessInfo.processInfo.systemUptime
         guard now >= nextVoiceRouteCheck else { return }
         nextVoiceRouteCheck = now + 3
-        if DualSenseMicrophoneSource.hardwareAvailable {
-            try? replaceDevice(profile: nil, template: .dualSense)
-        }
+        guard DualSenseMicrophoneSource.hardwareAvailable else { return }
+        if templates.selectedID == .dualSense { try? replaceDevice(profile: nil, template: .dualSense) }
+        else { dropCompanion(.dualSense); syncCompanions() }
     }
 
     func stop() {
         inputStarted = false
+        syncCompanions()
         device.stop(); SpeechAudioInput.deviceUID = nil; cancelAll(); pollTimer?.invalidate(); demoTimer?.invalidate(); gestureTimer?.invalidate(); gestureTimer = nil
+    }
+
+    // MARK: Device following
+
+    func setFollowsActiveDevice(_ enabled: Bool) {
+        guard followsActiveDevice != enabled else { return }
+        followsActiveDevice = enabled
+        UserDefaults.standard.set(enabled, forKey: Self.autoSwitchKey)
+        syncCompanions(); refresh(); onSettingsChanged?()
+    }
+
+    /// Layouts whose device is connected right now, including the current one.
+    var connectedTemplates: Set<DeviceTemplateID> {
+        var result = Set(companions.filter { $0.value.connection == .ready }.keys)
+        if inputReady { result.insert(templates.selectedID) }
+        return result
+    }
+
+    private func dropCompanion(_ id: DeviceTemplateID) {
+        guard let source = companions.removeValue(forKey: id) else { return }
+        source.onEvent = nil; source.onConnection = nil
+        (source as? any ControllerPointerEventSource)?.onPointerMotion = nil
+        source.stop()
+    }
+
+    /// Keeps one listening source for every other layout that can receive
+    /// input without further setup. A supplied test source never has companions.
+    private func syncCompanions() {
+        let wanted: [DeviceTemplateID] = followsActiveDevice && inputStarted && !suppliedSource
+            ? DeviceTemplateID.allCases.filter { $0 != templates.selectedID && templates.readiness(for: $0).hasInputConfiguration }
+            : []
+        for id in Array(companions.keys) where !wanted.contains(id) { dropCompanion(id) }
+        for id in wanted where companions[id] == nil {
+            guard let source = try? sourceFactory(templates.profile(for: id), id) else { continue }
+            wireCompanion(source, id: id)
+            source.start()
+        }
+    }
+
+    private var canAutoSwitch: Bool { followsActiveDevice && !autoSwitchSuspended && !captureOnly }
+    /// When the current device last stopped being ready (launch counts).
+    private var unreadySince = ProcessInfo.processInfo.systemUptime
+
+    /// Called from the poll: once the current device has been gone for a few
+    /// seconds, hand over to another layout whose device is still connected.
+    private func fallBackToConnectedDevice() {
+        guard inputStarted, !inputReady, canAutoSwitch, ProcessInfo.processInfo.systemUptime - unreadySince > 6,
+              let fallback = DeviceTemplateID.allCases.first(where: { companions[$0]?.connection == .ready }) else { return }
+        promote(fallback)
+    }
+
+    /// Swaps roles without restarting either source, so the press that woke a
+    /// device is handled by its own layout and nothing is re-primed.
+    private func promote(_ id: DeviceTemplateID) {
+        guard let next = companions.removeValue(forKey: id) else { return }
+        let previousID = templates.selectedID, previous = device
+        guard let nextConfiguration = try? templates.select(id, currentConfiguration: configuration) else {
+            companions[id] = next; return
+        }
+        cancelAll()
+        previous.onEvent = nil; previous.onConnection = nil
+        (previous as? any ControllerPointerEventSource)?.onPointerMotion = nil
+        next.onEvent = nil; next.onConnection = nil
+        (next as? any ControllerPointerEventSource)?.onPointerMotion = nil
+        configuration = nextConfiguration
+        device = next
+        deviceName = templates.profile(for: id)?.name ?? id.template.title
+        SpeechAudioInput.deviceUID = next is DualSenseMicrophoneSource ? DualSenseMicrophoneSource.deviceUID : nil
+        snapshot.deviceTemplate = id; snapshot.rotation = 0
+        attachDevice()
+        inputReady = next.connection == .ready
+        if !inputReady { unreadySince = ProcessInfo.processInfo.systemUptime }
+        deviceStatus = connectionSummary
+        // The previous device keeps listening unless its template lost its backend.
+        if templates.readiness(for: previousID).hasInputConfiguration { wireCompanion(previous, id: previousID) }
+        else { previous.stop() }
+        refresh(); onSettingsChanged?()
+    }
+
+    private func wireCompanion(_ source: any HIDEventSource, id: DeviceTemplateID) {
+        companions[id] = source
+        source.onConnection = { [weak self, weak source] state in
+            guard let self, let source, self.companions[id] === source else { return }
+            // A device that just came online takes over only when the current
+            // one has been away for a while, not while it is still connecting.
+            if state == .ready, !self.inputReady, self.canAutoSwitch,
+               ProcessInfo.processInfo.systemUptime - self.unreadySince > 6 { self.promote(id) }
+            else { self.emit(); self.onSettingsChanged?() }
+        }
+        source.onEvent = { [weak self, weak source] event in
+            guard let self, let source, self.companions[id] === source,
+                  event.phase == .down || event.phase == .pulse, self.canAutoSwitch else { return }
+            self.promote(id)
+            self.receiveHardware(event)
+        }
+        (source as? any ControllerPointerEventSource)?.onPointerMotion = { [weak self, weak source] motion in
+            guard let self, let source, self.companions[id] === source, self.canAutoSwitch else { return }
+            self.promote(id)
+            self.receivePointerMotion(motion)
+        }
     }
 
     static func makeSource(profile: HIDDeviceProfile?, template: DeviceTemplateID) throws -> any HIDEventSource {
@@ -215,16 +337,20 @@ final class BridgeRuntime {
     }
 
     private func replaceDevice(profile: HIDDeviceProfile?, template: DeviceTemplateID) throws {
+        // Only one source may own a layout's hardware (the AU05 link is exclusive).
+        dropCompanion(template)
         let next = try sourceFactory(profile, template)
         device.onEvent = nil; device.onConnection = nil
         (device as? any ControllerPointerEventSource)?.onPointerMotion = nil
         device.stop(); cancelAll(); inputReady = false; device = next
+        unreadySince = ProcessInfo.processInfo.systemUptime
         deviceName = profile?.name ?? template.template.title
         deviceStatus = L10n.tr("等待设备", "Waiting for device")
         SpeechAudioInput.deviceUID = next is DualSenseMicrophoneSource ? DualSenseMicrophoneSource.deviceUID : nil
         snapshot.deviceTemplate = template
         snapshot.rotation = 0
         if inputStarted { connectDevice() }
+        syncCompanions()
     }
     func configureDevice(profile: HIDDeviceProfile?) throws {
         try profile?.validate()
@@ -235,13 +361,19 @@ final class BridgeRuntime {
     func selectTemplate(_ id: DeviceTemplateID) throws {
         let profile = templates.profile(for: id)
         try profile?.validate()
+        // A layout that is already listening becomes current without a reconnect.
+        if id != templates.selectedID, companions[id] != nil { promote(id); return }
         let configuration = try templates.select(id, currentConfiguration: self.configuration)
         self.configuration = configuration
         try replaceDevice(profile: profile, template: id)
         refresh()
         onSettingsChanged?()
     }
-    func reconnectDevice() { device.stop(); cancelAll(); if inputStarted { connectDevice() } }
+    func reconnectDevice() {
+        device.stop(); cancelAll()
+        for id in Array(companions.keys) { dropCompanion(id) }
+        if inputStarted { connectDevice(); syncCompanions() }
+    }
     func updateConfiguration(_ value: GestureConfiguration) throws {
         try value.validate(); try templates.updateConfiguration(value)
         cancelAll(); configuration = value; refresh(); onSettingsChanged?()
@@ -253,9 +385,11 @@ final class BridgeRuntime {
     func resetConfiguration() {
         if let value = try? templates.resetConfiguration() { cancelAll(); configuration = value; refresh(); onSettingsChanged?() }
     }
-    private func connectDevice() {
+    private func connectDevice() { attachDevice(); device.start() }
+    private func attachDevice() {
         device.onConnection = { [weak self] state in
             guard let self else { return }
+            if state != .ready, self.inputReady { self.unreadySince = ProcessInfo.processInfo.systemUptime }
             self.inputReady = state == .ready
             if self.device is GameControllerInputSource || self.device is DualSenseMicrophoneSource {
                 self.deviceName = self.templates.selectedTemplate.title
@@ -270,7 +404,6 @@ final class BridgeRuntime {
             guard let self, let source, self.device === source else { return }
             self.receivePointerMotion(motion)
         }
-        device.start()
     }
     func receivePointerMotion(_ motion: ControllerPointerMotion) {
         guard inputStarted, inputReady, templates.selectedID == .dualSense,
@@ -496,13 +629,23 @@ final class BridgeRuntime {
     }
 
     func exportSnapshot(_ url: URL) throws {
+        let data = try JSONSerialization.data(withJSONObject: diagnostics(), options: [.prettyPrinted, .sortedKeys])
+        try data.write(to: url, options: .atomic)
+    }
+
+    func diagnostics() throws -> [String: Any] {
         // Diagnostic summary intentionally contains no chat text or credentials.
         var value: [String: Any] = ["mode":snapshot.mode,"action":snapshot.action,"status":snapshot.status,"demo":snapshot.demo,"inputReady":inputReady,"accessibility":adapter.trusted,"device":deviceName,"deviceStatus":deviceStatus,"captureOnly":captureOnly,"eventCounts":eventCounts,"lastDeviceEvent":lastDeviceEvent,"recentActions":recentActions,"lastDispatch":lastDispatch,"appSwitcher":switcherActive,"pressed":snapshot.pressed.map(\.rawValue)]
         value["dockVisible"] = NSApp?.activationPolicy() == .regular
         value["deviceTemplate"] = snapshot.deviceTemplate.rawValue
+        value["scope"] = snapshot.scope.rawValue
+        value["target"] = snapshot.target
+        value["connectedTemplates"] = connectedTemplates.map(\.rawValue).sorted()
+        value["autoSwitch"] = followsActiveDevice
+        value["selecting"] = !snapshot.selection.isEmpty
         value["speech"] = ["state": String(describing: voiceInput.state), "previewCharacters": voiceInput.liveTranscript.count,
             "liveInsertion": liveDraft != nil, "style": voiceInput.configuration.effectiveTextStyle.rawValue,
-            "failure": lastDictationFailure, "frontApp": NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? ""]
+            "failure": lastDictationFailure, "insertion": lastInsertion, "message": voiceInput.displayMessage, "frontApp": NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? ""]
         if let controller = device as? GameControllerInputSource {
             value["inputBackend"] = "GameController"
             value["controllerMetrics"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(controller.diagnostics))
@@ -510,8 +653,27 @@ final class BridgeRuntime {
         if let au05 = device as? AU05HIDClient {
             value["hidMetrics"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(au05.diagnostics))
         }
-        let data = try JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted, .sortedKeys])
-        try data.write(to: url, options: .atomic)
+        return value
+    }
+
+    // MARK: Automation entry points (same paths as hardware; see Automation.swift)
+
+    func simulate(_ control: DeviceControl, phase: InputPhase, device id: DeviceTemplateID?) throws {
+        if let id, id != templates.selectedID { try selectTemplate(id) }
+        if let input = AU05Control(rawValue: control.rawValue), let wire = AU05Phase(rawValue: phase.rawValue) {
+            receiveHardware(AU05Event(control: input, phase: wire, sequence: 0, uptime: ProcessInfo.processInfo.systemUptime))
+        } else { handle(control, phase: phase); emit() }
+    }
+
+    func automationDictate(previews: [String], interval: TimeInterval, polished: Bool) {
+        voiceInput.engineOverride = { _ in TranscriptReplayEngine(previews: previews, interval: interval) }
+        voiceInput.styleOverride = polished ? nil : .verbatim
+        replaySpeech(duration: Double(previews.count) * interval, tail: 0.4)
+    }
+
+    func automationListen(seconds: TimeInterval) {
+        voiceInput.engineOverride = nil; voiceInput.styleOverride = nil
+        replaySpeech(duration: seconds, tail: 0)
     }
 
     private func refresh() {
@@ -579,6 +741,8 @@ final class BridgeRuntime {
             snapshot.status = voiceInput.displayMessage
         }
         snapshot.deviceTemplate = templates.selectedID
+        snapshot.connectedTemplates = connectedTemplates
+        snapshot.selection = demo || captureOnly ? "" : adapter.selectionTitle
         snapshot.scope = presentationScope
         snapshot.controlHints = HUDGuidance.hints(template: templates.selectedTemplate,
             configuration: configuration, scope: presentationScope, profile: presentationProfile)
@@ -593,29 +757,35 @@ final class BridgeRuntime {
         onSnapshot?(snapshot)
     }
     private func beginDictation(replay: Bool = false) {
-        if replay, CommandLine.arguments.contains("--speech-test-paste"),
-           !["com.google.Chrome", "com.apple.Safari", "org.vibekey.bridge"].contains(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "") {
-            voiceInput.report(L10n.tr("兼容测试需要聚焦独立测试编辑器", "Focus the standalone test editor for this delivery check")); return
-        }
         cancelLiveDraft()
         generation &+= 1
-        dictationTarget = nil
-        lastDictationFailure = ""
+        dictationTarget = nil; dictationApp = nil; liveDraftDiverged = false
+        lastDictationFailure = ""; lastInsertion = ""
         let token = generation
+        guard let app = NSWorkspace.shared.frontmostApplication else {
+            voiceInput.report(L10n.tr("请先切到要输入的应用", "Bring the app you want to type into to the front")); return
+        }
+        let bundleID = app.bundleIdentifier ?? ""
         dictationTargetAdapter.requestRefresh { [weak self] observation in
-        guard let self, self.generation == token, replay || !self.dictationHolders.isEmpty else { return }
-        guard observation.context.targetAvailable, observation.context.editorFocused || observation.editor != nil,
-              !observation.context.modalOpen, !observation.context.compositionActive,
-              observation.context.picker == nil, let identity = observation.identity else {
-            self.voiceInput.report(L10n.tr("请先聚焦可编辑输入框", "Focus an editable field first")); return
-        }
-        self.dictationTarget = identity
-        if let editor = observation.editor {
-            let forcePaste = CommandLine.arguments.contains("--replay-transcript") && CommandLine.arguments.contains("--speech-test-paste")
-            self.liveDraft = LiveDictationDraft(field: AccessibilityDictationField(element: editor, pid: identity.pid,
-                prefersPaste: forcePaste ? true : nil))
-        }
-        self.voiceInput.begin()
+            guard let self, self.generation == token, replay || !self.dictationHolders.isEmpty else { return }
+            guard observation.pid != nil, let identity = observation.identity else {
+                self.voiceInput.report(L10n.tr("当前应用暂时无法输入，请重试", "This app is not ready for input; try again")); return
+            }
+            guard !observation.secureField else {
+                self.voiceInput.report(L10n.tr("密码框不接收听写", "Dictation is not typed into password fields")); return
+            }
+            guard !observation.context.compositionActive else {
+                self.voiceInput.report(L10n.tr("请先完成输入法候选", "Finish the input method candidate first")); return
+            }
+            self.dictationTarget = identity
+            self.dictationApp = (identity.pid, bundleID)
+            // Text appears in the field while speaking only where a direct
+            // accessibility write is known to work; other apps get one paste at the end.
+            if let editor = observation.editor, TextInserter.supportsDirectWrites(bundleID) {
+                self.liveDraft = LiveDictationDraft(field: AccessibilityDictationField(element: editor, pid: identity.pid),
+                                                    settlementTimeout: 0.6)
+            }
+            self.voiceInput.begin()
         }
     }
     private func previewDictation(_ text: String) {
@@ -624,20 +794,44 @@ final class BridgeRuntime {
         flushDictationDraft()
     }
     private func deliverDictation(_ text: String) {
-        if liveDraft != nil {
-            pendingDictationFinal = text; flushDictationDraft(); return
+        guard dictationTarget != nil, !demo, !captureOnly else { return }
+        if liveDraft != nil { pendingDictationFinal = text; flushDictationDraft(); return }
+        if liveDraftDiverged {
+            finishDictation(L10n.tr("草稿在听写时被修改，已保留写入的文字", "The draft changed while dictating; the text already written was kept"))
+            return
         }
-        guard let target = dictationTarget, !demo, !captureOnly else { return }
+        insertFinal(text)
+    }
+    /// One insertion at the caret of the app that owned key-down.
+    private func insertFinal(_ text: String) {
+        guard let app = dictationApp, adapter.trusted else { finishDictation(L10n.tr("请先开启辅助功能权限", "Enable Accessibility permission first")); return }
         let token = generation
         dictationTargetAdapter.requestRefresh { [weak self] observation in
-            guard let self, self.generation == token, self.dictationTarget == target else { return }
-            self.dictationTarget = nil
-            let inserted = self.adapter.trusted && DictationDelivery.accepts(target: target,
-                observation: observation, frontmostPID: NSWorkspace.shared.frontmostApplication?.processIdentifier)
-            if inserted { UnicodeTextDelivery.post(text, pid: target.pid) }
-            self.voiceInput.report(inserted ? L10n.tr("已插入听写文字，请检查后发送", "Dictation inserted; review before sending") :
-                L10n.tr("输入框或焦点已变化，未插入听写文字", "Editor or focus changed; dictation was not inserted"))
+            guard let self, self.generation == token, self.dictationApp?.pid == app.pid else { return }
+            guard observation.pid == app.pid, NSWorkspace.shared.frontmostApplication?.processIdentifier == app.pid else {
+                self.lastDictationFailure = "app-changed"
+                self.finishDictation(L10n.tr("已切换应用，文字未插入", "App changed; the text was not inserted")); return
+            }
+            guard !observation.secureField else {
+                self.finishDictation(L10n.tr("密码框不接收听写", "Dictation is not typed into password fields")); return
+            }
+            self.inserter.insert(text, pid: app.pid, bundleID: app.bundleID, editor: observation.editor) { [weak self] outcome in
+                guard let self, self.generation == token else { return }
+                switch outcome {
+                case .inserted(let via, let verified):
+                    self.lastInsertion = via + (verified ? "" : "-unverified")
+                    self.finishDictation(L10n.tr("听写已完成，请检查后发送", "Dictation complete; review before sending"))
+                case .failed:
+                    self.lastDictationFailure = "insert-failed"
+                    self.finishDictation(L10n.tr("文字未能写入，请重新聚焦输入框后重试", "The text could not be inserted; refocus the field and retry"))
+                }
+            }
         }
+    }
+    private func finishDictation(_ message: String) {
+        liveDraft = nil; dictationTarget = nil; dictationApp = nil; liveDraftDiverged = false
+        pendingDictationPreview = nil; pendingDictationFinal = nil; draftUpdateInFlight = false
+        voiceInput.report(message)
     }
     private func flushDictationDraft() {
         guard !draftUpdateInFlight, let target = dictationTarget, let draft = liveDraft,
@@ -650,14 +844,13 @@ final class BridgeRuntime {
             self.draftUpdateInFlight = false
             guard DictationDelivery.accepts(target: target, observation: observation,
                 frontmostPID: NSWorkspace.shared.frontmostApplication?.processIdentifier, ownsWrite: draft.ownsWrite) else {
-                self.lastDictationFailure = "target-changed"; self.stopLiveDraftAfterConflict(); return
+                self.lastDictationFailure = "target-changed"; self.abandonLiveDraft(draft, final: isFinal ? text : nil); return
             }
             switch draft.update(text) {
             case .applied:
                 if isFinal {
-                    self.liveDraft = nil; self.dictationTarget = nil
-                    self.pendingDictationPreview = nil; self.pendingDictationFinal = nil
-                    self.voiceInput.report(L10n.tr("听写已完成，请检查后发送", "Dictation complete; review before sending"))
+                    self.lastInsertion = "accessibility-live"
+                    self.finishDictation(L10n.tr("听写已完成，请检查后发送", "Dictation complete; review before sending"))
                 } else { self.flushDictationDraft() }
             case .pending:
                 if isFinal { self.pendingDictationFinal = text }
@@ -667,25 +860,30 @@ final class BridgeRuntime {
                     guard let self, self.generation == token else { return }; self.flushDictationDraft()
                 }
             case .conflict, .unavailable:
-                self.lastDictationFailure = draft.failureReason; self.stopLiveDraftAfterConflict()
+                self.lastDictationFailure = draft.failureReason; self.abandonLiveDraft(draft, final: isFinal ? text : nil)
             }
         }
     }
-    private func stopLiveDraftAfterConflict() {
-        generation &+= 1; liveDraft = nil; dictationTarget = nil
-        pendingDictationPreview = nil; pendingDictationFinal = nil; draftUpdateInFlight = false
-        voiceInput.cancel()
-        if lastDictationFailure == "write-unconfirmed" || lastDictationFailure == "replace-unavailable" {
-            voiceInput.report(L10n.tr("输入框未接收文字，已暂停写入，请重新聚焦后重试", "Editor did not accept the text; refocus and retry"))
-        } else {
-            voiceInput.report(L10n.tr("草稿或焦点已改变，已停止听写，保留当前文字", "Draft or focus changed; dictation stopped and current text kept"))
-        }
+    /// Live preview is a convenience. When the field stops cooperating the
+    /// recording continues, and the finished text is inserted once instead.
+    private func abandonLiveDraft(_ draft: LiveDictationDraft, final: String?) {
+        if !draft.hasWritten {
+            // Nothing of ours is in the field: this app does not take direct writes.
+            if draft.failureReason != "value-changed" && draft.failureReason != "selection-changed", let app = dictationApp {
+                TextInserter.markPasteOnly(app.bundleID)
+            }
+        } else if !draft.rollback() { liveDraftDiverged = true }
+        liveDraft = nil; pendingDictationPreview = nil; draftUpdateInFlight = false
+        let text = final ?? pendingDictationFinal
+        pendingDictationFinal = nil
+        if let text { deliverDictation(text) }
     }
     private func cancelLiveDraft() {
         if let target = dictationTarget, let draft = liveDraft,
            NSWorkspace.shared.frontmostApplication?.processIdentifier == target.pid,
            dictationStillFocused(target) { _ = draft.rollback() }
         liveDraft = nil; pendingDictationPreview = nil; pendingDictationFinal = nil; draftUpdateInFlight = false
+        liveDraftDiverged = false; inserter.cancel()
     }
     private func dictationStillFocused(_ target: TargetIdentity) -> Bool {
         let app = AXUIElementCreateApplication(target.pid)
@@ -707,13 +905,13 @@ final class BridgeRuntime {
         do { try voiceInput.toggleTextStyle() }
         catch { voiceInput.report((error as? SpeechInputError)?.displayMessage ?? error.localizedDescription) }
     }
-    func replaySpeech(duration: Double) {
+    func replaySpeech(duration: Double, tail: Double = 2) {
         guard !demo, !captureOnly else { return }
         adapter.requestRefresh { [weak self] _ in
             guard let self else { return }
             self.beginDictation(replay: true)
             Task { @MainActor [weak self] in
-                try? await Task.sleep(nanoseconds: UInt64((duration + 2) * 1_000_000_000))
+                try? await Task.sleep(nanoseconds: UInt64((duration + tail) * 1_000_000_000))
                 guard let self, self.voiceInput.state == .recording else { return }; self.voiceInput.end()
             }
         }

@@ -18,15 +18,21 @@ final class VoiceInputController: ObservableObject {
     var onTranscript: ((String) -> Void)?
     var onPartialTranscript: ((String) -> Void)?
     var onCancel: (() -> Void)?
+    /// Replaces the recognizer for the next session; used by automated delivery checks.
+    var engineOverride: ((SpeechConfiguration) throws -> any DictationEngine)?
+    /// Forces a text style for the next session without touching saved preferences.
+    var styleOverride: DictationTextStyle?
     private let preferences: SpeechPreferences
     private let credentials: any SpeechCredentialStore
-    private let session: DictationSession
+    private var session: DictationSession!
 
     init(preferences: SpeechPreferences = SpeechPreferences(), credentials: any SpeechCredentialStore = KeychainSpeechCredentials(),
          engineFactory: ((SpeechConfiguration) throws -> any DictationEngine)? = nil) {
         self.preferences = preferences; self.credentials = credentials
         configuration = preferences.load()
-        session = DictationSession(credentials: credentials, factory: engineFactory ?? { configuration in
+        session = DictationSession(credentials: credentials, factory: { [weak self] configuration in
+            if let replacement = self?.engineOverride { return try replacement(configuration) }
+            if let engineFactory { return try engineFactory(configuration) }
             if configuration.provider == .system { return SystemDictationEngine(locale: configuration.locale) }
             return APIDictationEngine(configuration: configuration, credentials: credentials)
         })
@@ -55,7 +61,12 @@ final class VoiceInputController: ObservableObject {
         try preferences.save(value)
         cancel(); configuration = value; onChange?()
     }
-    func begin() { resetPreview(); testing = false; message = ""; session.begin(configuration) }
+    func begin() {
+        resetPreview(); testing = false; message = ""
+        var value = configuration
+        if let styleOverride { value.textStyle = styleOverride }
+        session.begin(value)
+    }
     func beginTest() { cancel(); resetPreview(); testing = true; testTranscript = ""; session.begin(configuration) }
     func end() { session.end() }
     func cancel() { onCancel?(); testing = false; resetPreview(); session.cancel() }

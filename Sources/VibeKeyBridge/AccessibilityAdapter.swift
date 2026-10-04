@@ -14,6 +14,8 @@ struct AccessibleCandidate {
     var element: AXUIElement
     var frame: CGRect
     var selected: Bool
+    /// Shown in the HUD while choosing; never logged or exported.
+    var title = ""
 }
 
 struct TargetObservation {
@@ -33,8 +35,16 @@ struct TargetObservation {
     var candidates: [AccessibleCandidate] = []
     var adjustmentControl: AXUIElement?
     var adjustmentPoint: CGPoint?
-    var modelTrigger: AXUIElement?
+    /// An effort control without a slider role: it takes focus and arrow keys.
+    var adjustmentItem: AXUIElement?
+    /// The row inside a combined effort popover that opens the model list.
+    var modelEntry: AXUIElement?
     var customProfile: CustomApplicationProfile?
+    /// Dictation never writes into a password field.
+    var secureField = false
+    /// The picker is VibeWand's own walk over a sidebar list: the app has no
+    /// popup open, so confirming and cancelling must not send any key.
+    var sidebarPicker = false
 
     func shortcut(for effect: BridgeEffect, fallback: KeyStroke? = nil) -> KeyStroke? {
         // Confirming an IME candidate or dismissing an unknown dialog must not
@@ -75,6 +85,10 @@ private struct AXSampleRequest {
     var binding: PickerBinding?
     var inputSourceCanCompose: Bool
     var customProfile: CustomApplicationProfile?
+    /// First sample of this process: ask an Electron app to publish its web
+    /// content to accessibility clients. Other apps ignore the attribute.
+    var enableWebAccessibility = false
+    var sessionList: AXUIElement?
 }
 
 private struct AXSampleResult {
@@ -93,6 +107,11 @@ final class AccessibilityAdapter {
     private var originalPointer: CGPoint?
     private var generation = 0
     private var refreshInFlight = false
+    private var preparedProcesses: Set<pid_t> = []
+    private struct SidebarPicker { var pid: pid_t; var list: AXUIElement; var touched: Date }
+    private var sidebarPicker: SidebarPicker?
+    /// Title of the highlighted candidate, for the HUD only.
+    private(set) var selectionTitle = ""
     private var completions: [(TargetObservation) -> Void] = []
     // This widens search-field recognition only; it never invents an open menu.
     var compatibilityPicker = false { didSet { if oldValue != compatibilityPicker { reset() } } }
@@ -159,6 +178,8 @@ final class AccessibilityAdapter {
         generation += 1
         pendingPicker = nil
         boundPicker = nil
+        sidebarPicker = nil
+        selectionTitle = ""
         cached = TargetObservation()
         restorePointer()
     }
@@ -203,7 +224,7 @@ final class AccessibilityAdapter {
         guard !refreshInFlight else { return }
         refreshInFlight = true
         let token = generation
-        let request = AXSampleRequest(
+        var request = AXSampleRequest(
             pid: app.processIdentifier,
             profile: resolvedProfile(bundleID: app.bundleIdentifier),
             forceEditing: forceEditing,
@@ -211,8 +232,15 @@ final class AccessibilityAdapter {
             pending: pendingPicker,
             binding: boundPicker,
             inputSourceCanCompose: Self.currentInputSourceCanCompose(),
-            customProfile: customStore.profile(bundleID: app.bundleIdentifier)
+            customProfile: customStore.profile(bundleID: app.bundleIdentifier),
+            enableWebAccessibility: preparedProcesses.insert(app.processIdentifier).inserted
         )
+        if let sidebar = sidebarPicker {
+            // An untouched sidebar walk ends by itself, like the app switcher.
+            if sidebar.pid == app.processIdentifier, Date().timeIntervalSince(sidebar.touched) < 20 { request.sessionList = sidebar.list }
+            else { sidebarPicker = nil; selectionTitle = ""; restorePointer() }
+        }
+        if preparedProcesses.count > 64 { preparedProcesses = [app.processIdentifier] }
         worker.async { [weak self] in
             let result = AXSampler.sample(request)
             DispatchQueue.main.async {
@@ -257,6 +285,10 @@ final class AccessibilityAdapter {
         case .openSessions:
             guard !observation.context.compositionActive, !observation.context.modalOpen else { return L10n.tr("输入法或弹窗正在处理输入，操作已暂停", "Input method or dialog is active; action paused") }
             let profile = observation.context.applicationProfile
+            if profile.picksSessionsFromSidebar, observation.customProfile == nil {
+                openSidebarSessions(pid: pid)
+                return profile.title(for: effect)
+            }
             guard let shortcut = observation.shortcut(for: effect, fallback: profile == .codex ? sessionShortcut : profile.primaryShortcut) else { return L10n.tr("当前应用未配置主操作", "No primary action configured for this app") }
             generation += 1
             pendingPicker = profile.expectsSessionPicker ? PendingPicker(mode: .sessions, pid: pid, requestedAt: Date(), originFocus: identity.focusedHash) : nil
@@ -264,18 +296,28 @@ final class AccessibilityAdapter {
             post(shortcut, pid: pid)
             return profile.title(for: effect)
         case .openModels:
+            if observation.context.picker == .efforts, let entry = observation.modelEntry {
+                // Already inside the combined popover: step into its model list.
+                AXUIElementSetMessagingTimeout(entry, 0.05)
+                guard AXUIElementPerformAction(entry, kAXPressAction as CFString) == .success else { return L10n.tr("模型列表暂不可用", "Model list unavailable") }
+                var known = observation.menuHashes
+                if let root = observation.pickerRoot { known.insert(root) }
+                generation += 1
+                pendingPicker = PendingPicker(mode: .models, pid: pid, requestedAt: Date(), originFocus: identity.focusedHash,
+                    originWindow: identity.windowHash, originMenus: known)
+                boundPicker = nil; cached.sampledAt = nil
+                return L10n.tr("选择模型", "Choose a model")
+            }
             guard !observation.context.compositionActive, !observation.context.modalOpen else { return L10n.tr("输入法或弹窗正在处理输入，操作已暂停", "Input method or dialog is active; action paused") }
             let profile = observation.context.applicationProfile
-            if profile == .deepSeekHarness {
-                guard let trigger = observation.modelTrigger else { return L10n.tr("未找到可访问的模型按钮；未发送操作", "No accessible model button found; no action sent") }
-                AXUIElementSetMessagingTimeout(trigger, 0.01)
-                guard AXUIElementPerformAction(trigger, kAXPressAction as CFString) == .success else {
-                    return L10n.tr("模型按钮暂不可操作；请在 Harness 主会话中重试", "Model button unavailable; retry from the main Harness chat")
-                }
-            } else {
-                guard let shortcut = observation.shortcut(for: effect, fallback: profile.secondaryShortcut) else { return L10n.tr("当前应用未配置辅助操作", "No secondary action configured for this app") }
-                post(shortcut, pid: pid)
+            if profile.opensModelsWithButton, observation.customProfile == nil {
+                // Codex also has a shortcut in some versions; it is the fallback when no button is found.
+                pressLabelledControl(pid: pid, mode: .models, identity: identity, menus: observation.menuHashes,
+                                     fallback: profile.secondaryShortcut) { profile.isModelTrigger(role: $0, hint: $1) }
+                return profile.title(for: effect)
             }
+            guard let shortcut = observation.shortcut(for: effect, fallback: profile.secondaryShortcut) else { return L10n.tr("当前应用未配置辅助操作", "No secondary action configured for this app") }
+            post(shortcut, pid: pid)
             generation += 1
             pendingPicker = profile.expectsSessionPicker ? PendingPicker(mode: profile.isMessaging ? .sessions : .models, pid: pid, requestedAt: Date(), originFocus: identity.focusedHash,
                 originWindow: identity.windowHash, originMenus: observation.menuHashes) : nil
@@ -301,18 +343,29 @@ final class AccessibilityAdapter {
                 }
                 return direction < 0 ? L10n.tr("降低推理强度", "Decrease reasoning effort") : L10n.tr("提高推理强度", "Increase reasoning effort")
             }
-            if (observation.context.picker == .models || observation.context.picker == .efforts),
+            if observation.context.picker == .efforts, let item = observation.adjustmentItem {
+                AXUIElementSetMessagingTimeout(item, 0.02)
+                _ = AXUIElementSetAttributeValue(item, kAXFocusedAttribute as CFString, kCFBooleanTrue)
+                post(KeyStroke(code: direction < 0 ? 123 : 124), pid: pid, systemMenu: true)
+                return direction < 0 ? L10n.tr("降低推理强度", "Decrease reasoning effort") : L10n.tr("提高推理强度", "Increase reasoning effort")
+            }
+            if (observation.context.picker == .models || observation.context.picker == .efforts || observation.sidebarPicker),
                let root = observation.pickerRoot, !observation.candidates.isEmpty,
                let index = candidateNavigation.move(root: root, count: observation.candidates.count,
                    selected: observation.candidates.firstIndex(where: \.selected), direction: direction) {
                 if originalPointer == nil { originalPointer = CGEvent(source: nil)?.location }
                 let candidate = observation.candidates[index]
-                AXUIElementSetMessagingTimeout(candidate.element, 0.01)
-                _ = AXUIElementSetAttributeValue(candidate.element, kAXFocusedAttribute as CFString, kCFBooleanTrue)
-                let frame = candidate.frame
+                AXUIElementSetMessagingTimeout(candidate.element, 0.02)
+                if observation.sidebarPicker { sidebarPicker?.touched = Date() }
+                else { _ = AXUIElementSetAttributeValue(candidate.element, kAXFocusedAttribute as CFString, kCFBooleanTrue) }
+                // Long lists scroll; bring the row into view and hover where it now is.
+                _ = AXUIElementPerformAction(candidate.element, "AXScrollToVisible" as CFString)
+                let frame = Self.currentFrame(of: candidate.element) ?? candidate.frame
                 SystemPointer.move(to: CGPoint(x: frame.midX, y: frame.midY))
+                selectionTitle = candidate.title
                 return L10n.tr("候选 \(index + 1) / \(observation.candidates.count)", "Item \(index + 1) / \(observation.candidates.count)")
             }
+            guard !observation.sidebarPicker else { return L10n.tr("没有可选的会话", "No chats to choose from") }
             guard let shortcut = observation.shortcut(for: effect, fallback: KeyStroke(code: direction < 0 ? 126 : 125)) else { return unassignedAction }
             post(shortcut, pid: pid, systemMenu: observation.customProfile == nil || observation.nativeMenu)
         case .confirmCandidate:
@@ -324,7 +377,9 @@ final class AccessibilityAdapter {
                 if AXUIElementPerformAction(candidate.element, kAXPressAction as CFString) != .success {
                     SystemPointer.click(at: CGPoint(x: candidate.frame.midX, y: candidate.frame.midY))
                 }
-            } else if observation.context.picker == .efforts && observation.adjustmentControl != nil {
+            } else if observation.sidebarPicker {
+                // Nothing was highlighted: leave the list without touching the draft.
+            } else if observation.context.picker == .efforts && (observation.adjustmentControl != nil || observation.adjustmentItem != nil) {
                 post(KeyStroke(code: 53), pid: pid, systemMenu: true)
             } else {
                 guard let shortcut = observation.shortcut(for: effect, fallback: KeyStroke(code: 36)) else { return unassignedAction }
@@ -333,8 +388,32 @@ final class AccessibilityAdapter {
             restorePointer()
             generation += 1
             pendingPicker = nil; boundPicker = nil
+            sidebarPicker = nil; selectionTitle = ""
             cached.sampledAt = nil
+            let profile = observation.context.applicationProfile
+            // Choosing a row may open a nested menu (model → variants); keep following it.
+            if let mode = observation.context.picker, mode != .sessions, profile.supportsAssistantPickers, !observation.sidebarPicker {
+                var known = observation.menuHashes
+                if let root = observation.pickerRoot { known.insert(root) }
+                pendingPicker = PendingPicker(mode: mode, pid: pid, requestedAt: Date(), originFocus: identity.focusedHash,
+                    originWindow: identity.windowHash, originMenus: known)
+            }
+            if profile == .claude, observation.context.picker == .models {
+                // Claude keeps effort in its own menu; continue there like the combined pickers do.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+                    MainActor.assumeIsolated {
+                        guard let self, NSWorkspace.shared.frontmostApplication?.processIdentifier == pid else { return }
+                        self.pressLabelledControl(pid: pid, mode: .efforts, identity: identity, menus: []) { profile.isEffortTrigger(role: $0, hint: $1) }
+                    }
+                }
+            }
         case .cancelPicker, .sendEscape:
+            if observation.sidebarPicker {
+                restorePointer(); generation += 1
+                sidebarPicker = nil; selectionTitle = ""; cached.sampledAt = nil
+                return effect.title
+            }
+            selectionTitle = ""
             guard let shortcut = observation.shortcut(for: effect, fallback: KeyStroke(code: 53)) else { return unassignedAction }
             post(shortcut, pid: pid, systemMenu: observation.context.picker != nil && (observation.customProfile == nil || observation.nativeMenu))
             restorePointer()
@@ -357,6 +436,56 @@ final class AccessibilityAdapter {
         case .none: break
         }
         return effect.title
+    }
+
+    private func openSidebarSessions(pid: pid_t) {
+        worker.async { [weak self] in
+            let list = LabelledControlFinder.find(pid: pid, budget: 2, roles: ["AXOutline", "AXList", "AXTable"], descend: false) {
+                ApplicationProfile.isSessionList(role: $0, hint: $1)
+            }
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard let self, NSWorkspace.shared.frontmostApplication?.processIdentifier == pid else { return }
+                    guard let list else {
+                        self.onStatus?(L10n.tr("未找到会话列表；请展开侧边栏后重试", "Chat list not found; show the sidebar and retry")); return
+                    }
+                    self.generation += 1
+                    self.sidebarPicker = SidebarPicker(pid: pid, list: list, touched: Date())
+                    self.cached.sampledAt = nil
+                    self.onStatus?(L10n.tr("选择会话", "Choose a chat"))
+                }
+            }
+        }
+    }
+
+    /// Reports the outcome of an asynchronous press, e.g. a model button that was not found.
+    var onStatus: ((String) -> Void)?
+
+    /// Finds a labelled control near the composer and presses it. The search
+    /// has its own time budget on the worker, so ordinary sampling stays cheap.
+    private func pressLabelledControl(pid: pid_t, mode: InteractionMode, identity: TargetIdentity, menus: Set<CFHashCode>,
+                                      fallback: KeyStroke? = nil, matches: @escaping @Sendable (String, String) -> Bool) {
+        worker.async { [weak self] in
+            let control = LabelledControlFinder.find(pid: pid, matches: matches)
+            let pressed = control.map { AXUIElementPerformAction($0, kAXPressAction as CFString) == .success } ?? false
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard let self, NSWorkspace.shared.frontmostApplication?.processIdentifier == pid else { return }
+                    if !pressed, let fallback { self.post(fallback, pid: pid) }
+                    guard pressed || fallback != nil else {
+                        self.onStatus?(mode == .efforts ? L10n.tr("未找到强度按钮", "Effort button not found")
+                            : L10n.tr("未找到模型按钮；请回到主会话后重试", "Model button not found; return to the main chat and retry"))
+                        return
+                    }
+                    self.generation += 1
+                    self.pendingPicker = PendingPicker(mode: mode, pid: pid, requestedAt: Date(), originFocus: identity.focusedHash,
+                        originWindow: identity.windowHash, originMenus: menus)
+                    self.boundPicker = nil
+                    self.cached.sampledAt = nil
+                    self.onStatus?(mode == .efforts ? L10n.tr("选择推理强度", "Choose reasoning effort") : L10n.tr("选择模型", "Choose a model"))
+                }
+            }
+        }
     }
 
     private var unassignedAction: String { L10n.tr("此应用动作未分配快捷键", "No shortcut assigned for this app action") }
@@ -399,6 +528,17 @@ final class AccessibilityAdapter {
         }
     }
 
+    private static func currentFrame(of element: AXUIElement) -> CGRect? {
+        var position: CFTypeRef?, size: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &position) == .success,
+              AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &size) == .success,
+              let position, let size, CFGetTypeID(position) == AXValueGetTypeID(), CFGetTypeID(size) == AXValueGetTypeID() else { return nil }
+        var point = CGPoint.zero, extent = CGSize.zero
+        guard AXValueGetValue(position as! AXValue, .cgPoint, &point), AXValueGetValue(size as! AXValue, .cgSize, &extent),
+              extent.width > 0, extent.height > 0 else { return nil }
+        return CGRect(origin: point, size: extent)
+    }
+
     private static func frontWindowScrollPoint(pid: pid_t) -> CGPoint? {
         guard let windows = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] else { return nil }
         for window in windows where (window[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value == pid &&
@@ -416,6 +556,51 @@ final class AccessibilityAdapter {
               let property = TISGetInputSourceProperty(source, kTISPropertyInputSourceType) else { return true }
         let type = Unmanaged<CFString>.fromOpaque(property).takeUnretainedValue() as String
         return type != (kTISTypeKeyboardLayout as String)
+    }
+}
+
+/// Locates one labelled button or menu button. It starts at the focused
+/// element's ancestors (the composer footer is usually a few levels away) and
+/// then walks the window, later siblings first. Message text is never read.
+enum LabelledControlFinder {
+    static func find(pid: pid_t, budget: TimeInterval = 1.2, roles: Set<String> = ["AXButton", "AXPopUpButton", "AXMenuButton"],
+                     descend: Bool = true, matches: (String, String) -> Bool) -> AXUIElement? {
+        let stop = ProcessInfo.processInfo.systemUptime + budget
+        let application = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(application, 0.05)
+        func attribute(_ node: AXUIElement, _ name: String) -> CFTypeRef? {
+            var value: CFTypeRef?
+            return AXUIElementCopyAttributeValue(node, name as CFString, &value) == .success ? value : nil
+        }
+        func element(_ value: CFTypeRef?) -> AXUIElement? {
+            guard let value, CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
+            return (value as! AXUIElement)
+        }
+        func text(_ node: AXUIElement, _ name: String) -> String { attribute(node, name) as? String ?? "" }
+        var roots: [AXUIElement] = []
+        var node = element(attribute(application, kAXFocusedUIElementAttribute))
+        while let current = node, roots.count < 48 { roots.append(current); node = element(attribute(current, kAXParentAttribute)) }
+        if let window = element(attribute(application, kAXFocusedWindowAttribute)) { roots.append(window) }
+        var seen: Set<CFHashCode> = []
+        for root in roots {
+            var stack = [root]
+            while let current = stack.popLast(), seen.count < 6000 {
+                guard ProcessInfo.processInfo.systemUptime < stop else { return nil }
+                guard seen.insert(CFHash(current)).inserted else { continue }
+                let role = text(current, kAXRoleAttribute)
+                if roles.contains(role) {
+                    let hint = [kAXDescriptionAttribute, kAXTitleAttribute].map { text(current, $0) }.first { !$0.isEmpty } ?? ""
+                    if matches(role, hint), (attribute(current, kAXEnabledAttribute) as? Bool) != false { return current }
+                    continue
+                }
+                // The window pass looks for sidebar lists as well; buttons are leaves either way.
+                guard !["AXStaticText", "AXTextArea", "AXTextField", "AXImage", "AXHeading", "AXLink", "AXButton", "AXPopUpButton", "AXMenuButton", "AXRow"].contains(role),
+                      let children = attribute(current, kAXChildrenAttribute) as? [AXUIElement] else { continue }
+                // popLast takes the end of the array, so later siblings are visited first.
+                stack.append(contentsOf: children.prefix(64))
+            }
+        }
+        return nil
     }
 }
 
@@ -441,6 +626,9 @@ private final class AXSampler {
         result.customProfile = request.customProfile
         let application = AXUIElementCreateApplication(request.pid)
         AXUIElementSetMessagingTimeout(application, 0.01)
+        if request.enableWebAccessibility {
+            AXUIElementSetAttributeValue(application, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+        }
         let focused = element(attribute(application, kAXFocusedUIElementAttribute))
         let window = element(attribute(application, kAXFocusedWindowAttribute))
         result.focused = focused; result.window = window
@@ -477,8 +665,10 @@ private final class AXSampler {
                 picker = mode; binding = PickerBinding(mode: mode, pid: request.pid, elementHash: CFHash(node), nativeMenu: role == "AXMenu" || role == "AXMenuItem")
                 break
             }
-            if let known = request.binding, known.pid == request.pid, known.elementHash == CFHash(node), popup || isSearch {
-                picker = known.mode; binding = known; break
+            // The bound element is identified by hash; it need not look like a
+            // popup (web model lists are plain groups of menu items).
+            if let known = request.binding, known.pid == request.pid, known.elementHash == CFHash(node) {
+                picker = known.mode; binding = known; modal = true; break
             }
             if popup { result.menuHashes.insert(CFHash(node)) }
             if popup {
@@ -492,13 +682,26 @@ private final class AXSampler {
                        originWindow: pending.originWindow, currentWindow: result.identity?.windowHash) {
                     picker = pending.mode; binding = PickerBinding(mode: pending.mode, pid: request.pid, elementHash: CFHash(node), nativeMenu: true); break
                 }
+                // A requested popover that takes focus itself (a web dialog
+                // holding a slider or a short option list) is the selector.
+                if let pending = request.pending, role != "AXMenu" {
+                    let options = candidates(in: node, mode: pending.mode)
+                    let slider = descendants(node, limit: 24, depth: 4).contains { string($0, kAXRoleAttribute) == "AXSlider" }
+                    if AccessibilityHints.acceptRequestedSelector(mode: pending.mode, age: Date().timeIntervalSince(pending.requestedAt),
+                        role: role, menuHash: CFHash(node), previousMenus: pending.originMenus, originWindow: pending.originWindow,
+                        currentWindow: result.identity?.windowHash, options: options.count, slider: slider) {
+                        let mode: InteractionMode = slider && options.isEmpty ? .efforts : pending.mode
+                        picker = mode; binding = PickerBinding(mode: mode, pid: request.pid, elementHash: CFHash(node)); break
+                    }
+                }
             }
             if role == "AXWindow" || role == "AXApplication" { break }
             ancestor = element(attribute(node, kAXParentAttribute))
         }
 
         if picker == nil {
-            popupElements = visiblePopups(around: focusElements, window: window)
+            popupElements = visiblePopups(around: focusElements, window: window,
+                                          menuGroups: request.pending != nil || request.binding != nil)
             for node in popupElements {
                 let role = string(node, kAXRoleAttribute), hash = CFHash(node)
                 result.menuHashes.insert(hash)
@@ -528,6 +731,14 @@ private final class AXSampler {
                 }
             }
         }
+        if picker == nil, !modal, let list = request.sessionList {
+            let rows = sessionRows(in: list)
+            if !rows.isEmpty {
+                picker = .sessions
+                result.candidates = rows; result.sidebarPicker = true
+                result.pickerRoot = CFHash(list); result.pickerFrame = frame(list)
+            }
+        }
         result.nativeMenu = binding?.nativeMenu == true
         if let currentBinding = binding, var node = (focusElements + popupElements).first(where: { CFHash($0) == currentBinding.elementHash }) {
             if string(node, kAXRoleAttribute) == "AXMenuItem", let parent = element(attribute(node, kAXParentAttribute)),
@@ -548,6 +759,14 @@ private final class AXSampler {
                     if picker == .efforts || result.candidates.isEmpty || focusElements.contains(where: { CFEqual($0, slider) }) {
                         picker = .efforts; binding?.mode = .efforts; result.candidates = []
                     }
+                }
+                // Codex shows effort as a keyboard-adjusted row next to a
+                // "Select model" entry. Turning adjusts effort; the model list
+                // is one more press of the model action away.
+                if picker == .efforts, result.adjustmentControl == nil {
+                    result.adjustmentItem = result.candidates.first { AccessibilityHints.isEffortRow($0.title) }?.element
+                    result.modelEntry = result.candidates.first { AccessibilityHints.isModelEntry($0.title) }?.element
+                    if result.adjustmentItem != nil { result.candidates = [] }
                 }
             }
         }
@@ -586,7 +805,14 @@ private final class AXSampler {
             // to its value; immediately reduce it to presence, never persist text.
             let count = (attribute(textOwner, kAXNumberOfCharactersAttribute) as? NSNumber)?.intValue
             if let count, count >= 0 { result.context.hasDraftText = count > 0 }
-            else if !overBudget { result.context.hasDraftText = (attribute(textOwner, kAXValueAttribute) as? String).map { !$0.isEmpty } }
+            // Web composers report their placeholder (or a lone line break) as
+            // the value of an empty draft. A short value is compared with the
+            // field's own labels and reduced to a flag; it is never kept.
+            if result.context.hasDraftText != false, (count ?? 0) <= 240, !overBudget,
+               let value = attribute(textOwner, kAXValueAttribute) as? String {
+                result.context.hasDraftText = AccessibilityHints.hasDraft(value: value,
+                    labels: [kAXTitleAttribute, kAXDescriptionAttribute, "AXPlaceholderValue"].map { string(textOwner, $0) })
+            }
         }
         let windowFrame = window.flatMap(frame)
         let composerFrame = result.context.editorFocused ? textOwner.flatMap(frame) : nil
@@ -594,9 +820,6 @@ private final class AXSampler {
         let viewport = profile.alwaysScrolls ? focusElements.first { string($0, kAXRoleAttribute) == "AXWebArea" }.flatMap(frame) : nil
         result.scrollPoint = ScrollTarget.point(window: windowFrame, composer: composerFrame,
                                                scrollArea: profile.alwaysScrolls ? nil : scrollArea, popup: result.pickerFrame, viewport: viewport)
-        if profile == .deepSeekHarness, picker == nil, !modal, !overBudget {
-            result.modelTrigger = harnessModelTrigger(around: focusElements, window: window)
-        }
         result.context.modalOpen = modal
         result.context.picker = picker
         result.context.compositionKnown = !request.inputSourceCanCompose
@@ -664,28 +887,6 @@ private final class AXSampler {
         return AXUIElementIsAttributeSettable(node, name as CFString, &settable) == .success && settable.boolValue
     }
     private func string(_ node: AXUIElement, _ name: String) -> String { (attribute(node, name) as? String) ?? "" }
-    private func harnessModelTrigger(around path: [AXUIElement], window: AXUIElement?) -> AXUIElement? {
-        let stop = min(deadline - 0.008, ProcessInfo.processInfo.systemUptime + 0.018)
-        var queue = path.filter { string($0, kAXRoleAttribute) == "AXGroup" }.map { ($0, 0) }
-        if let window { queue.append((window, 0)) }
-        var seen: Set<CFHashCode> = []
-        while !queue.isEmpty, seen.count < 100, ProcessInfo.processInfo.systemUptime < stop {
-            let (node, depth) = queue.removeFirst()
-            guard seen.insert(CFHash(node)).inserted else { continue }
-            let role = string(node, kAXRoleAttribute)
-            if ["AXButton", "AXPopUpButton", "AXMenuButton"].contains(role) {
-                if ApplicationProfile.isHarnessModelTrigger(role: role, hint: hints(node)),
-                   (attribute(node, kAXEnabledAttribute) as? Bool) != false { return node }
-                continue
-            }
-            // The model control is in the composer footer. Traverse later
-            // siblings first and never inspect message text or field values.
-            guard depth < 10, !["AXStaticText", "AXTextArea", "AXTextField", "AXImage"].contains(role),
-                  let children = attribute(node, kAXChildrenAttribute) as? [AXUIElement] else { continue }
-            queue.insert(contentsOf: children.reversed().prefix(24).map { ($0, depth + 1) }, at: 0)
-        }
-        return nil
-    }
     private func hints(_ node: AXUIElement) -> String {
         [kAXIdentifierAttribute, kAXDescriptionAttribute, kAXTitleAttribute, "AXPlaceholderValue"].map { String(string(node, $0).prefix(160)) }.joined(separator: " ")
     }
@@ -712,11 +913,13 @@ private final class AXSampler {
             guard ["AXMenuItem", "AXRadioButton", "AXButton"].contains(role),
                   (attribute(node, kAXEnabledAttribute) as? Bool) != false, let rect = frame(node),
                   rect.width > 30, rect.height > 14 else { continue }
-            if let rootFrame, !rootFrame.intersects(rect) { continue }
+            if let rootFrame, rect.maxX < rootFrame.minX || rect.minX > rootFrame.maxX { continue }
             if role == "AXButton", mode == .models, let rootFrame, rect.width < rootFrame.width * 0.45 { continue }
+            // Web menus mark the current choice as a checked item (value 1).
             let selected = (attribute(node, kAXSelectedAttribute) as? Bool) == true ||
-                (role == "AXRadioButton" && (attribute(node, kAXValueAttribute) as? NSNumber)?.boolValue == true)
-            found.append((AccessibleCandidate(element: node, frame: rect, selected: selected), role == "AXButton" ? 1 : 0))
+                (["AXRadioButton", "AXMenuItem"].contains(role) && (attribute(node, kAXValueAttribute) as? NSNumber)?.boolValue == true)
+            let title = [kAXTitleAttribute, kAXDescriptionAttribute].map { string(node, $0) }.first { !$0.isEmpty } ?? ""
+            found.append((AccessibleCandidate(element: node, frame: rect, selected: selected, title: String(title.prefix(40))), role == "AXButton" ? 1 : 0))
         }
         let preferred = found.contains(where: { $0.1 == 0 }) ? found.filter { $0.1 == 0 } : found
         var result: [AccessibleCandidate] = []
@@ -727,43 +930,70 @@ private final class AXSampler {
         }
         return result
     }
-    private func visiblePopups(around path: [AXUIElement], window: AXUIElement?) -> [AXUIElement] {
-        let searchDeadline = min(deadline - 0.020, ProcessInfo.processInfo.systemUptime + 0.016)
+    /// Visible rows of a sidebar chat list, top to bottom. Titles are navigation labels.
+    private func sessionRows(in list: AXUIElement) -> [AccessibleCandidate] {
+        let stop = min(deadline - 0.008, ProcessInfo.processInfo.systemUptime + 0.03)
+        let bounds = frame(list)
+        var rows: [AccessibleCandidate] = []
+        for node in descendants(list, limit: 160, depth: 5) {
+            guard ProcessInfo.processInfo.systemUptime < stop else { break }
+            guard ["AXRow", "AXButton", "AXLink"].contains(string(node, kAXRoleAttribute)), let rect = frame(node),
+                  rect.width > 60, rect.height > 14 else { continue }
+            if let bounds, rect.maxX < bounds.minX || rect.minX > bounds.maxX { continue }
+            let title = [kAXTitleAttribute, kAXDescriptionAttribute].map { string(node, $0) }.first { !$0.isEmpty } ?? ""
+            rows.append(AccessibleCandidate(element: node, frame: rect,
+                selected: (attribute(node, kAXSelectedAttribute) as? Bool) == true, title: String(title.prefix(40))))
+        }
+        return rows.sorted { ($0.frame.minY, $0.frame.minX) < ($1.frame.minY, $1.frame.minX) }
+    }
+    /// `menuGroups`: while a picker was requested or is bound, a plain group
+    /// that holds menu items counts too. Web apps render model lists that way,
+    /// several levels below a portal at the end of the page.
+    private func visiblePopups(around path: [AXUIElement], window: AXUIElement?, menuGroups: Bool = false) -> [AXUIElement] {
+        let searchDeadline = min(deadline - 0.020, ProcessInfo.processInfo.systemUptime + (menuGroups ? 0.024 : 0.016))
         func budget() -> Bool { ProcessInfo.processInfo.systemUptime < searchDeadline }
         var roots = path.reversed().map { $0 }
         if let window, !roots.contains(where: { CFEqual($0, window) }) { roots.insert(window, at: 0) }
         let excluded = Set(path.map(CFHash))
-        var queue: [(AXUIElement, Int)] = []
+        var queue: [(AXUIElement, Int, AXUIElement?)] = []
         for root in roots where budget() {
             if let children = attribute(root, kAXChildrenAttribute) as? [AXUIElement] {
-                queue += children.reversed().prefix(24).filter { !excluded.contains(CFHash($0)) }.map { ($0, 0) }
+                queue += children.reversed().prefix(24).filter { !excluded.contains(CFHash($0)) }.map { ($0, 0, root) }
             }
         }
-        var visited: Set<CFHashCode> = [], popups: [AXUIElement] = []
-        while !queue.isEmpty && visited.count < 80 && budget() {
-            let (node, depth) = queue.removeFirst()
+        let maximumDepth = menuGroups ? 9 : 4
+        var visited: Set<CFHashCode> = [], popups: [AXUIElement] = [], known: Set<CFHashCode> = []
+        while !queue.isEmpty && visited.count < (menuGroups ? 140 : 80) && budget() {
+            let (node, depth, parent) = queue.removeFirst()
             guard visited.insert(CFHash(node)).inserted else { continue }
             let role = string(node, kAXRoleAttribute)
+            if menuGroups, role == "AXMenuItem", let parent, !excluded.contains(CFHash(parent)) {
+                if known.insert(CFHash(parent)).inserted, string(parent, kAXRoleAttribute) != "AXMenu" { popups.append(parent) }
+                continue
+            }
             if ["AXStaticText", "AXTextArea", "AXTextField", "AXImage", "AXButton"].contains(role) { continue }
             let subrole = string(node, kAXSubroleAttribute)
             let hint = ["AXMenu", "AXDialog", "AXSheet"].contains(role) ? "" :
-                (string(node, kAXIdentifierAttribute) + " " + string(node, kAXDescriptionAttribute))
+                (string(node, kAXIdentifierAttribute) + " " + string(node, kAXDescriptionAttribute) + " " + String(string(node, kAXTitleAttribute).prefix(60)))
             if Self.isPopup(role: role, subrole: subrole, hint: hint) ||
                (["AXList", "AXOutline"].contains(role) && profile.pickerKind(hint) != nil) {
-                popups.append(node); continue
+                if known.insert(CFHash(node)).inserted { popups.append(node) }
+                continue
             }
-            if depth < 4, budget(), let children = attribute(node, kAXChildrenAttribute) as? [AXUIElement] {
-                queue.insert(contentsOf: children.reversed().prefix(16).filter { !excluded.contains(CFHash($0)) }.map { ($0, depth + 1) }, at: 0)
+            if depth < maximumDepth, budget(), let children = attribute(node, kAXChildrenAttribute) as? [AXUIElement] {
+                queue.insert(contentsOf: children.reversed().prefix(16).filter { !excluded.contains(CFHash($0)) }.map { ($0, depth + 1, node) }, at: 0)
             }
         }
         return popups
     }
     private static func isPopup(role: String, subrole: String, hint: String) -> Bool {
-        if ["AXMenu", "AXSheet", "AXDialog"].contains(role) || ["AXDialog", "AXSystemDialog"].contains(subrole) { return true }
+        if ["AXMenu", "AXSheet", "AXDialog"].contains(role) ||
+            ["AXDialog", "AXSystemDialog", "AXApplicationDialog", "AXApplicationAlertDialog"].contains(subrole) { return true }
         guard !["AXTextArea", "AXTextField", "AXButton", "AXPopUpButton", "AXStaticText", "AXWindow", "AXApplication"].contains(role) else { return false }
         let normalized = hint.replacingOccurrences(of: "([a-z0-9])([A-Z])", with: "$1 $2", options: .regularExpression)
             .lowercased().replacingOccurrences(of: "-", with: " ").replacingOccurrences(of: "_", with: " ")
-        return containsAny(normalized, ["dialog", "picker", "listbox", "popover", "command menu", "model menu", "effort menu"])
+        return containsAny(normalized, ["dialog", "picker", "listbox", "popover", "command menu", "command palette", "model menu", "effort menu",
+                                        "select effort", "select model", "选择强度", "选择模型"])
     }
     private static func containsAny(_ text: String, _ needles: [String]) -> Bool { needles.contains { text.contains($0) } }
     private static func visibleCandidateWindow() -> Bool {
@@ -820,7 +1050,7 @@ enum AccessibilityHints {
         guard !controls.contains(where: { $0.subrole == "AXSearchField" }),
               !containsAny(hint, ["search", "搜索", "filter", "筛选", "command menu", "命令菜单",
                                   "terminal", "终端", "code editor", "monaco", "file editor", "source editor", "codemirror", "xterm"]) else { return false }
-        if forceEditing || containsAny(hint, ["composer", "prompt", "message", "describe", "ask", "输入消息", "描述", "提问", "输入框"]) {
+        if forceEditing || containsAny(hint, ["composer", "prompt", "message", "describe", "ask", "reply", "do anything", "输入消息", "描述", "提问", "输入框", "回复", "发消息"]) {
             return true
         }
         // Anonymous single-line fields can be rename inputs or settings. Only
@@ -832,18 +1062,36 @@ enum AccessibilityHints {
         return true
     }
 
+    static func isEffortRow(_ title: String) -> Bool {
+        ["power", "effort", "reasoning", "reasoning effort", "强度", "推理强度", "思考强度"].contains(title.trimmingCharacters(in: .whitespaces).lowercased())
+    }
+    static func isModelEntry(_ title: String) -> Bool {
+        let text = title.trimmingCharacters(in: .whitespaces).lowercased()
+        return text == "select model" || text == "选择模型" || text == "model" || text == "模型"
+    }
+
+    /// An empty web composer still has a value: its placeholder, or a line break.
+    static func hasDraft(value: String, labels: [String]) -> Bool {
+        let text = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return false }
+        return !labels.contains { $0.trimmingCharacters(in: .whitespacesAndNewlines) == text }
+    }
+
     static func pickerKind(_ hint: String) -> InteractionMode? {
         let normalized = hint.replacingOccurrences(of: "([a-z0-9])([A-Z])", with: "$1 $2", options: .regularExpression)
             .lowercased().replacingOccurrences(of: "-", with: " ").replacingOccurrences(of: "_", with: " ")
-        let exact = normalized.trimmingCharacters(in: .whitespacesAndNewlines)
+        // A control often repeats one label as title and description.
+        var words: [Substring] = []
+        for word in normalized.split(separator: " ") where !words.contains(word) { words.append(word) }
+        let exact = words.joined(separator: " ")
         // Harness uses one combined menu; do not classify its model rows as
         // an effort-only selector just because the label also mentions effort.
         if ["model and reasoning effort", "模型与推理等级"].contains(exact) { return .models }
         if ["reasoning", "effort", "推理强度", "思考强度"].contains(exact) { return .efforts }
         if ["model", "模型"].contains(exact) { return .models }
-        if containsAny(normalized, ["reasoning effort", "effort picker", "推理强度", "思考强度", "reasoning intensity"]) { return .efforts }
+        if containsAny(normalized, ["reasoning effort", "effort picker", "select effort", "推理强度", "思考强度", "选择强度", "reasoning intensity"]) { return .efforts }
         if containsAny(normalized, ["choose model", "select model", "model picker", "model selection", "model select", "model selector", "model dropdown", "model switcher", "model menu", "search models", "选择模型", "模型选择", "搜索模型"]) { return .models }
-        if containsAny(normalized, ["command menu", "search chats", "search conversations", "search sessions", "search session names", "搜索聊天", "搜索会话", "命令菜单", "recent chats"]) { return .sessions }
+        if containsAny(normalized, ["command menu", "command palette", "search chats", "search conversations", "search sessions", "search session names", "搜索聊天", "搜索会话", "命令菜单", "recent chats"]) { return .sessions }
         return nil
     }
 

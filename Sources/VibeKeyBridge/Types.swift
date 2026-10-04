@@ -35,6 +35,9 @@ enum InputPhase: String, Codable {
 struct HUDSnapshot {
     var voice = VoiceHUDSnapshot()
     var deviceTemplate: DeviceTemplateID = .vibeKey
+    var connectedTemplates: Set<DeviceTemplateID> = []
+    /// Name of the chat or model currently highlighted in a picker.
+    var selection = ""
     var controlActions: [DeviceControl: String] = [:]
     var scope: GestureScope = .reading
     var controlHints: [DeviceControl: [HUDGestureHint]] = [:]

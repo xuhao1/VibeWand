@@ -95,7 +95,8 @@ final class DeviceTemplateTests: XCTestCase {
             XCTAssertEqual(config.action(scope, .ok, .single), scope == .sessions ? .confirmCandidate : scope == .applications ? .cancelApplication : .cancelPicker)
             XCTAssertEqual(config.action(scope, .dial, .single), .none)
             XCTAssertEqual(config.action(scope, .ok, .double), .none)
-            XCTAssertEqual(config.action(scope, .escape, .long), .none)
+            // Inside an effort popover, holding ○ again continues to the model list.
+            XCTAssertEqual(config.action(scope, .escape, .long), scope == .efforts ? .models : .none)
         }
         var engine = GestureEngine()
         _ = engine.receive(.dial, phase: .down, now: 0, scope: .editing, config: config)

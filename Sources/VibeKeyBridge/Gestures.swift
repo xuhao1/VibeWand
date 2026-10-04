@@ -155,7 +155,8 @@ struct GestureConfiguration: Codable {
             default: break
             }
         }
-        if [.sessions, .models, .efforts].contains(scope) && control == .dial && kind == .long { return .none }
+        // In an effort popover a second long press continues to the model list.
+        if [.sessions, .models].contains(scope) && control == .dial && kind == .long { return .none }
         switch (control, kind) {
         case (.dial, .single): return .contextDial
         case (.dial, .double): return .switchApplications

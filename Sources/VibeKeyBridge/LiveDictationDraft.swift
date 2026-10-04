@@ -123,15 +123,13 @@ final class LiveDictationDraft {
 }
 
 /// Small AX surface behind the draft policy; no recognizer or settings logic.
+/// It writes through accessibility only: no key events and no clipboard, so a
+/// field that ignores the write is simply left untouched.
 final class AccessibilityDictationField: DictationEditableField {
     private let element: AXUIElement
     private let pid: pid_t
-    private let prefersPaste: Bool
-    private var paste: ClipboardTextDelivery?
-    init(element: AXUIElement, pid: pid_t, prefersPaste: Bool? = nil) {
+    init(element: AXUIElement, pid: pid_t) {
         self.element = element; self.pid = pid
-        let bundle = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier ?? ""
-        self.prefersPaste = prefersPaste ?? (bundle == "com.openai.codex")
         AXUIElementSetMessagingTimeout(element, 0.08)
     }
     private func attribute(_ name: String) -> CFTypeRef? {
@@ -153,50 +151,14 @@ final class AccessibilityDictationField: DictationEditableField {
         return DictationFieldState(value: text, selection: NSRange(location: range.location, length: range.length))
     }
     func replace(_ range: NSRange, with text: String, expectedValue: String) -> Bool {
-        guard NSWorkspace.shared.frontmostApplication?.processIdentifier == pid else { return false }
+        guard NSWorkspace.shared.frontmostApplication?.processIdentifier == pid,
+              settable(kAXSelectedTextRangeAttribute), settable(kAXSelectedTextAttribute) else { return false }
         var selected = CFRange(location: range.location, length: range.length)
-        let canSelect = settable(kAXSelectedTextRangeAttribute)
-        if prefersPaste {
-            let selectedSuccessfully: Bool
-            if let value = AXValueCreate(.cfRange, &selected), canSelect {
-                selectedSuccessfully = AXUIElementSetAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, value) == .success
-            } else { selectedSuccessfully = read()?.selection == range }
-            guard selectedSuccessfully else { return false }
-            if text.isEmpty { postBackspace() }
-            else { paste = ClipboardTextDelivery(); paste?.post(text, pid: pid) }
-            return true
-        }
-        if canSelect, let value = AXValueCreate(.cfRange, &selected),
-           AXUIElementSetAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, value) == .success {
-            if settable(kAXSelectedTextAttribute),
-               AXUIElementSetAttributeValue(element, kAXSelectedTextAttribute as CFString, text as CFString) == .success {
-                setCaret(range.location + text.utf16.count); return true
-            }
-            // A formatted paragraph must never synthesize an Enter command.
-            if text.contains(where: { $0.isNewline }) {
-                guard settable(kAXValueAttribute),
-                      AXUIElementSetAttributeValue(element, kAXValueAttribute as CFString, expectedValue as CFString) == .success else { return false }
-                setCaret(range.location + text.utf16.count); return true
-            }
-            // Native events make Electron / web frameworks observe the edit.
-            if text.isEmpty {
-                postBackspace()
-            } else { UnicodeTextDelivery.post(text, pid: pid) }
-            return true
-        }
-        guard settable(kAXValueAttribute),
-              AXUIElementSetAttributeValue(element, kAXValueAttribute as CFString, expectedValue as CFString) == .success else { return false }
+        guard let value = AXValueCreate(.cfRange, &selected),
+              AXUIElementSetAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, value) == .success,
+              AXUIElementSetAttributeValue(element, kAXSelectedTextAttribute as CFString, text as CFString) == .success else { return false }
         setCaret(range.location + text.utf16.count)
         return true
-    }
-    func finishWrite(confirmed: Bool) { paste?.restore(confirmed: confirmed); paste = nil }
-    private func postBackspace() {
-        let source = CGEventSource(stateID: .privateState)
-        for down in [true, false] {
-            let event = CGEvent(keyboardEventSource: source, virtualKey: 51, keyDown: down)
-            event?.flags = []; event?.setIntegerValueField(.eventSourceUserData, value: AccessibilityAdapter.syntheticMarker)
-            event?.post(tap: .cghidEventTap)
-        }
     }
     private func setCaret(_ location: Int) {
         var range = CFRange(location: location, length: 0)

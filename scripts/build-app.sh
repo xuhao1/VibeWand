@@ -9,9 +9,11 @@ task_sdk_path="$(xcrun --sdk macosx --show-sdk-path)"
 task_sdk_version="$(xcrun --sdk macosx --show-sdk-version)"
 # The Swift Build backend can write the deployment target into the SDK field.
 # Set the linker platform explicitly; keep macOS 13 as the minimum runtime.
-swift build -c release --sdk "$task_sdk_path" -Xlinker -platform_version -Xlinker macos -Xlinker 13.0 -Xlinker "$task_sdk_version"
-task_binary_dir="$(swift build -c release --show-bin-path)"
-task_app="$task_root/dist/VibeWand.app"
+# VIBEWAND_CONFIGURATION=debug gives a fast development bundle; releases use the default.
+task_configuration="${VIBEWAND_CONFIGURATION:-release}"
+swift build -c "$task_configuration" --sdk "$task_sdk_path" -Xlinker -platform_version -Xlinker macos -Xlinker 13.0 -Xlinker "$task_sdk_version"
+task_binary_dir="$(swift build -c "$task_configuration" --show-bin-path)"
+task_app="${VIBEWAND_APP_PATH:-$task_root/dist/VibeWand.app}"
 mkdir -p "$task_root/dist"
 task_stage="$(mktemp -d "$task_root/dist/.bundle-build.XXXXXX")"
 trap 'rm -rf "$task_stage"' EXIT
@@ -24,7 +26,10 @@ if [ "$task_linked_sdk" != "$task_sdk_version" ]; then
   exit 1
 fi
 # Bundle the Bluetooth HID/Opus bridge for the opt-in controller voice path.
-sh "$task_root/tools/dualsense-mic/bridge/build.sh"
+# Development builds may reuse the helper from an earlier run (VIBEWAND_REUSE_HELPER=1).
+if [ "${VIBEWAND_REUSE_HELPER:-0}" != "1" ] || [ ! -x "$task_root/output/dualsense-mic/VibeWand Mic.app/Contents/MacOS/VibeWandMic" ]; then
+  sh "$task_root/tools/dualsense-mic/bridge/build.sh"
+fi
 cp "$task_root/output/dualsense-mic/VibeWand Mic.app/Contents/MacOS/VibeWandMic" "$task_staged_app/Contents/Helpers/VibeWandMic"
 cp "$task_root/output/dualsense-mic/VibeWand Mic.app/Contents/Frameworks/libopus.0.dylib" "$task_staged_app/Contents/Frameworks/libopus.0.dylib"
 cp "$task_root/output/dualsense-mic/VibeWand Mic.app/Contents/Resources/Opus-COPYING.txt" "$task_staged_app/Contents/Resources/Opus-COPYING.txt"
@@ -80,8 +85,13 @@ codesign --force --sign "$task_signing_identity" "$task_staged_app/Contents/Help
 codesign --force --sign "$task_signing_identity" --identifier org.vibekey.bridge "$task_staged_app"
 codesign --verify --deep --strict "$task_staged_app"
 if [ -d "$task_app" ]; then
-  task_backup="$(mktemp -d "$task_root/dist/.previous-build.XXXXXX")"
-  mv "$task_app" "$task_backup/VibeWand.app"
+  if [ "${VIBEWAND_KEEP_PREVIOUS:-1}" = "1" ]; then
+    task_backup="$(mktemp -d "$task_root/dist/.previous-build.XXXXXX")"
+    mv "$task_app" "$task_backup/VibeWand.app"
+  else
+    rm -rf "$task_app"
+  fi
 fi
+mkdir -p "$(dirname "$task_app")"
 mv "$task_staged_app" "$task_app"
 printf '%s\n' "$task_app"

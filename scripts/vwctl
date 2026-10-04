@@ -1,0 +1,7 @@
+#!/bin/bash
+# Sends one JSON request to a VibeWand started with --automation-socket.
+# Usage: scripts/vwctl '{"cmd":"state"}'   (socket: $VIBEWAND_SOCKET or dist/dev/vw.sock)
+set -euo pipefail
+task_root="$(cd "$(dirname "$0")/.." && pwd)"
+task_socket="${VIBEWAND_SOCKET:-$task_root/dist/dev/vw.sock}"
+printf '%s\n' "$1" | /usr/bin/nc -U "$task_socket"

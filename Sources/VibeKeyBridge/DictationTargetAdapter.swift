@@ -1,8 +1,10 @@
 import AppKit
 import ApplicationServices
 
-/// Dictation follows the focused editor in any app. Application navigation
-/// profiles remain separate and still gate chat/model/scroll shortcuts.
+/// Dictation follows the keyboard focus in any app. Application navigation
+/// profiles remain separate and still gate chat/model/scroll shortcuts. An app
+/// that exposes no readable editor still gets an observation (without an
+/// `editor`), so the transcript can be pasted at its caret.
 @MainActor
 final class DictationTargetAdapter {
     private let worker = DispatchQueue(label: "VibeWand.dictation-target", qos: .userInitiated)
@@ -29,8 +31,15 @@ final class DictationTargetAdapter {
             guard let value, CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
             return unsafeBitCast(value, to: AXUIElement.self)
         }
-        guard let focus = element(attribute(app, kAXFocusedUIElementAttribute)),
-              let window = element(attribute(app, kAXFocusedWindowAttribute)) else { return TargetObservation() }
+        var result = TargetObservation(pid: pid)
+        result.sampledAt = Date()
+        result.context = InteractionContext(targetAvailable: true, editorFocused: false, modalOpen: false,
+            compositionActive: false, picker: nil)
+        let window = element(attribute(app, kAXFocusedWindowAttribute))
+        result.window = window
+        result.identity = TargetIdentity(pid: pid, windowHash: window.map(CFHash) ?? 0, windowTitle: "", focusedHash: 0, focusedIdentifier: "")
+        guard let focus = element(attribute(app, kAXFocusedUIElementAttribute)) else { return result }
+        result.focused = focus
         var editor: AXUIElement?
         var current: AXUIElement? = focus
         for _ in 0..<8 {
@@ -38,7 +47,7 @@ final class DictationTargetAdapter {
             AXUIElementSetMessagingTimeout(candidate, 0.02)
             let role = attribute(candidate, kAXRoleAttribute) as? String ?? ""
             let subrole = attribute(candidate, kAXSubroleAttribute) as? String ?? ""
-            if subrole == "AXSecureTextField" { return TargetObservation() }
+            if subrole == "AXSecureTextField" { result.secureField = true; return result }
             if ["AXTextArea", "AXTextField", "AXSearchField", "AXComboBox"].contains(role),
                attribute(candidate, kAXEnabledAttribute) as? Bool != false,
                attribute(candidate, "AXEditable") as? Bool != false {
@@ -46,16 +55,15 @@ final class DictationTargetAdapter {
             }
             current = element(attribute(candidate, kAXParentAttribute))
         }
-        guard let editor else { return TargetObservation() }
+        guard let editor else { return result }
         var composing = false
         if let marked = attribute(editor, "AXMarkedTextRange"), CFGetTypeID(marked) == AXValueGetTypeID() {
             var range = CFRange()
             if AXValueGetValue(unsafeBitCast(marked, to: AXValue.self), .cfRange, &range) { composing = range.length > 0 }
         }
-        var result = TargetObservation(pid: pid)
-        result.focused = focus; result.editor = editor; result.window = window; result.sampledAt = Date()
-        result.identity = TargetIdentity(pid: pid, windowHash: CFHash(window),
-            windowTitle: attribute(window, kAXTitleAttribute) as? String ?? "",
+        result.editor = editor
+        result.identity = TargetIdentity(pid: pid, windowHash: window.map(CFHash) ?? 0,
+            windowTitle: window.flatMap { attribute($0, kAXTitleAttribute) as? String } ?? "",
             focusedHash: CFHash(editor), focusedIdentifier: attribute(editor, kAXIdentifierAttribute) as? String ?? "")
         result.context = InteractionContext(targetAvailable: true, editorFocused: true, modalOpen: false,
             compositionActive: composing, picker: nil)

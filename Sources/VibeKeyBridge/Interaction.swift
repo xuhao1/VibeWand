@@ -55,7 +55,9 @@ func reduce(
         case .escape:
             state.pickerConfirmed = false
             return .cancelPicker
-        case .settings: return .none
+        case .settings:
+            // Inside a combined effort popover, the model action opens its model list.
+            return picker == .efforts ? .openModels : .none
         default: return .none
         }
     }

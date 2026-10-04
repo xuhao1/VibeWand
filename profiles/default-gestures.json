@@ -49,7 +49,7 @@
     "applications.dial.heldRight": "nextApplication",
     "sessions.dial.long": "none",
     "models.dial.long": "none",
-    "efforts.dial.long": "none",
+    "efforts.dial.long": "models",
     "applications.dial.single": "confirmApplication",
     "applications.dial.double": "none",
     "applications.dial.long": "none",

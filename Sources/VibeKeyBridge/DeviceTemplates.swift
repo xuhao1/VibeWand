@@ -61,6 +61,8 @@ struct DeviceTemplate {
             }
             configuration.set(.sessions, .ok, .single, .confirmCandidate)
             configuration.set(.sessions, .escape, .single, .cancelPicker)
+            // From an effort popover, holding ○ again continues to the model list.
+            configuration.set(.efforts, .escape, .long, .models)
         }
         if id == .xiaomiRemote {
             configuration.set(.global, .dial, .single, .contextConfirm)
@@ -73,6 +75,7 @@ struct DeviceTemplate {
                 configuration.set(scope, .ok, .long, GestureAction.none)
             }
             configuration.set(.applications, .ok, .long, GestureAction.none)
+            configuration.set(.efforts, .ok, .long, .models)
         }
         return configuration
     }
@@ -192,7 +195,7 @@ final class DeviceTemplateStore {
         var configurations: [String: GestureConfiguration] = [:]
         var profiles: [String: HIDDeviceProfile] = [:]
         // Optional for the v1 store written before controller pointer support.
-        var presetRevision: Int? = 3
+        var presetRevision: Int? = 4
     }
     private let defaults: UserDefaults
     private var state: State
@@ -212,12 +215,14 @@ final class DeviceTemplateStore {
             }
             migratePresetDefaults()
             migrateSessionConfirmation()
+            migrateEffortModelEntry()
         } else {
             state = State()
             state.presetRevision = 1
             migrateLegacyConfiguration()
             migratePresetDefaults()
             migrateSessionConfirmation()
+            migrateEffortModelEntry()
         }
     }
 
@@ -334,6 +339,18 @@ final class DeviceTemplateStore {
     }
     private func persist() throws {
         defaults.set(try JSONEncoder().encode(state), forKey: Self.storageKey)
+    }
+    /// Revision 4: the model action stays available inside an effort popover.
+    private func migrateEffortModelEntry() {
+        guard (state.presetRevision ?? 1) < 4 else { return }
+        for (id, control) in [(DeviceTemplateID.dualSense, DeviceControl.escape), (.xiaomiRemote, .ok)] {
+            guard var saved = state.configurations[id.rawValue] else { continue }
+            let key = GestureConfiguration.key(.efforts, control, .long)
+            if saved.overrides[key] == nil || saved.overrides[key] == GestureAction.none { saved.overrides[key] = .models }
+            state.configurations[id.rawValue] = saved
+        }
+        state.presetRevision = 4
+        try? persist()
     }
     private func migrateSessionConfirmation() {
         guard (state.presetRevision ?? 1) < 3 else { return }

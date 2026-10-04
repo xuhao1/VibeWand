@@ -42,6 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var signalSources: [DispatchSourceSignal] = []
     private var diagnosticsURL: URL?
     private var settingsCloseObserver: NSObjectProtocol?
+    private var automation: AutomationController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.applicationIconImage = Self.dockIcon()
@@ -118,6 +119,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             source.setEventHandler { NSApp.terminate(nil) }; source.resume(); signalSources.append(source)
         }
         updateMenu()
+        if let socket = argumentURL("--automation-socket") {
+            automation = AutomationController(path: socket.path, runtime: runtime, overlay: overlay,
+                openSettings: { [weak self] tab in self?.presentSettings(tab: tab) },
+                renderSettings: { [weak self] url in self?.settings?.renderPNG(to: url) ?? false })
+            if automation == nil { NSLog("VibeWand automation socket unavailable: %@", socket.path) }
+        }
         if CommandLine.arguments.contains("--settings") { openSettings() }
         if CommandLine.arguments.contains("--render-dark") {
             presentSettings()
@@ -143,6 +150,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         NotificationCenter.default.removeObserver(self)
         if let settingsCloseObserver { NotificationCenter.default.removeObserver(settingsCloseObserver) }
+        automation?.stop()
         runtime.stop()
     }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

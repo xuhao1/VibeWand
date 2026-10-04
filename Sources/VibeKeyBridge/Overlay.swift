@@ -110,6 +110,14 @@ final class OverlayController {
         view.cancelMousePress(); host.update(host.snapshot, mode: mode, expanded: expanded); resize()
     }
 
+    func toggleDisplayMode() { setDisplayMode(displayMode == .full ? .compact : .full) }
+    func setOrigin(_ origin: NSPoint) { panel.setFrameOrigin(origin); keepOnScreen(); savePosition() }
+    var automationState: [String: Any] {
+        ["mode": displayMode.rawValue, "visible": panel.isVisible, "expanded": expanded,
+         "frame": [panel.frame.minX, panel.frame.minY, panel.frame.width, panel.frame.height],
+         "window": panel.windowNumber, "toggle": host.toggleButtonScreenFrame.map { [$0.minX, $0.minY, $0.width, $0.height] } ?? []]
+    }
+
     func resetPosition() {
         let screen = (NSScreen.main ?? NSScreen.screens.first)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         panel.setFrameOrigin(NSPoint(x: screen.maxX - panel.frame.width - 28, y: screen.minY + 34))
