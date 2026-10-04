@@ -2,13 +2,11 @@
 
 **把阅读、编辑和听写，握在手中。**
 
-一款原生 macOS 工具，把旋钮或手柄接入你的 AI 工作流。同一套实体控件跟随当前场景工作，继续使用熟悉的应用和输入法。
+一款原生 macOS 工具，把旋钮、手柄或遥控器接入你的 AI 工作流。同一套实体控件跟随当前场景工作，继续使用熟悉的应用和输入法。
 
 [English](README.md) · [快速开始](docs/getting-started.md) · [文档目录](docs/README.md) · [项目主页](https://vibewand.xuhao1.me)
 
-![用旋钮阅读、用手柄编辑、按住按键听写](docs/images/workflow-hero.png)
-
-*AI 生成的使用场景示意图，屏幕内容为概念演示。听写使用 macOS 或输入法所选的麦克风。*
+![用旋钮阅读、用手柄编辑与听写、用遥控器确认执行](docs/images/workflow-hero-v2.png)
 
 ## 为什么用 VibeWand
 
@@ -38,20 +36,25 @@ AU05 输入和本机蓝牙手柄已有实机记录。手柄按键覆盖取决于
 
 内置适配覆盖 **Codex、DeepSeek Harness、浏览器、微信与飞书**。具体行为随应用控件和快捷键而变化；Return 是否发送消息由目标应用决定。其他应用可通过快捷键预设添加，详见[应用适配](docs/applications.md)。
 
-## 开始使用
+## 下载与安装
 
-要求 **macOS 13+**、**Swift 5.9+ 工具链**，建议安装 Xcode。从源码构建并启动：
+**[下载 VibeWand macOS 版 — Apple Silicon](https://github.com/xuhao1/VibeWand/releases/download/v0.5.5/VibeWand-0.5.5-macOS-arm64.zip)** · [版本说明](https://github.com/xuhao1/VibeWand/releases/latest)
+
+要求 **macOS 13+**、**Apple Silicon Mac（M 系列）**。下载 ZIP，在 Finder 中解压，将 **VibeWand.app** 拖入「应用程序」，再双击打开，无需安装开发工具。
+
+在「系统设置 → 隐私与安全性 → 辅助功能」允许 VibeWand，再到「设置 → 设备与按键」选择硬件。AU05 使用前先退出 Ulanzi Studio。没有设备时，可在「设置 → 开发者 → 演示模式」体验。
+
+本版本使用临时签名，尚未通过 Apple 公证；首次打开说明见[快速开始](docs/getting-started.md)。
+
+### 从源码编译
+
+如需自行编译，请安装 **Xcode** 与 **Swift 5.9+ 工具链**，下载源码，在项目目录执行：
 
 ```sh
-git clone https://github.com/xuhao1/VibeWand.git
-cd VibeWand
 bash scripts/build-app.sh
-bash scripts/run.sh
 ```
 
-在「系统设置 → 隐私与安全性 → 辅助功能」允许 VibeWand，再到「设置 → 设备与按键」选择硬件。AU05 使用前先退出 Ulanzi Studio。没有设备也可运行 `bash scripts/run.sh --demo --settings` 体验演示。
-
-连接、听写设置和第一次操作见[快速开始](docs/getting-started.md)。
+之后在 Finder 中打开 `dist/VibeWand.app`。工具链与签名说明见[编译指南](docs/development.md)。
 
 ## 使用文档
 

@@ -6,15 +6,35 @@ Requires macOS 13+ and Swift 5.9+; use a full Xcode toolchain for SwiftUI and te
 
 开发环境要求 macOS 13+ 和 Swift 5.9+，SwiftUI 与测试建议使用完整 Xcode。
 
-## Build, test, and inspect input / 构建、测试与采集
+## Build from source / 从源码编译
+
+Download the source from [GitHub](https://github.com/xuhao1/VibeWand), or the source archive attached to the desired [release](https://github.com/xuhao1/VibeWand/releases). In the project folder, build the graphical application:
+
+从 GitHub 或对应 Release 下载源码，在项目目录编译图形化应用：
 
 ```sh
-swift build
-swift test
-swift run AU05Capture --list
-swift run AU05Capture --duration 30
-swift run AU05Capture --profile /absolute/path/controller.json --duration 30
+bash scripts/build-app.sh
 ```
+
+The script compiles a release build, copies the icon, device images and license notices, and signs the bundle. The result is **`dist/VibeWand.app`**. Open it in Finder or copy it to Applications and double-click it. The application runs from the menu bar; settings, demo, physical capture and diagnostics are available in its graphical interface.
+
+脚本完成 Release 编译、素材与许可证打包和签名，生成 **`dist/VibeWand.app`**。在 Finder 中打开，或复制到「应用程序」后双击；设置、演示、采集与诊断均通过图形界面操作。
+
+The default build targets the build Mac's architecture. The published 0.5.5 package is **arm64 / Apple Silicon**, requires macOS 13+, uses ad-hoc signing, and is not Apple-notarized. Intel users need their own build on an Intel Mac; this release has not validated Intel hardware.
+
+默认编译面向构建机器的架构。已发布 0.5.5 为 **arm64 / Apple Silicon**，要求 macOS 13+，临时签名且未公证；Intel 用户需在 Intel Mac 自行编译，本次未验证 Intel 实机。
+
+## Tests / 测试
+
+For behavior changes, run the test suite with the same Xcode toolchain:
+
+行为变更使用同一 Xcode 工具链运行测试：
+
+```sh
+swift test
+```
+
+## Source layout / 源码布局
 
 `AU05Capture` emits normalized input as NDJSON and writes connection status to stderr. The CLI and GUI cannot own the AU05 simultaneously. Normal exit, SIGINT, and SIGTERM release the interface and temporary hooks.
 

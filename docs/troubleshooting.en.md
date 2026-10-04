@@ -6,7 +6,7 @@
 
 | Symptom | Check |
 | --- | --- |
-| App starts in demo | Check Accessibility in Settings → General. Quit and launch again after authorization. |
+| App starts in demo | Check Accessibility in Settings → General. Quit and reopen the app after authorization. |
 | AU05 unavailable | Quit Ulanzi Studio and the AU05Capture utility. Only one owner can use its vendor interface at a time; reconnect the receiver if needed. |
 | Controller not found | Check USB or macOS Bluetooth pairing, select Controller, and inspect live connection status. Remove an imported HID override to restore native detection. |
 | Remote has no events | The preset alone cannot connect it. Import a profile captured from the intended device; verify press and release reports. |
@@ -21,12 +21,7 @@ Ad-hoc signed updates can require Accessibility permission to be registered agai
 
 In **Settings → Developer**, choose physical input capture. It temporarily owns the selected device and shows physical events while sending no app shortcuts, Fn, or pointer output. Confirm press/release pairs, stick return to center, and reconnect behavior. Restore live mode before trying app actions.
 
-To launch capture after quitting the existing instance:
-
-```sh
-bash scripts/run.sh --capture-only
-bash scripts/run.sh --capture-only --diagnostics-path /absolute/path/status.json
-```
+Use **Settings → Developer → Export diagnostics…** to save a local diagnostic file.
 
 Diagnostics contain mode, connection/authorization status, counters, held controls, and action status; they do not contain conversation text, audio, or credentials. Inspect attachments before sharing. [Report an issue](../CONTRIBUTING.md).
 

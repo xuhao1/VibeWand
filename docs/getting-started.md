@@ -2,26 +2,17 @@
 
 [English](getting-started.en.md) · [文档目录](README.md)
 
-## 1. 构建并启动
+## 1. 下载并打开
 
-要求 macOS 13+、Swift 5.9+，建议使用完整 Xcode。在终端运行：
+从 [GitHub Releases](https://github.com/xuhao1/VibeWand/releases/latest) 下载 **[VibeWand-0.5.5-macOS-arm64.zip](https://github.com/xuhao1/VibeWand/releases/download/v0.5.5/VibeWand-0.5.5-macOS-arm64.zip)**。本包要求 **macOS 13+**、**Apple Silicon Mac**，不含 Intel 可执行文件。
 
-```sh
-git clone https://github.com/xuhao1/VibeWand.git
-cd VibeWand
-bash scripts/build-app.sh
-bash scripts/run.sh
-```
+1. 在 Finder 中双击 ZIP，解压得到 **VibeWand.app**。
+2. 拖入「应用程序」。
+3. 双击 **VibeWand**，通过菜单栏图标打开「设置…」或显示悬浮面板。
 
-生成 `dist/VibeWand.app`，也可在 Finder 中打开。构建脚本优先使用 `/Applications/Xcode-beta.app`，否则使用当前选定的工具链。签名和工具链详情见[开发指南](development.md)。
+本包使用临时签名，尚未通过 Apple 公证。若首次打开被 macOS 阻止，可按 [Apple 的首次打开说明](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unidentified-developer-mh40616/mac)在「系统设置 → 隐私与安全性」处理，无需命令行启动。
 
-没有设备时，先退出已有实例，再启动演示：
-
-```sh
-bash scripts/run.sh --demo --settings
-```
-
-演示只操作模拟内容。启动参数仅对新进程生效。
+没有设备时，在「设置 → 开发者 → 演示模式」体验；使用设备前切回「实时控制」。自行编译见[从源码编译](development.md#build-from-source--从源码编译)，完成后在 Finder 中打开生成的应用。
 
 ## 2. 授予辅助功能权限
 

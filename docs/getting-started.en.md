@@ -2,26 +2,17 @@
 
 [简体中文](getting-started.md) · [Documentation](README.md)
 
-## 1. Build and launch
+## 1. Download and open
 
-Use macOS 13 or later with Swift 5.9+; a full Xcode installation is recommended. In Terminal:
+Download **[VibeWand-0.5.5-macOS-arm64.zip](https://github.com/xuhao1/VibeWand/releases/download/v0.5.5/VibeWand-0.5.5-macOS-arm64.zip)** from [GitHub Releases](https://github.com/xuhao1/VibeWand/releases/latest). This package requires **macOS 13+** and an **Apple Silicon Mac**; it does not include an Intel binary.
 
-```sh
-git clone https://github.com/xuhao1/VibeWand.git
-cd VibeWand
-bash scripts/build-app.sh
-bash scripts/run.sh
-```
+1. Double-click the ZIP in Finder to extract **VibeWand.app**.
+2. Drag it into **Applications**.
+3. Double-click **VibeWand**. Its menu-bar icon provides **Settings…** and the floating panel controls.
 
-The build creates `dist/VibeWand.app`. It uses Xcode beta when installed at `/Applications/Xcode-beta.app`, otherwise the selected toolchain. You can also open the built app in Finder. Signing and toolchain details are in [Development](development.md).
+This package is ad-hoc signed and has not been notarized by Apple. If macOS blocks the first open, follow [Apple's first-open guidance](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unidentified-developer-mh40616/mac) in **System Settings → Privacy & Security**. No command-line launch is required.
 
-To explore without hardware, quit an existing instance first, then run:
-
-```sh
-bash scripts/run.sh --demo --settings
-```
-
-Demo actions operate on simulated content. Launch arguments apply only to a newly started instance.
+To try it without hardware, choose **Settings → Developer → Demo**. Return to **Live control** to use your device. If you prefer to compile it, follow [Build from source](development.md#build-from-source--从源码编译), then open the resulting app in Finder.
 
 ## 2. Allow Accessibility
 

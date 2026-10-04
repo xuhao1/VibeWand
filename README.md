@@ -2,13 +2,11 @@
 
 **Read, edit, and dictate with the controls in your hand.**
 
-A native macOS utility that turns a dial or gamepad into a control surface for your AI workflow. Use the apps and input method you already know, with physical controls that follow what you are doing.
+A native macOS utility that turns a dial, gamepad, or remote into a control surface for your AI workflow. Use the apps and input method you already know, with physical controls that follow what you are doing.
 
 [简体中文](README.zh-CN.md) · [Getting started](docs/getting-started.en.md) · [Documentation](docs/README.md) · [Project website](https://vibewand.xuhao1.me)
 
-![Read with a dial, edit with a gamepad, and hold a button to dictate](docs/images/workflow-hero.png)
-
-*AI-generated usage illustration; screen content is conceptual. Dictation uses the microphone selected in macOS or your input method.*
+![Read with a dial, edit and dictate with a gamepad, execute an AI action with a remote](docs/images/workflow-hero-v2.png)
 
 ## Why VibeWand
 
@@ -38,20 +36,25 @@ Read a reply → hold to dictate a draft → release and edit → confirm when r
 
 Built-in adapters cover **Codex, DeepSeek Harness, browsers, WeChat, and Feishu**. Behavior varies with each app's exposed controls and shortcuts; Return follows its own send/newline setting. Add other apps through editable shortcut presets. See [application support](docs/applications.en.md).
 
-## Get started
+## Download and install
 
-Requires **macOS 13+** and a **Swift 5.9+ toolchain**; Xcode is recommended. Build and launch from source:
+**[Download VibeWand for macOS — Apple Silicon](https://github.com/xuhao1/VibeWand/releases/download/v0.5.5/VibeWand-0.5.5-macOS-arm64.zip)** · [Release notes](https://github.com/xuhao1/VibeWand/releases/latest)
+
+Requires **macOS 13+** and an **Apple Silicon Mac** (M series). Download the ZIP, extract it in Finder, drag **VibeWand.app** into **Applications**, then double-click to open it. No development tools are needed.
+
+Allow VibeWand in **System Settings → Privacy & Security → Accessibility**, then choose your hardware in **Settings → Devices & inputs**. For AU05, quit Ulanzi Studio first. Without hardware, choose **Settings → Developer → Demo**.
+
+This release is ad-hoc signed and is not Apple-notarized; see [Getting started](docs/getting-started.en.md) for first-open instructions.
+
+### Build from source
+
+For your own build, install **Xcode** with a **Swift 5.9+ toolchain**, download the source, and run this in the project folder:
 
 ```sh
-git clone https://github.com/xuhao1/VibeWand.git
-cd VibeWand
 bash scripts/build-app.sh
-bash scripts/run.sh
 ```
 
-Allow VibeWand in **System Settings → Privacy & Security → Accessibility**, then choose your hardware in **Settings → Devices & inputs**. For AU05, quit Ulanzi Studio first. No device yet? Try `bash scripts/run.sh --demo --settings`.
-
-Follow [Getting started](docs/getting-started.en.md) for connection, dictation setup, and your first interaction.
+Then open `dist/VibeWand.app` in Finder. See the [compilation guide](docs/development.md) for toolchain and signing details.
 
 ## Documentation
 

@@ -21,12 +21,7 @@
 
 在「设置 → 开发者」启用物理输入采集。该模式临时占用所选设备，只显示物理事件，不发送应用快捷键、Fn 或指针操作。验证成对按下 / 松开、摇杆回中及断线重连，之后恢复实时模式再试应用操作。
 
-退出已有实例后也可通过命令启动采集：
-
-```sh
-bash scripts/run.sh --capture-only
-bash scripts/run.sh --capture-only --diagnostics-path /absolute/path/status.json
-```
+通过「设置 → 开发者 → 导出诊断…」保存本地诊断文件。
 
 诊断包含模式、连接 / 权限状态、计数器、保持按键和动作状态，不包含会话正文、音频或凭证。分享前仍请检查附件，见[问题报告说明](../CONTRIBUTING.md)。
 

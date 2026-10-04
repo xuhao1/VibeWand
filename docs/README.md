@@ -10,7 +10,7 @@ Start with setup, then learn the default workflow or customize it. User guides d
 
 | Guide | 中文 | What you will find / 内容 |
 | --- | --- | --- |
-| [Getting started](getting-started.en.md) | [快速开始](getting-started.md) | Build, permission, connection, dictation, first interaction / 构建、授权、连接、听写与第一次操作 |
+| [Getting started](getting-started.en.md) | [快速开始](getting-started.md) | Download, permission, connection, dictation, first interaction / 下载、授权、连接、听写与第一次操作 |
 | [Default controls](core-experience.en.md) | [默认操作](core-experience.md) | VibeKey, Controller, Remote defaults and context behavior / 三种模板默认操作与场景行为 |
 | [Settings and remapping](settings.en.md) | [设置与改键](settings.md) | Button editor, action library, timing, import/export, overlay / 按键编辑、动作库、时间、导入导出与悬浮反馈 |
 | [Applications](applications.en.md) | [应用适配](applications.md) | Built-in adapters, custom shortcuts, known limits / 内置适配、自定义快捷键与已知边界 |
