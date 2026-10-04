@@ -17,9 +17,9 @@ A native macOS companion for **vibe coding without a mouse or keyboard**, with b
 - **Make the layout yours.** Click a control in the device picture to remap its gestures. Each hardware template keeps its own settings.
 - **Native and local.** A native device HUD or compact voice bar, Chinese and English interfaces, and local configuration. No VibeWand cloud account or API key is required.
 
-![VibeWand native device editor, with device picture, input list, and gesture inspector](docs/images/ui-audit/en-compact-devices.png)
+<p align="center"><img src="docs/images/overlay-v060-light.png" width="500" alt="VibeWand 0.6.0 native controller HUD and compact voice bar"></p>
 
-*Implemented settings interface, captured in 0.5.3. Current bindings are described in the [default-controls guide](docs/core-experience.en.md).*
+*Native controller HUD and compact voice bar in 0.6.0. [Configure your controls and overlay](docs/settings.en.md).*
 
 ## Hardware support
 

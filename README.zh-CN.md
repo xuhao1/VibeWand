@@ -17,9 +17,9 @@
 - **按自己的习惯配置。** 在设备图上点击控件，修改其触发动作；每种硬件模板独立保存。
 - **原生、本地运行。** 完整设备面板或紧凑语音条、中英文界面、本地配置，无需 VibeWand 云账号或 API Key。
 
-![VibeWand 原生设置：设备图、实体按键列表与手势编辑器](docs/images/settings-native.png)
+<p align="center"><img src="docs/images/overlay-v060-light.png" width="500" alt="VibeWand 0.6.0 原生手柄面板与紧凑语音条"></p>
 
-*来自 0.5.3 的已实现设置界面；当前默认映射见[默认操作指南](docs/core-experience.md)。*
+*0.6.0 的原生手柄面板与紧凑语音条。[配置按键与悬浮面板](docs/settings.md)。*
 
 ## 硬件支持
 
