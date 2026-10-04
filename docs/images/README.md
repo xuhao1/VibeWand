@@ -1,0 +1,36 @@
+# Settings design assets
+
+## Approved 0.5 redesign
+
+`settings-redesign-concept.png` is the new Steam Input-inspired concept approved by the user. It was created with the built-in image generation tool before implementation. `settings-native.png` tracks the implemented settings window; version 0.5.1 refines the header / photo proportions and adds stick-direction controls. The gamepad and remote assets, original prompts, and physical hotspot coordinates are documented in [device asset provenance](../design-device-assets.md).
+
+```text
+Use case: ui-mockup
+Asset: complete native macOS VibeWand settings redesign concept before coding, landscape 1600x1050.
+Primary request: professional controller configuration desktop app inspired by Steam Input's real controller view and action editor, beautifully restrained and usable. NOT a cartoon diagram. Left slim 170px pale-gray sidebar with VibeWand logo type and entries General, Devices (selected blue), Apps, Overlay, Developer, About, plus Chinese / English selector bottom. Top content title Controller layout, small saved status, segmented VibeKey | Controller | Remote. Main center expansive dark slate photographic stage occupying 58% of content: a LARGE realistic white-and-black modern symmetrical console gamepad product photograph facing viewer at slight overhead angle, actual d-pad, analog sticks, triangle circle cross square face buttons, triggers and touchpad visibly correctly placed. Thin blue focus ring over the actual triangle button and one elegant small connected callout '△  Hold to dictate'; do not cover the device with boxes. Low-opacity other clickable blue pinpoint rings align precisely over physical buttons. Stage footer 'Right-hand preset • Every button is editable'. Under photo a compact horizontal filter All / Buttons / Triggers / Sticks, then compact two-column current binding rows with key glyph and current action e.g R1 Previous, R2 Next, square Switch, cross Confirm. Right inspector clean white surface headed triangle button / Input settings, description Right thumb, dropdown Context: Global, four gesture cards Single press: None, Double press: None, Long press: None, Hold: Dictation. Bottom inspector action type choices System / App / VibeWand with search and clear entries, crisp native typography. Top or bottom discreet Import / Export / Restore defaults. Natural hierarchy, balanced space, fully readable English typography, real macOS traffic lights, no decorative statistics, no fake charts, no marketing filler, no Steam logo. This is an implementable UI concept not an actual screenshot.
+```
+
+`settings-redesign-concept.png` is the generated visual concept used before implementing the 0.5 photo-based layout editor, six-page sidebar, and bilingual UI. It is not an application screenshot. See [Settings design](../settings-design.md).
+
+`settings-concept.png` is the superseded 0.4 concept, retained as history. It was generated with the built-in image generation tool before the earlier native settings implementation. It is a visual concept, not a product screenshot. The original prompt used device-specific names; the final interface uses **VibeKey / 手柄 / 遥控器** and a right-hand controller layout, following the subsequent design change.
+
+`settings-native.png` is rendered from the implemented native VibeWand settings view. Device connection state in the image reflects the capture session and is not a claim of verified hardware compatibility.
+
+## Historical 0.4 generation prompt
+
+```text
+Use case: ui-mockup
+Asset type: visual design reference before implementing native macOS SwiftUI settings for VibeWand open-source controller utility.
+Primary request: Produce one polished realistic macOS settings window screenshot concept, landscape 1400x950 approximate, light native Apple desktop UI, warm off-white content and very subtle gray toolbar, blue focus accent. Title VibeWand at top with traffic lights. Five horizontal native toolbar tabs: 通用, 设备与按键 (selected), 应用适配, 悬浮面板, 开发者. Main panel header 设备与按键 and subtitle 点击设备上的按键，调整它的动作. Three segmented selectable hardware templates named VibeKey, DualSense, 小米遥控器. Below two-column layout: left a flat top-down white VibeKey device graphic (large dark circular rotary dial, small microphone button, OK, ESC buttons, annotations by controls) in a soft gray rounded well with caption VibeKey · AU05; right a selected control inspector headed 旋钮, a scope selector 通用默认, and three clean form rows with dropdowns 单击: 按场景切换, 双击: 切换应用, 长按: 模型与强度, then two rotation mapping rows. Footer subtle note 修改后立即生效 · 每套模板独立保存 with buttons 导入, 导出, 恢复此模板. Compact tasteful typography, generous readable spacing, professional native utility without decorative dashboard cards. Status indicator in top right 已连接. No extra logos, no background landscape, single window fills image. All text clearly typeset in Chinese. This is a design mockup, not a photograph.
+```
+
+## 0.5.2 full interface audit
+
+`ui-audit/` contains 18 exports of the native settings views: all six pages in Chinese, compact English and compact dark Chinese. See [the gallery](../ui-appearance-gallery.html) and [inspection record](../ui-appearance-audit.md). These are implemented UI captures, not design concepts.
+
+
+## 0.5.3 appearance update
+
+The interface now keeps language selection in General only, uses VibeKey as the visible template name, and makes each sidebar navigation row fully clickable. Native translucent surfaces follow macOS light and dark appearance. The original generation prompts above are preserved as provenance, including superseded labels and language-control placement. The `ui-audit/` gallery has been refreshed for 0.5.3, including the single language entry and overlay hide button.
+
+界面将语言选择统一到「通用」，模板名称简化为 VibeKey，侧栏导航支持整行点击，并采用随 macOS 明暗外观变化的原生半透明材质。以上原始生成提示词保留作为素材来源记录，其中旧文案和语言入口位置已被后续修改取代。`ui-audit/` 图集已更新至 0.5.3，并检查了明暗材质及悬浮窗的设置、隐藏按钮。

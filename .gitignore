@@ -1,0 +1,12 @@
+.build/
+dist/
+.DS_Store
+*.log
+node_modules/
+.references/
+output/
+.env
+.env.*
+!.env.example
+*.pem
+*.p12

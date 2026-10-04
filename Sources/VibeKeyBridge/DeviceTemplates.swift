@@ -1,0 +1,350 @@
+import Foundation
+import AU05Device
+
+/// A logical layout is deliberately separate from a verified HID interface.
+/// Selecting a layout must never invent a device identifier or claim a live connection.
+enum DeviceTemplateID: String, CaseIterable, Codable {
+    case vibeKey, dualSense, xiaomiRemote
+
+    var template: DeviceTemplate { DeviceTemplate.catalog.first { $0.id == self }! }
+}
+
+struct DeviceTemplateControl {
+    let control: DeviceControl
+    let title: String
+    let detail: String
+    let symbol: String
+    let gestures: [GestureKind]
+    /// Normalized positions on a top-to-bottom device illustration.
+    let x: Double
+    let y: Double
+    var id: String { control.rawValue }
+}
+
+struct DeviceTemplate {
+    let id: DeviceTemplateID
+    let title: String
+    let subtitle: String
+    let connectionNote: String
+    let audioNote: String
+    let controls: [DeviceTemplateControl]
+    var requiresHIDProfile: Bool { id == .xiaomiRemote }
+
+    /// Baseline overrides are part of the preset. To restore a single binding,
+    /// copy its explicit baseline entry (which may be nil), rather than clearing blindly.
+    var defaultConfiguration: GestureConfiguration {
+        var configuration = GestureConfiguration()
+        if id != .vibeKey {
+            configuration.doubleClickInterval = 0.32
+            configuration.longPressInterval = 0.65
+        }
+        if id == .dualSense {
+            // Keep the physical input IDs stable: Square=dial, Circle=escape,
+            // Cross=ok. Only the controller preset changes their actions.
+            configuration.set(.global, .dial, .single, .deleteBackward)
+            configuration.set(.global, .dial, .double, GestureAction.none)
+            configuration.set(.global, .dial, .long, GestureAction.none)
+            configuration.set(.global, .escape, .single, .contextConfirm)
+            configuration.set(.global, .escape, .long, .models)
+            configuration.set(.global, .ok, .single, .escape)
+            configuration.set(.global, .ok, .double, .switchApplications)
+            configuration.set(.global, .ok, .long, .contextDial)
+            configuration.set(.global, .touchpad, .single, .pointerClick)
+            for scope in [GestureScope.sessions, .models, .efforts, .applications] {
+                configuration.set(scope, .escape, .single, scope == .applications ? .confirmApplication : .confirmCandidate)
+                configuration.set(scope, .ok, .single, scope == .applications ? .cancelApplication : .cancelPicker)
+                configuration.set(scope, .dial, .single, GestureAction.none)
+                for control in [DeviceControl.dial, .ok, .escape] {
+                    configuration.set(scope, control, .double, GestureAction.none)
+                    configuration.set(scope, control, .long, GestureAction.none)
+                }
+            }
+        }
+        if id == .xiaomiRemote {
+            configuration.set(.global, .dial, .single, .contextConfirm)
+            configuration.set(.global, .dial, .long, .sessions)
+            configuration.set(.global, .ok, .single, .contextDial)
+            configuration.set(.global, .ok, .long, .models)
+            for scope in [GestureScope.sessions, .models, .efforts] {
+                configuration.set(scope, .dial, .long, GestureAction.none)
+                configuration.set(scope, .ok, .single, .confirmCandidate)
+                configuration.set(scope, .ok, .long, GestureAction.none)
+            }
+            configuration.set(.applications, .ok, .long, GestureAction.none)
+        }
+        return configuration
+    }
+
+    private static let buttonGestures: [GestureKind] = [.single, .double, .long, .hold]
+    private static func button(_ control: DeviceControl, _ title: String, _ detail: String,
+                               _ symbol: String, _ x: Double, _ y: Double,
+                               heldRotation: Bool = false) -> DeviceTemplateControl {
+        DeviceTemplateControl(control: control, title: title, detail: detail, symbol: symbol,
+            gestures: buttonGestures + (heldRotation ? [.heldLeft, .heldRight] : []), x: x, y: y)
+    }
+    private static func direction(_ control: DeviceControl, _ title: String, _ x: Double,
+                                  _ y: Double) -> DeviceTemplateControl {
+        DeviceTemplateControl(control: control, title: title,
+            detail: L10n.tr("阅读时滚屏 · 编辑时移动光标 · 选择器中切换候选", "Scroll when reading · move cursor when editing · navigate pickers"),
+            symbol: control == .left ? "arrow.left" : "arrow.right", gestures: [.rotate], x: x, y: y)
+    }
+
+    private static func unassigned(_ control: DeviceControl, _ symbol: String,
+                                   _ x: Double, _ y: Double) -> DeviceTemplateControl {
+        button(control, control.label,
+               L10n.tr("默认未分配，可按自己的习惯设置。", "Unassigned by default. Make this button your own."),
+               symbol, x, y)
+    }
+
+    private static func stick(_ control: DeviceControl, _ symbol: String,
+                              _ x: Double, _ y: Double) -> DeviceTemplateControl {
+        let vertical = [.leftStickUp, .leftStickDown, .rightStickUp, .rightStickDown].contains(control)
+        return DeviceTemplateControl(control: control, title: control.label,
+            detail: vertical
+                ? L10n.tr("拨动滚屏 · 选择器中切换候选 · 持续拨住连续移动，回中停止", "Tilt to scroll or navigate pickers · keep tilted to repeat; center to stop")
+                : L10n.tr("编辑时移动光标 · 阅读时滚屏 · 持续拨住连续移动，回中停止", "Move the cursor when editing or scroll when reading · keep tilted to repeat; center to stop"),
+            symbol: symbol, gestures: [.rotate], x: x, y: y)
+    }
+
+    static var catalog: [DeviceTemplate] { [
+        DeviceTemplate(id: .vibeKey, title: "VibeKey", subtitle: L10n.tr("旋钮 + 三枚按键", "Dial + three buttons"),
+            connectionNote: L10n.tr("使用 AU05 接收器与内置直连协议；连接状态以实时设备反馈为准。", "Connect through the AU05 receiver using the built-in protocol. Live device feedback determines connection status."),
+            audioNote: L10n.tr("麦克风键按住时发送 Fn；音频由 macOS 当前输入设备提供。", "Hold the microphone button to send Fn. Audio comes from the current macOS input device."),
+            controls: [
+                button(.dial, L10n.tr("旋钮", "Dial"), L10n.tr("单击会话 / 确认 · 双击切应用 · 长按模型", "Press for chats / confirm · double press to switch apps · long press for models"), "circle.circle", 0.50, 0.27, heldRotation: true),
+                direction(.left, L10n.tr("左旋", "Turn left"), 0.18, 0.27), direction(.right, L10n.tr("右旋", "Turn right"), 0.82, 0.27),
+                button(.voice, L10n.tr("麦克风键", "Microphone"), L10n.tr("按住听写，松开结束", "Hold to dictate; release to finish"), "mic.fill", 0.50, 0.55),
+                button(.ok, L10n.tr("OK 键", "OK"), L10n.tr("确认 / Enter", "Confirm / Enter"), "return", 0.50, 0.72),
+                button(.escape, L10n.tr("ESC 键", "ESC"), L10n.tr("删除 / 返回 · 长按 Escape", "Delete / back · long press for Escape"), "delete.left", 0.50, 0.88)
+            ]),
+        DeviceTemplate(id: .dualSense, title: L10n.tr("手柄", "Controller"), subtitle: L10n.tr("右手完成全部操作 · 按键可自定义", "Everything within your right hand · fully remappable"),
+            connectionNote: L10n.tr("通过 USB 连接，或先在 macOS 蓝牙设置中配对。系统支持的手柄会自动识别，无需导入 HID 配置。按键支持以设备实际提供的输入为准。", "Connect over USB or pair in macOS Bluetooth settings. Supported controllers are detected automatically, without an HID profile. Available buttons depend on the device."),
+            audioNote: L10n.tr("USB 麦克风以系统输入设备实际识别为准；蓝牙使用 Mac 或外接麦克风。△ 按住听写。", "For USB microphones, check macOS input devices. With Bluetooth, use your Mac or an external microphone. Hold △ to dictate."),
+            controls: [
+                direction(.left, "R1", 0.79, 0.21), direction(.right, "R2", 0.78, 0.10),
+                button(.dial, L10n.tr("□ 方形键", "□ Square"), L10n.tr("单击退格，删除光标前字符或选区", "Press to backspace: delete the previous character or selection"), "square", 0.75, 0.38),
+                button(.ok, L10n.tr("× 交叉键", "× Cross"), L10n.tr("单击返回 · 双击切应用 · 长按会话 / 标签页", "Press to go back · double press to switch apps · long press for chats / tabs"), "xmark", 0.82, 0.47),
+                button(.escape, L10n.tr("○ 圆形键", "○ Circle"), L10n.tr("单击确认 / Enter · 长按模型 / 强度", "Press to confirm / Enter · long press for models / effort"), "circle", 0.89, 0.38),
+                button(.voice, L10n.tr("△ 三角键", "△ Triangle"), L10n.tr("右拇指按住听写；食指可同时使用 R1 / R2 导航", "Hold with your right thumb to dictate while navigating with R1 / R2."), "triangle", 0.82, 0.29),
+                unassigned(.l1, "l1.button.roundedbottom.horizontal", 0.21, 0.21),
+                unassigned(.l2, "l2.button.roundedtop.horizontal", 0.22, 0.10),
+                unassigned(.leftStickPress, "l.joystick.press.down", 0.37, 0.56),
+                unassigned(.rightStickPress, "r.joystick.press.down", 0.64, 0.56),
+                stick(.leftStickUp, "arrow.up", 0.37, 0.51),
+                stick(.leftStickDown, "arrow.down", 0.37, 0.61),
+                stick(.leftStickLeft, "arrow.left", 0.32, 0.56),
+                stick(.leftStickRight, "arrow.right", 0.42, 0.56),
+                stick(.rightStickUp, "arrow.up", 0.64, 0.51),
+                stick(.rightStickDown, "arrow.down", 0.64, 0.61),
+                stick(.rightStickLeft, "arrow.left", 0.59, 0.56),
+                stick(.rightStickRight, "arrow.right", 0.69, 0.56),
+                unassigned(.dpadUp, "arrow.up", 0.18, 0.29),
+                unassigned(.dpadDown, "arrow.down", 0.18, 0.47),
+                unassigned(.dpadLeft, "arrow.left", 0.11, 0.38),
+                unassigned(.dpadRight, "arrow.right", 0.25, 0.38),
+                unassigned(.options, "line.3.horizontal", 0.68, 0.30),
+                unassigned(.create, "square.and.arrow.up", 0.32, 0.30),
+                unassigned(.home, "house", 0.50, 0.61),
+                button(.touchpad, L10n.tr("触摸板", "Touchpad"), L10n.tr("滑动移动光标 · 按压鼠标左键", "Slide to move the pointer · press to click"), "rectangle", 0.50, 0.34),
+                unassigned(.mute, "mic.slash", 0.50, 0.68)
+            ]),
+        DeviceTemplate(id: .xiaomiRemote, title: L10n.tr("遥控器", "Remote"), subtitle: L10n.tr("方向键 + 语音 + 返回", "Direction pad + voice + back"),
+            connectionNote: L10n.tr("逻辑模板已就绪；macOS 配对、HID 按键及释放事件需实测后导入配置。", "Pair with macOS and import a verified HID profile that includes button press and release events."),
+            audioNote: L10n.tr("电视语音功能不等于 Mac 音频输入。语音键触发 Fn；默认使用 Mac 或外接麦克风。", "TV voice features do not guarantee Mac audio input. The voice key sends Fn; use a Mac or external microphone by default."),
+            controls: [
+                button(.voice, L10n.tr("语音键", "Voice"), L10n.tr("按住听写，松开结束", "Hold to dictate; release to finish"), "mic.fill", 0.50, 0.16),
+                button(.dial, L10n.tr("中央确认键", "Center button"), L10n.tr("单击确认 · 双击切应用 · 长按会话", "Press to confirm · double press to switch apps · long press for chats"), "circle.circle", 0.50, 0.38),
+                direction(.left, L10n.tr("方向左", "Left"), 0.19, 0.38), direction(.right, L10n.tr("方向右", "Right"), 0.81, 0.38),
+                button(.escape, L10n.tr("返回键", "Back"), L10n.tr("删除 / 返回 · 长按 Escape", "Delete / back · long press for Escape"), "arrow.uturn.backward", 0.29, 0.64),
+                button(.ok, L10n.tr("菜单键", "Menu"), L10n.tr("单击切换会话 / 标签页 · 长按模型 · 选择器中确认", "Press to switch chats / tabs · long press for models · confirm in pickers"), "line.3.horizontal", 0.71, 0.64),
+                unassigned(.power, "power", 0.50, 0.07),
+                unassigned(.dpadUp, "arrow.up", 0.50, 0.29),
+                unassigned(.dpadDown, "arrow.down", 0.50, 0.47),
+                unassigned(.home, "house", 0.50, 0.57),
+                unassigned(.volumeUp, "plus", 0.35, 0.76),
+                unassigned(.volumeDown, "minus", 0.65, 0.76)
+            ])
+    ] }
+}
+
+enum DeviceTemplateReadiness: Equatable {
+    case builtIn, automatic, profileConfigured, needsProfile
+    var label: String {
+        switch self {
+        case .builtIn: return L10n.tr("内置直连", "Built-in connection")
+        case .automatic: return L10n.tr("自动识别手柄", "Automatic controller detection")
+        case .profileConfigured: return L10n.tr("自定义 HID 接入", "Custom HID connection")
+        case .needsProfile: return L10n.tr("待导入实测 HID 配置", "HID profile required")
+        }
+    }
+    var hasInputConfiguration: Bool { self != .needsProfile }
+}
+
+/// Stores complete per-template gesture configurations so changing devices cannot
+/// leak one device's remapping or timings into another. No credentials are stored.
+final class DeviceTemplateStore {
+    static let storageKey = "vibeWand.deviceTemplates.v1"
+    private struct State: Codable {
+        var schemaVersion = 1
+        var selectedID: DeviceTemplateID = .vibeKey
+        var configurations: [String: GestureConfiguration] = [:]
+        var profiles: [String: HIDDeviceProfile] = [:]
+        // Optional for the v1 store written before controller pointer support.
+        var presetRevision: Int? = 2
+    }
+    private let defaults: UserDefaults
+    private var state: State
+    var selectedID: DeviceTemplateID { state.selectedID }
+    var selectedTemplate: DeviceTemplate { selectedID.template }
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        if let data = defaults.data(forKey: Self.storageKey),
+           let saved = try? JSONDecoder().decode(State.self, from: data), saved.schemaVersion == 1 {
+            state = saved
+            state.configurations = saved.configurations.filter {
+                DeviceTemplateID(rawValue: $0.key) != nil && (try? $0.value.validate()) != nil
+            }
+            state.profiles = saved.profiles.filter {
+                DeviceTemplateID(rawValue: $0.key) != nil && (try? $0.value.validate()) != nil
+            }
+            migratePresetDefaults()
+        } else {
+            state = State()
+            state.presetRevision = 1
+            migrateLegacyConfiguration()
+            migratePresetDefaults()
+        }
+    }
+
+    func configuration(for id: DeviceTemplateID? = nil) -> GestureConfiguration {
+        let id = id ?? selectedID
+        return state.configurations[id.rawValue] ?? id.template.defaultConfiguration
+    }
+    func profile(for id: DeviceTemplateID? = nil) -> HIDDeviceProfile? {
+        state.profiles[(id ?? selectedID).rawValue]
+    }
+    func readiness(for id: DeviceTemplateID? = nil) -> DeviceTemplateReadiness {
+        let id = id ?? selectedID
+        if profile(for: id) != nil { return .profileConfigured }
+        if id == .dualSense { return .automatic }
+        return id.template.requiresHIDProfile ? .needsProfile : .builtIn
+    }
+    @discardableResult
+    func select(_ id: DeviceTemplateID, currentConfiguration: GestureConfiguration? = nil) throws -> GestureConfiguration {
+        if let currentConfiguration {
+            try currentConfiguration.validate()
+            state.configurations[selectedID.rawValue] = currentConfiguration
+        }
+        state.selectedID = id
+        try persist()
+        return configuration()
+    }
+    func updateConfiguration(_ configuration: GestureConfiguration) throws {
+        try configuration.validate()
+        state.configurations[selectedID.rawValue] = configuration
+        try persist()
+    }
+    func setProfile(_ profile: HIDDeviceProfile?, for id: DeviceTemplateID) throws {
+        try profile?.validate()
+        state.profiles[id.rawValue] = profile
+        try persist()
+    }
+    @discardableResult
+    func resetConfiguration() throws -> GestureConfiguration {
+        state.configurations.removeValue(forKey: selectedID.rawValue)
+        try persist()
+        return configuration()
+    }
+
+    private func migrateLegacyConfiguration() {
+        if let data = defaults.data(forKey: "gestureConfiguration"),
+           let saved = try? JSONDecoder().decode(GestureConfiguration.self, from: data),
+           (try? saved.validate()) != nil {
+            state.configurations[DeviceTemplateID.vibeKey.rawValue] = saved
+        } else if let data = defaults.data(forKey: "inputMappings"),
+                  let old = try? JSONDecoder().decode(InputMappings.self, from: data) {
+            var configuration = GestureConfiguration()
+            for input in AU05Control.allCases {
+                guard let control = DeviceControl(rawValue: input.rawValue) else { continue }
+                let mapped = old.resolve(input)
+                guard mapped != control else { continue }
+                let action = GestureAction.legacy(mapped)
+                let kind: GestureKind = control == .left || control == .right ? .rotate : .single
+                configuration.set(.global, control, kind, action == .dictation ? GestureAction.none : action)
+                if control != .left && control != .right {
+                    configuration.set(.global, control, .hold, action == .dictation ? .dictation : GestureAction.none)
+                    configuration.set(.global, control, .double, GestureAction.none)
+                    configuration.set(.global, control, .long, GestureAction.none)
+                }
+            }
+            state.configurations[DeviceTemplateID.vibeKey.rawValue] = configuration
+        }
+        // Preserve an existing explicit custom interface on upgrade. Its name is
+        // shown by the runtime; returning to AU05 clears this profile explicitly.
+        if let data = defaults.data(forKey: "hidDeviceProfile"),
+           let profile = try? JSONDecoder().decode(HIDDeviceProfile.self, from: data),
+           (try? profile.validate()) != nil {
+            state.profiles[DeviceTemplateID.vibeKey.rawValue] = profile
+        }
+        try? persist()
+    }
+    private func migratePresetDefaults() {
+        guard (state.presetRevision ?? 1) < 2 else { return }
+        for (id, var saved) in state.configurations {
+            for scope in [GestureScope.global, .reading, .editing] {
+                for control in [DeviceControl.leftStickUp, .rightStickUp, .leftStickDown, .rightStickDown] {
+                    let key = GestureConfiguration.key(scope, control, .rotate)
+                    let wasUp = control == .leftStickUp || control == .rightStickUp
+                    if saved.overrides[key] == (wasUp ? .scrollUp : .scrollDown) {
+                        saved.overrides[key] = wasUp ? .scrollDown : .scrollUp
+                    }
+                }
+            }
+            for (control, kind, old, new) in [(DeviceControl.left, GestureKind.rotate, GestureAction.scrollUp, GestureAction.scrollDown),
+                                             (.right, .rotate, .scrollDown, .scrollUp),
+                                             (.dial, .heldLeft, .scrollUp, .scrollDown),
+                                             (.dial, .heldRight, .scrollDown, .scrollUp)] {
+                let key = GestureConfiguration.key(.reading, control, kind)
+                if saved.overrides[key] == old { saved.overrides[key] = new }
+            }
+            state.configurations[id] = saved
+        }
+        if var saved = state.configurations[DeviceTemplateID.dualSense.rawValue] {
+            let old = GestureConfiguration()
+            let updated = DeviceTemplateID.dualSense.template.defaultConfiguration
+            for (key, action) in updated.overrides {
+                let parts = key.split(separator: ".").map(String.init)
+                guard let scope = GestureScope(rawValue: parts[0]),
+                      let control = DeviceControl(rawValue: parts[1]),
+                      let kind = GestureKind(rawValue: parts[2]) else { continue }
+                // Upgrade old baseline entries, but preserve explicit remaps.
+                if saved.overrides[key] == nil || saved.overrides[key] == old.action(scope, control, kind) {
+                    saved.overrides[key] = action
+                }
+            }
+            state.configurations[DeviceTemplateID.dualSense.rawValue] = saved
+        }
+        state.presetRevision = 2
+        try? persist()
+    }
+    private func persist() throws {
+        defaults.set(try JSONEncoder().encode(state), forKey: Self.storageKey)
+    }
+}
+
+/// A pending template has no event source. In particular it must not leave the
+/// AU05 source active while presenting a different device in settings.
+@MainActor
+final class UnconfiguredHIDSource: HIDEventSource {
+    private let template: DeviceTemplate
+    private(set) var connection: AU05Connection = .stopped
+    var onConnection: ((AU05Connection) -> Void)?
+    var onEvent: ((AU05Event) -> Void)?
+    init(template: DeviceTemplate) { self.template = template }
+    func start() {
+        connection = .blocked(L10n.tr("\(template.title)：请先导入实测 HID 配置", "\(template.id.template.title): import a verified HID profile first"))
+        onConnection?(connection)
+    }
+    func stop() { connection = .stopped; onConnection?(connection) }
+}

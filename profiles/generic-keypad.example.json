@@ -1,0 +1,18 @@
+{
+  "name": "可编程键盘 / 旋钮示例（请替换设备标识）",
+  "match": {
+    "vendorID": 4660,
+    "productID": 1,
+    "usagePage": 1,
+    "usage": 6
+  },
+  "exclusiveAccess": true,
+  "bindings": [
+    { "usagePage": 7, "usage": 104, "kind": "button", "control": "dial" },
+    { "usagePage": 7, "usage": 105, "kind": "button", "control": "voice" },
+    { "usagePage": 7, "usage": 106, "kind": "button", "control": "ok" },
+    { "usagePage": 7, "usage": 107, "kind": "button", "control": "escape" },
+    { "usagePage": 7, "usage": 80, "kind": "pulse", "control": "left" },
+    { "usagePage": 7, "usage": 79, "kind": "pulse", "control": "right" }
+  ]
+}

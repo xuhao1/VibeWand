@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1254" height="1254" viewBox="0 0 1254 1254" fill="none">
+  <title>VibeWand — code wand with voice input</title>
+  <desc>Vector macOS icon: diagonal satin wand, luminous code brackets and five voice bars on a rounded dark gradient tile. Transparent outside the tile; no embedded raster image.</desc>
+  <defs>
+    <linearGradient id="tileBase" x1="240" y1="1150" x2="1060" y2="90" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#090D20"/><stop offset=".45" stop-color="#0D102A"/><stop offset=".78" stop-color="#151440"/><stop offset="1" stop-color="#253678"/>
+    </linearGradient>
+    <radialGradient id="tileBlue" cx="1080" cy="140" r="830" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#33499F" stop-opacity=".6"/><stop offset=".55" stop-color="#282462" stop-opacity=".2"/><stop offset="1" stop-color="#14132F" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="tileViolet" cx="870" cy="345" r="450" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5225BA" stop-opacity=".32"/><stop offset="1" stop-color="#351B80" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="tileRim" x1="530" y1="62" x2="780" y2="1182" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6667FF" stop-opacity=".75"/><stop offset=".12" stop-color="#4244BC" stop-opacity=".38"/><stop offset=".45" stop-color="#3738AA" stop-opacity=".13"/><stop offset=".82" stop-color="#36349B" stop-opacity=".25"/><stop offset="1" stop-color="#6660FF" stop-opacity=".58"/>
+    </linearGradient>
+    <path id="tileShape" d="M342 62H912C1013 62 1074 77 1123 126C1174 177 1190 240 1190 340V902C1190 1003 1174 1068 1123 1119C1074 1168 1013 1182 912 1182H342C241 1182 177 1168 128 1119C79 1070 64 1003 64 902V340C64 240 79 177 128 126C177 77 241 62 342 62Z"/>
+    <clipPath id="tileClip"><use href="#tileShape"/></clipPath>
+    <linearGradient id="shaft" x1="350" y1="-50" x2="350" y2="50" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#413A78"/><stop offset=".15" stop-color="#7770A3"/><stop offset=".29" stop-color="#373355"/><stop offset=".63" stop-color="#171B35"/><stop offset=".86" stop-color="#11182F"/><stop offset="1" stop-color="#4C36B2"/>
+    </linearGradient>
+    <linearGradient id="metal" x1="80" y1="-50" x2="80" y2="50" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A896DD"/><stop offset=".18" stop-color="#F8EAFE"/><stop offset=".31" stop-color="#E9D7FA"/><stop offset=".57" stop-color="#A197D2"/><stop offset=".81" stop-color="#655CA6"/><stop offset="1" stop-color="#956BFF"/>
+    </linearGradient>
+    <linearGradient id="tip" x1="690" y1="-50" x2="690" y2="50" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#B49AEF"/><stop offset=".22" stop-color="#FFF0FF"/><stop offset=".45" stop-color="#E1CFFF"/><stop offset=".7" stop-color="#9B87E7"/><stop offset="1" stop-color="#A66DFF"/>
+    </linearGradient>
+    <linearGradient id="leftCode" x1="696" y1="420" x2="838" y2="240" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F9C6FF"/><stop offset=".48" stop-color="#FFE5FF"/><stop offset="1" stop-color="#F1EEFF"/>
+    </linearGradient>
+    <linearGradient id="rightCode" x1="917" y1="449" x2="1048" y2="243" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EED1FF"/><stop offset=".47" stop-color="#D0F0FF"/><stop offset="1" stop-color="#BAFFFF"/>
+    </linearGradient>
+    <linearGradient id="voice" x1="873" y1="574" x2="873" y2="689" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F6D9FF"/><stop offset=".44" stop-color="#D6A8FF"/><stop offset="1" stop-color="#A775FF"/>
+    </linearGradient>
+    <filter id="violetGlow" x="-80%" y="-70%" width="260%" height="240%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="20" result="blur"/><feFlood flood-color="#7D38FF" flood-opacity=".7"/><feComposite in2="blur" operator="in"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="cyanGlow" x="-80%" y="-70%" width="260%" height="240%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="19" result="blur"/><feFlood flood-color="#377AFF" flood-opacity=".7"/><feComposite in2="blur" operator="in"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="voiceGlow" x="-80%" y="-80%" width="260%" height="260%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="12" result="blur"/><feFlood flood-color="#914CFF" flood-opacity=".6"/><feComposite in2="blur" operator="in"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g id="background-tile">
+    <use href="#tileShape" fill="url(#tileBase)"/>
+    <g clip-path="url(#tileClip)">
+      <rect x="64" y="62" width="1126" height="1120" fill="url(#tileBlue)"/>
+      <rect x="64" y="62" width="1126" height="1120" fill="url(#tileViolet)"/>
+    </g>
+    <use href="#tileShape" stroke="url(#tileRim)" stroke-width="3"/>
+  </g>
+  <g id="wand" transform="translate(254 994) rotate(-47)">
+    <path d="M48-50H700Q745-50 754-21V21Q745 50 700 50H48Q0 50 0 0Q0-50 48-50Z" fill="url(#shaft)"/>
+    <path d="M48-50H134V50H48Q0 50 0 0Q0-50 48-50Z" fill="url(#metal)" stroke="#D6BFFF" stroke-opacity=".55" stroke-width="1.5"/>
+    <path d="M637-50H705Q747-50 754-22V22Q747 50 705 50H637Z" fill="url(#tip)" stroke="#D9C4FF" stroke-opacity=".55" stroke-width="1.5"/>
+    <path d="M136-49H636" stroke="#BEB0ED" stroke-opacity=".38" stroke-width="1.5"/>
+    <path d="M135 49H636" stroke="#8160EF" stroke-opacity=".7" stroke-width="2"/>
+    <path d="M134-50V50M637-50V50" stroke="#34274F" stroke-opacity=".55" stroke-width="1.5"/>
+  </g>
+  <g id="code" stroke="#FFFFFF" stroke-opacity=".72" stroke-width="1.6" stroke-linejoin="round">
+    <path d="M810 217Q834 202 834 226V265Q834 273 827 279L763 332Q755 339 763 346L826 398Q834 405 834 414V451Q834 475 814 458L687 353Q673 339 687 325Z" fill="url(#leftCode)" filter="url(#violetGlow)"/>
+    <path d="M925 217Q902 202 902 226V265Q902 273 909 279L973 332Q981 339 973 346L910 398Q902 405 902 414V451Q902 475 922 458L1048 353Q1062 339 1048 325Z" fill="url(#rightCode)" filter="url(#cyanGlow)"/>
+  </g>
+  <g id="voice" fill="url(#voice)" stroke="#EDCEFF" stroke-opacity=".65" stroke-width="1" filter="url(#voiceGlow)">
+    <rect x="801" y="615" width="15" height="35" rx="7.5"/>
+    <rect x="832" y="595" width="15" height="74" rx="7.5"/>
+    <rect x="864" y="574" width="19" height="113" rx="9.5"/>
+    <rect x="900" y="595" width="15" height="74" rx="7.5"/>
+    <rect x="931" y="615" width="15" height="35" rx="7.5"/>
+  </g>
+</svg>
