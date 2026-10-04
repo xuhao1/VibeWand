@@ -36,13 +36,15 @@ WorkBuddy desktop (`com.tencent.workbuddy.mac`) has a built-in integration from 
 
 This is a hidden-window rendering of the implemented 0.8.0 settings page, not a capture of live WorkBuddy operation.
 
-The chat action first presses the sidebar's Search button to open Search Tasks. Turn to choose, confirm to open, and back to cancel. If the sidebar is hidden or its button is unavailable, the action falls back to the default `⌘K`. In 5.6.2, `⌘K` opens Global search, which needs a query or recent searches before there are results to select. If the composer intercepts the shortcut, expand the sidebar and retry. A custom integration can override a changed shortcut.
+The chat action first presses the sidebar's Search button. In 5.6.2, both this button and the default `⌘K` open Global search. Enter a query, choose the Tasks category if needed, turn to select a result, confirm to open, and back to cancel. With no recent searches, a query is needed first. If the sidebar is hidden or its button is unavailable, the action falls back to `⌘K`; expand the sidebar if the composer intercepts it. A custom integration can override a changed shortcut.
 
 The model action presses the composer's button labelled `Select model`. Turn to choose a model, confirm to apply, and back to close the menu. Disabled models, the Max switch and settings actions are excluded from model candidates. Thinking toggles and finer reasoning settings remain in WorkBuddy's own model-detail menus.
 
 Dictation is pasted once into the current composer on release, then the clipboard is restored; it does not send a message. Turning moves the caret and ESC deletes when a draft has text; an empty draft scrolls. On first contact, VibeWand asks Electron to publish its accessibility content.
 
-The installed WorkBuddy **5.6.2** bundle ID, shortcuts, Chinese / English search labels, model button and option structure were inspected and used in automated metadata fixtures. The current UI automation tool cannot bind this app's actual identity, so **live UI operation, dictation insertion and physical-device operation have not been accepted**.
+0.8.1 passed live acceptance on the installed WorkBuddy **5.6.2** using native accessibility and key events. Checks read back search-result selection, confirmed task opening and return to Home, changed and restored the model, pasted text, moved the caret and deleted. The full dictation-delivery pipeline was exercised with transcript replay: it appended to an existing test draft, waited until completion to paste, and restored the clipboard. See the [acceptance record](workbuddy-acceptance.md).
+
+The run fixed an unrecognised `AXComboBox` model trigger and an empty composer whose placeholder, including extra inline spacing, was exposed as draft text. Audio recognition and physical-device input were not retested in this adapter acceptance run.
 
 ## Browsers
 

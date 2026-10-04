@@ -44,11 +44,11 @@ Vibe coding 的大部分时间其实不在打字：读回复、翻会话、换�
 | 浏览器 | 切换标签页 | 地址栏 | ✓ |
 | 微信、飞书 | 搜索 / 切换聊天 | — | ✓ |
 
-Codex、Claude、DeepSeek Harness 在本机实测过。WorkBuddy 已核对本机 5.6.2 界面代码并通过自动化样例测试，真实界面操作仍待验证。听写不挑应用：原生输入框边说边写，其他应用在松开后粘贴一次，剪贴板随后恢复原样。别的应用可以在设置里加一条快捷键规则，见[应用适配](docs/applications.md)。
+以上四款 AI 工具均在本机实测过。WorkBuddy 5.6.2 已通过原生界面回读验收：搜索并打开任务、切换模型、编辑草稿，以及用转录回放验证听写写入。听写不挑应用：原生输入框边说边写，其他应用在松开后粘贴一次，剪贴板随后恢复原样。别的应用可以在设置里加一条快捷键规则，见[应用适配](docs/applications.md)。
 
 ## 安装
 
-**[下载 VibeWand 0.8.0（Apple Silicon）](https://github.com/xuhao1/VibeWand/releases/download/v0.8.0/VibeWand-0.8.0-macOS-arm64.zip)** · [版本说明](https://github.com/xuhao1/VibeWand/releases/latest)
+**[下载 VibeWand 0.8.1（Apple Silicon）](https://github.com/xuhao1/VibeWand/releases/download/v0.8.1/VibeWand-0.8.1-macOS-arm64.zip)** · [版本说明](https://github.com/xuhao1/VibeWand/releases/latest)
 
 需要 macOS 13 以上和 M 系列芯片。解压后把 **VibeWand.app** 拖进“应用程序”，打开它，然后：
 

@@ -315,7 +315,7 @@ final class AccessibilityAdapter {
             if profile.opensModelsWithButton, observation.customProfile == nil {
                 // Codex also has a shortcut in some versions; it is the fallback when no button is found.
                 pressLabelledControl(pid: pid, mode: .models, identity: identity, menus: observation.menuHashes,
-                                     fallback: profile.secondaryShortcut) { profile.isModelTrigger(role: $0, hint: $1) }
+                                     fallback: profile.secondaryShortcut, roles: profile.modelTriggerRoles) { profile.isModelTrigger(role: $0, hint: $1) }
                 return profile.title(for: effect)
             }
             guard let shortcut = observation.shortcut(for: effect, fallback: profile.secondaryShortcut) else { return L10n.tr("当前应用未配置辅助操作", "No secondary action configured for this app") }
@@ -467,9 +467,10 @@ final class AccessibilityAdapter {
     /// has its own time budget on the worker, so ordinary sampling stays cheap.
     private func pressLabelledControl(pid: pid_t, mode: InteractionMode, identity: TargetIdentity, menus: Set<CFHashCode>,
                                       fallback: KeyStroke? = nil, ancestorClasses: Set<String> = [],
+                                      roles: Set<String> = ["AXButton", "AXPopUpButton", "AXMenuButton"],
                                       matches: @escaping @Sendable (String, String) -> Bool) {
         worker.async { [weak self] in
-            let control = LabelledControlFinder.find(pid: pid, ancestorClasses: ancestorClasses, matches: matches)
+            let control = LabelledControlFinder.find(pid: pid, roles: roles, ancestorClasses: ancestorClasses, matches: matches)
             guard LabelledControlFinder.stillOwnsFocus(identity) else {
                 DispatchQueue.main.async { [weak self] in
                     self?.onStatus?(L10n.tr("目标 / 焦点状态已变化，操作已取消", "Target or focus changed; action canceled"))
@@ -823,7 +824,7 @@ private final class AXSampler {
             // field's own labels and reduced to a flag; it is never kept.
             if result.context.hasDraftText != false, (count ?? 0) <= 240, !overBudget,
                let value = attribute(textOwner, kAXValueAttribute) as? String {
-                result.context.hasDraftText = AccessibilityHints.hasDraft(value: value,
+                result.context.hasDraftText = profile.hasDraft(value: value,
                     labels: [kAXTitleAttribute, kAXDescriptionAttribute, "AXPlaceholderValue"].map { string(textOwner, $0) })
             }
         }
@@ -1011,7 +1012,7 @@ private final class AXSampler {
     private static func isPopup(role: String, subrole: String, hint: String) -> Bool {
         if ["AXMenu", "AXSheet", "AXDialog"].contains(role) ||
             ["AXDialog", "AXSystemDialog", "AXApplicationDialog", "AXApplicationAlertDialog"].contains(subrole) { return true }
-        guard !["AXTextArea", "AXTextField", "AXButton", "AXPopUpButton", "AXStaticText", "AXWindow", "AXApplication"].contains(role) else { return false }
+        guard !["AXTextArea", "AXTextField", "AXButton", "AXPopUpButton", "AXComboBox", "AXStaticText", "AXWindow", "AXApplication"].contains(role) else { return false }
         let normalized = hint.replacingOccurrences(of: "([a-z0-9])([A-Z])", with: "$1 $2", options: .regularExpression)
             .lowercased().replacingOccurrences(of: "-", with: " ").replacingOccurrences(of: "_", with: " ")
         return containsAny(normalized, ["dialog", "picker", "listbox", "popover", "command menu", "command palette", "model menu", "effort menu",

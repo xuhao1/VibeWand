@@ -37,13 +37,14 @@ final class WorkBuddyTests: XCTestCase {
     func testModelActionRequiresTheComposerControlAndInventsNoShortcut() {
         XCTAssertTrue(profile.opensModelsWithButton)
         XCTAssertNil(profile.secondaryShortcut)
-        for role in ["AXButton", "AXPopUpButton", "AXMenuButton"] {
+        for role in ["AXButton", "AXPopUpButton", "AXMenuButton", "AXComboBox"] {
             XCTAssertTrue(profile.isModelTrigger(role: role, hint: "Select model"))
             XCTAssertTrue(profile.isModelTrigger(role: role, hint: "选择模型"))
             XCTAssertFalse(profile.isModelTrigger(role: role, hint: "Delete model"))
             XCTAssertFalse(profile.isModelTrigger(role: role, hint: "Models settings"))
         }
         XCTAssertFalse(profile.isModelTrigger(role: "AXStaticText", hint: "Select model"))
+        XCTAssertFalse(ApplicationProfile.claude.isModelTrigger(role: "AXComboBox", hint: "Model: Sonnet"))
         XCTAssertEqual(profile.pickerKind("cr-model-selector__menu Thinking effort"), .models)
         XCTAssertEqual(profile.pickerKind("cr-model-selector__group-sub-menu"), .models)
         XCTAssertFalse(profile.isEffortTrigger(role: "AXButton", hint: "Thinking mode"))
@@ -81,6 +82,21 @@ final class WorkBuddyTests: XCTestCase {
         context.picker = nil
         XCTAssertEqual(reduce(state: &state, control: .left, context: context), .none)
         XCTAssertEqual(reduce(state: &state, control: .escape, context: context), .sendEscape)
+    }
+
+    func testUnlabelledWorkBuddyPlaceholderWithInlineSpacingDoesNotBecomeADraft() {
+        let placeholder = "What can I help you with today?  @ add context,  / invoke skills and commands"
+        XCTAssertEqual(placeholder.count, 77)
+        XCTAssertFalse(profile.hasDraft(value: placeholder, labels: []))
+        XCTAssertTrue(ApplicationProfile.claude.hasDraft(value: placeholder, labels: []))
+        for value in ApplicationProfile.workBuddyComposerPlaceholders {
+            XCTAssertFalse(profile.hasDraft(value: value, labels: []))
+        }
+        XCTAssertFalse(profile.hasDraft(value: placeholder.replacingOccurrences(of: "  ", with: " \u{200B}"), labels: []))
+        XCTAssertFalse(profile.hasDraft(value: "今天帮你做些什么？  @ 添加上下文，  / 调用技能与指令", labels: []))
+        for value in ["A real draft", "今天帮你查一下论文", placeholder + " with a real request"] {
+            XCTAssertTrue(profile.hasDraft(value: value, labels: []))
+        }
     }
 
     @MainActor

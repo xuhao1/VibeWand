@@ -66,7 +66,7 @@ enum ApplicationProfile: String, CaseIterable, Codable {
         case .codex: return L10n.tr("原生选择器识别", "Native picker recognition")
         case .claude: return L10n.tr("已在本机 Claude 桌面版实测听写、会话搜索与模型菜单", "Dictation, chat search and the model menu were exercised on the local Claude desktop app")
         case .deepSeekHarness: return L10n.tr("已核对本机 0.2.0-rc.2 代码和会话 / 模型界面", "Checked against local 0.2.0-rc.2 code and chat / model interfaces")
-        case .workBuddy: return L10n.tr("已核对本机 5.6.2 界面代码；真实界面操作待验证", "Checked against local 5.6.2 UI code; live UI operation remains unverified")
+        case .workBuddy: return L10n.tr("本机 5.6.2 已验收任务搜索、模型切换与听写写入", "Task search, model switching and dictation delivery verified on local 5.6.2")
         case .browser: return L10n.tr("系统标准快捷键；标签页顺序取决于浏览器设置", "Standard shortcuts; tab order follows your browser settings")
         case .weChat: return L10n.tr("⌘F 兼容映射；本机微信未提供可读的聊天控件", "⌘F compatibility mapping; local WeChat chat controls were not accessible")
         case .feishu: return L10n.tr("已核对本机 ⌘K 搜索界面；Enter 沿用飞书发送设置", "Local ⌘K search verified; Enter follows Feishu send settings")
@@ -117,9 +117,14 @@ enum ApplicationProfile: String, CaseIterable, Codable {
     /// These apps have no model shortcut; their composer exposes a labelled
     /// button instead, which is pressed through accessibility.
     var opensModelsWithButton: Bool { supportsAssistantPickers }
+    var modelTriggerRoles: Set<String> {
+        var roles: Set<String> = ["AXButton", "AXPopUpButton", "AXMenuButton"]
+        if self == .workBuddy { roles.insert("AXComboBox") }
+        return roles
+    }
 
     func isModelTrigger(role: String, hint: String) -> Bool {
-        guard ["AXButton", "AXPopUpButton", "AXMenuButton"].contains(role) else { return false }
+        guard modelTriggerRoles.contains(role) else { return false }
         let text = hint.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         switch self {
         case .workBuddy: return text == "select model" || text == "选择模型"
@@ -180,6 +185,28 @@ enum ApplicationProfile: String, CaseIterable, Codable {
     func isWebModelOption(role: String, classes: [String]) -> Bool {
         self == .workBuddy && ["AXStaticText", "AXGroup", "AXRow", "AXMenuItem"].contains(role) &&
             classes.contains("cr-model-selector__item") && !classes.contains("cr-model-selector__item--disabled")
+    }
+
+    /// WorkBuddy's empty rich-text field exposes its placeholder as AXValue,
+    /// with extra whitespace around inline @ and / hints and no AX label.
+    func hasDraft(value: String, labels: [String]) -> Bool {
+        guard AccessibilityHints.hasDraft(value: value, labels: labels) else { return false }
+        guard self == .workBuddy, value.utf16.count <= 240 else { return true }
+        return !Self.normalizedWorkBuddyPlaceholders.contains(Self.normalizedPlaceholder(value))
+    }
+
+    static let workBuddyComposerPlaceholders = [
+        "What can I help you with today? @ add context, / invoke skills and commands",
+        "今天帮你做些什么？@ 添加上下文，/调用技能与指令",
+        "Quick Q&A mode uses no credits. It answers simple questions but not complex tasks.",
+        "快速问答模式不消耗积分，可解答简单问题但不支持复杂任务",
+        "Type a message...", "输入消息..."
+    ]
+    private static let normalizedWorkBuddyPlaceholders = workBuddyComposerPlaceholders.map(normalizedPlaceholder)
+    private static func normalizedPlaceholder(_ value: String) -> String {
+        value.replacingOccurrences(of: "[\\s\\u200B\\uFEFF\\uFFFC]+", with: " ", options: .regularExpression)
+            .replacingOccurrences(of: "\\s*([@/])\\s*", with: "$1", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// Codex labels its model button with the model itself, e.g. "GPT-6.1 Sol High".

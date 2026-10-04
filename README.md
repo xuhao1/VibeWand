@@ -44,11 +44,11 @@ Per-model details are in the [hardware guide](docs/device-templates.en.md).
 | Browsers | Next tab | Address bar | ✓ |
 | WeChat, Feishu | Search / switch chats | — | ✓ |
 
-Codex, Claude and DeepSeek Harness were exercised on a real machine. WorkBuddy support was checked against the installed 5.6.2 UI code and automated fixtures; live UI operation remains unverified. Dictation is not tied to an app: native fields fill in as you speak, and everything else gets a single paste when you release, after which your clipboard is put back. You can add a shortcut rule for other apps in Settings; see [Applications](docs/applications.en.md).
+All four AI tools were exercised on a real machine. WorkBuddy 5.6.2 passed native UI readback checks for task search and opening, model switching, draft editing and dictation delivery with transcript replay. Dictation is not tied to an app: native fields fill in as you speak, and everything else gets a single paste when you release, after which your clipboard is put back. You can add a shortcut rule for other apps in Settings; see [Applications](docs/applications.en.md).
 
 ## Install
 
-**[Download VibeWand 0.8.0 (Apple Silicon)](https://github.com/xuhao1/VibeWand/releases/download/v0.8.0/VibeWand-0.8.0-macOS-arm64.zip)** · [Release notes](https://github.com/xuhao1/VibeWand/releases/latest)
+**[Download VibeWand 0.8.1 (Apple Silicon)](https://github.com/xuhao1/VibeWand/releases/download/v0.8.1/VibeWand-0.8.1-macOS-arm64.zip)** · [Release notes](https://github.com/xuhao1/VibeWand/releases/latest)
 
 Requires macOS 13 or later on an M-series Mac. Unzip, drag **VibeWand.app** into Applications, open it, then:
 
