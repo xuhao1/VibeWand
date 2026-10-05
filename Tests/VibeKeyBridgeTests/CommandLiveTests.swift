@@ -220,7 +220,10 @@ final class CommandLiveTests: XCTestCase {
         let launched = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.TextEdit").isEmpty
         addTeardownBlock {
             try? FileManager.default.removeItem(at: file)
-            if launched { NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.TextEdit").first?.terminate() }
+            guard launched, let app = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.TextEdit").first else { return }
+            // Gone before the next run looks, or that run would take it for the user's own and leave its successor open.
+            app.terminate()
+            for _ in 0..<30 where !app.isTerminated { try? await Task.sleep(nanoseconds: 100_000_000) }
         }
         try await bench.idle()
         let textEdit = try XCTUnwrap(NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.TextEdit"))
