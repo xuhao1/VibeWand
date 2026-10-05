@@ -110,9 +110,14 @@ final class CommandTools: ToolHost {
             for session in all { known[session.id] = session }
             let ranked = ChatSession.rank(all, query: arguments["query"]?.string, limit: min(max(arguments["limit"]?.int ?? 8, 1), 20))
             let clock = DateFormatter(); clock.dateFormat = "MM-dd HH:mm"
-            return .ok(["matched": .bool(ranked.matched), "sessions": .array(ranked.sessions.map {
+            var result: [String: JSONValue] = ["matched": .bool(ranked.matched), "sessions": .array(ranked.sessions.map {
                 ["id": .string($0.id), "title": .string($0.title), "folder": .string($0.folder), "updated": .string(clock.string(from: $0.updated))]
-            })])
+            })]
+            // Chats that live on another machine are in Codex's window but not in this list.
+            if !ranked.matched {
+                result["note"] = "Nothing matched; these are only the most recent chats kept on this Mac. If none of them is the one, call search_in_app to search Codex itself."
+            }
+            return .ok(.object(result))
         } catch {
             codex?.stop(); codex = nil
             return .failure("Codex's chat list is unavailable. Use search_in_app.")
@@ -137,24 +142,74 @@ final class CommandTools: ToolHost {
         }
         guard let app = await bringForward(entry.bundleIDs) else { return .failure("\(entry.profile.title) could not be brought to the front.") }
         target = app.processIdentifier
+        // An app arriving from another Space has no window with the keyboard for a moment, and would not get the shortcut.
         var observation = await observe()
-        _ = adapter.perform(.openSessions, observation: observation)
-        var open = false
-        for _ in 0..<12 where !open {
-            try? await Task.sleep(nanoseconds: 150_000_000)
+        for _ in 0..<25 where observation.pid != app.processIdentifier || !observation.context.targetAvailable {
+            try? await Task.sleep(nanoseconds: 100_000_000)
             observation = await observe()
-            open = observation.context.picker == .sessions
+        }
+        var open = false
+        for attempt in 0..<2 where !open {
+            let asked = observation.identity
+            _ = adapter.perform(.openSessions, observation: observation)
+            for _ in 0..<12 where !open {
+                try? await Task.sleep(nanoseconds: 150_000_000)
+                observation = await observe()
+                open = observation.context.picker == .sessions
+            }
+            // An app still settling can miss the shortcut. Asking again is safe only when nothing moved:
+            // on a search that did open, the same shortcut would close it.
+            guard attempt == 0, observation.identity == asked else { break }
+        }
+        guard open else {
+            return .ok(["search_open": false, "query_typed": false, "next": "The app's search did not open. Call need_user and say so."], verified: false)
         }
         // A sidebar list is walked row by row; there is no field to type a query into.
         let query = arguments["query"]?.string ?? ""
-        let typed = open && !query.isEmpty && !entry.profile.picksSessionsFromSidebar
-        if typed {
-            let delivery = ClipboardTextDelivery()
-            delivery.post(query, pid: app.processIdentifier)
-            try? await Task.sleep(nanoseconds: 300_000_000)
-            delivery.restore(confirmed: true)
+        guard !query.isEmpty, !entry.profile.picksSessionsFromSidebar else {
+            return .ok(["search_open": true, "query_typed": false, "next": "The user picks with the dial. Call finish."])
         }
-        return .ok(["search_open": .bool(open), "query_typed": .bool(typed), "next": "The user picks with the dial. Call finish."], verified: open)
+        switch await fill(query, pid: app.processIdentifier) {
+        case true?: return .ok(["search_open": true, "query_typed": true, "next": "The user picks with the dial. Call finish."])
+        case nil: return .ok(["search_open": true, "query_typed": "sent, but this app's search cannot be read to check",
+                              "next": "The user picks with the dial. Call finish."], verified: false)
+        case false?: return .ok(["search_open": true, "query_typed": false,
+                                 "next": "The search is open but the keywords did not go in. Call finish and say that the user has to type them."], verified: false)
+        }
+    }
+
+    /// Puts the keywords into the search that has just opened, in place of anything it still holds.
+    private func fill(_ query: String, pid: pid_t) async -> Bool? {
+        // The search's field takes the keyboard a moment after the search appears.
+        for _ in 0..<15 {
+            if await interface.caret(pid: pid) != nil { break }
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+        KeyStroke.parse("cmd+a")?.post(to: pid)
+        try? await Task.sleep(nanoseconds: 80_000_000)
+        return await paste(query, pid: pid)
+    }
+
+    /// Pastes text where the keyboard is, as dictation does: an input method cannot swallow it, and the clipboard
+    /// is put back. Tells whether it arrived: true, false, or nil when the field cannot be read to check.
+    private func paste(_ text: String, pid: pid_t) async -> Bool? {
+        let before = await interface.caret(pid: pid)
+        let delivery = ClipboardTextDelivery()
+        defer { delivery.restore(confirmed: true) }
+        delivery.post(text, pid: pid)
+        guard let before else {
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            return nil
+        }
+        // Most apps take the paste from the keyboard's path. Feishu's search takes it only when addressed to the app.
+        for attempt in 0..<2 {
+            if attempt == 1 { KeyStroke.parse("cmd+v")?.post(to: pid) }
+            for _ in 0..<(attempt == 0 ? 6 : 10) {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                if let now = await interface.caret(pid: pid), now != before { return true }
+            }
+        }
+        return false
     }
 
     private func activateApp(_ arguments: JSONValue) async -> ToolOutcome {
@@ -241,12 +296,12 @@ final class CommandTools: ToolHost {
         }
         if let refusal = await interface.focusForTyping(pid: pid, control: control) { return .failure(refusal) }
         guard operated() == pid else { return movedAway }
-        // Pasted, as dictation is: an input method cannot swallow it, and the clipboard is put back.
-        let delivery = ClipboardTextDelivery()
-        delivery.post(text, pid: pid)
-        try? await Task.sleep(nanoseconds: 300_000_000)
-        delivery.restore(confirmed: true)
-        return .ok(["typed_characters": .number(Double(text.count)), "note": "The text is in the field. It was not submitted."])
+        switch await paste(text, pid: pid) {
+        case true?: return .ok(["typed_characters": .number(Double(text.count)), "note": "The text is in the field. It was not submitted."])
+        case nil: return .ok(["typed_characters": .number(Double(text.count)),
+                              "note": "Sent, but this field cannot be read to check that it arrived. It was not submitted."], verified: false)
+        case false?: return .failure("The text did not go in: the field did not change. Take a snapshot to see what has the keyboard.")
+        }
     }
     private var declined: ToolOutcome { .failure("The user declined. Do not retry; call need_user or finish.") }
 
@@ -268,7 +323,14 @@ final class CommandTools: ToolHost {
     }
     private func front(_ matches: (NSRunningApplication) -> Bool) async -> NSRunningApplication? {
         for _ in 0..<30 {
-            if let app = NSWorkspace.shared.frontmostApplication, matches(app) { return app }
+            if let app = NSWorkspace.shared.frontmostApplication, matches(app) {
+                // Frontmost comes first; the window follows when the app arrives from another Space.
+                for _ in 0..<15 {
+                    if await interface.hasWindowHere(pid: app.processIdentifier) { break }
+                    try? await Task.sleep(nanoseconds: 100_000_000)
+                }
+                return app
+            }
             try? await Task.sleep(nanoseconds: 100_000_000)
         }
         return nil

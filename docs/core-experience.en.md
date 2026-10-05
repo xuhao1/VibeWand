@@ -57,7 +57,7 @@ Return can send or insert a newline depending on the target app. Check its prefe
 
 ## The command key
 
-Command mode is off by default. Turning it on adds a hold-to-speak command key: a long press of the VibeKey dial that you keep holding (the model entry moves to a long press of OK), L2 on a controller, and right ⌥ held on its own on the keyboard. On release the sentence goes to command mode and is not typed into any field. While a command is asking or acting, turning chooses, the confirm button confirms and the back button stops; none of these reach the app in front at that time. See [Command mode](command-mode.en.md).
+Command mode is off by default. Turning it on adds a hold-to-speak command key: a long press of the VibeKey dial that you keep holding (the model entry moves to a long press of OK), L2 on a controller, and right ⌘ held on its own on the keyboard. On release the sentence goes to command mode and is not typed into any field. While a command is asking or acting, turning chooses, the confirm button confirms and the back button stops; none of these reach the app in front at that time. See [Command mode](command-mode.en.md).
 
 ## Timing and customization
 

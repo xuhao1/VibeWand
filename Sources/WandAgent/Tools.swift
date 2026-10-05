@@ -42,8 +42,8 @@ public enum ToolCatalog {
     public static let navigation: [ToolDefinition] = [
         tool("list_targets", .read, """
             List the apps VibeWand can operate. For each: its id, whether it is running and frontmost, and how chats \
-            are found in it: "list" (use find_sessions), "search" (use search_in_app) or neither (interface tools only). \
-            Also names the app and window the user was in when they spoke.
+            are found in it: "list" (find_sessions, then search_in_app when that has no match), "search" (search_in_app) \
+            or neither (interface tools only). Also names the app and window the user was in when they spoke.
             """),
         tool("find_sessions", .read, """
             Search the chats of an app whose sessions are "list". Returns id, title, project folder and last-updated \
@@ -57,8 +57,9 @@ public enum ToolCatalog {
             "app": string("App id from list_targets."), "id": string("Chat id from find_sessions.")
         ], required: ["app", "id"]),
         tool("search_in_app", .navigate, """
-            For an app whose sessions are "search": bring it to the front, open its own chat search and type the query. \
-            The user then picks a result with the dial, so call finish right after.
+            Bring an app to the front, open its own chat search and type the query. The user then picks a result \
+            with the dial, so call finish right after. This is the route for an app whose sessions are "search", and \
+            for a "list" app when find_sessions has no match; do not rebuild it from the ui_ tools.
             """, ["app": string("App id from list_targets."), "query": string("Keywords to type into the search.")],
              required: ["app", "query"]),
         tool("activate_app", .navigate, """

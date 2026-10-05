@@ -61,6 +61,8 @@ struct CommandSettingsPage: View {
                         }
                         SettingsNote(text: tr("单独按住这个键约 0.2 秒开始听；和其他键一起按时照常是修饰键。需要选择或确认时，方向键、回车和 Esc 交给命令，其余时间不受影响。",
                                               "Hold this key on its own for about 0.2 s to start listening; with another key it is an ordinary modifier. When a choice or confirmation is waiting, the arrows, Return and Esc answer it; otherwise they are untouched."))
+                        SettingsNote(text: tr("已被输入法或其他软件占用的键到不了 VibeWand，例如豆包输入法用右 ⌥ 做语音键。按住没有反应时请换一个。",
+                                              "A key that an input method or another app has taken never reaches VibeWand; the Doubao input method, for one, uses right ⌥ for voice. If holding the key does nothing, pick another."))
                         Divider()
                         SettingsNote(text: tr("也可以在“设备与按键”里把“命令（按住说话）”绑到任意按键。", "You can also bind “Command (hold to speak)” to any button under Devices & inputs."))
                         Button(tr("设备与按键…", "Devices & inputs…")) { model.section = .devices }

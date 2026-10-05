@@ -2,6 +2,13 @@ import AppKit
 import ApplicationServices
 import WandAgent
 
+/// The size of a text control's contents and its selection, never the contents themselves.
+struct TextCaret: Equatable {
+    var characters: Int
+    var location: Int
+    var selected: Int
+}
+
 /// One control from the latest snapshot. Its id is its position in that snapshot.
 struct InterfaceControl {
     let element: AXUIElement
@@ -93,6 +100,16 @@ final class InterfaceTools: @unchecked Sendable {
         }
     }
 
+    /// Whether the app has a window on the Space in front. An app sliding in from another Space is
+    /// already frontmost while it still has none, and keys sent to it then can be lost.
+    func hasWindowHere(pid: pid_t) async -> Bool {
+        await run {
+            let application = AXUIElementCreateApplication(pid)
+            AXUIElementSetMessagingTimeout(application, 0.3)
+            return !(Self.attribute(application, kAXWindowsAttribute) as? [AXUIElement] ?? []).isEmpty
+        }
+    }
+
     /// Role of the control that has keyboard focus, for deciding what Return would do.
     func focusedRole(pid: pid_t) async -> String {
         await run {
@@ -100,6 +117,25 @@ final class InterfaceTools: @unchecked Sendable {
             AXUIElementSetMessagingTimeout(application, 0.3)
             guard let focused = Self.element(Self.attribute(application, kAXFocusedUIElementAttribute)) else { return "" }
             return Self.attribute(focused, kAXRoleAttribute) as? String ?? ""
+        }
+    }
+
+    /// How much the focused text control holds and where its caret is: enough to tell whether typed text
+    /// arrived, without reading what the control contains. nil when no readable text control has the keyboard.
+    func caret(pid: pid_t) async -> TextCaret? {
+        await run {
+            let application = AXUIElementCreateApplication(pid)
+            AXUIElementSetMessagingTimeout(application, 0.3)
+            guard let focused = Self.element(Self.attribute(application, kAXFocusedUIElementAttribute)),
+                  ["AXTextField", "AXTextArea", "AXComboBox"].contains(Self.attribute(focused, kAXRoleAttribute) as? String ?? "") else { return nil }
+            let characters = (Self.attribute(focused, kAXNumberOfCharactersAttribute) as? NSNumber)?.intValue
+            var selection: CFRange?
+            if let value = Self.attribute(focused, kAXSelectedTextRangeAttribute), CFGetTypeID(value) == AXValueGetTypeID() {
+                var range = CFRange()
+                if AXValueGetValue(value as! AXValue, .cfRange, &range) { selection = range }
+            }
+            guard characters != nil || selection != nil else { return nil }
+            return TextCaret(characters: characters ?? -1, location: selection?.location ?? -1, selected: selection?.length ?? -1)
         }
     }
 

@@ -24,16 +24,16 @@ Hold to speak, release to run.
 | --- | --- |
 | VibeKey | Long-press the dial and keep holding; release when done. While command mode is on, the model entry is a long press of OK |
 | Controller | Hold L2 |
-| Keyboard | Hold right ⌥ on its own for about 0.2 s; Settings offers the other right-hand modifiers, or none |
+| Keyboard | Hold right ⌘ on its own for about 0.2 s; Settings offers the other right-hand modifiers, or none |
 | Remote | No default; bind one yourself |
 
 Under Devices & inputs you can bind “Command (hold to speak)” to any button, and a binding you made yourself takes precedence over these defaults. On a button that cannot be held, one press starts and the next press ends. When command mode is turned off these defaults go away, and a long press of the VibeKey dial opens the model entry again.
 
-Right ⌥ pressed together with another key is an ordinary modifier and is not taken as a command.
+Right ⌘ pressed together with another key is an ordinary modifier and is not taken as a command. A key that an input method or another app has taken never reaches VibeWand: the Doubao input method, for one, uses a held right ⌥ for voice, which is why that key is not the default. If holding the key does nothing, pick another.
 
 ## What you can say
 
-- **Find a chat.** “Switch to the Codex chat about the microphone.” Codex is asked for its own chat list and the chat is opened directly; when several fit, the overlay lists them.
+- **Find a chat.** “Switch to the Codex chat about the microphone.” Codex is asked for its own chat list and the chat is opened directly; when several fit, the overlay lists them. The list holds only the chats kept on this Mac; when nothing matches, Codex's own `⌘K` search is used.
 - **Find a chat in other apps.** Claude, DeepSeek Harness, WorkBuddy, Feishu and WeChat have no list to query: VibeWand brings the app forward, opens its own search and types the keywords, and you pick with the dial as usual.
 - **Switch apps, open a file or a URL.** “Open Notes.”
 - **Operate the window in front.** “Open the Runtime.swift tab.” VibeWand reads that window's controls, then presses one, sends a shortcut, chooses a menu item, or puts text into a field.
@@ -59,7 +59,7 @@ On the keyboard, the arrows and Return go to the command only while a question w
 - **Deleting and sending always wait for you:** buttons and menu items whose name contains delete, discard, don't save, send, submit, pay and the like; Return in a multi-line field; and ⌘Return, ⌘⌫ and ⌘Q.
 - **It operates one app:** the one in front when you pressed the command key, or the one it brought forward for you. Once you move elsewhere, what follows is dropped.
 - **No screenshots and no coordinate clicks.** Interfaces whose controls cannot be read, such as canvases and custom-drawn content, are out of reach.
-- **It does not read what fields and documents contain,** only whether a field is empty, and it never types into a password field.
+- **It does not read what fields and documents contain,** only whether a field is empty, how many characters it holds and where its caret is, to check that typed text arrived. It never types into a password field.
 - **No shell and no file access.** The model can call 13 tools and nothing else; see the [development guide](development.md).
 
 ## What is sent
@@ -80,14 +80,21 @@ With command mode off, VibeWand behaves as before and reads none of this.
 
 ## What has been verified
 
-Covered by automated tests and by runs against the real model: the kernel process and tool channel, cancellation, choosing and stopping, the command key bindings, and the start-up of the bundled kernel.
+On 2026-10-05 it was run against real apps, with every result read back from the app; see the [acceptance record](command-acceptance.md):
 
-Not yet observed in the real apps, so watch for these in use:
+- **TextEdit:** typing; a Return that needs confirmation, confirmed once and refused once; a menu item; opening an app by its Chinese name and switching back.
+- **VS Code:** opening a tab by name, and “not that one, the other”.
+- **Codex:** opening a chat by title, with the link landing on the chat it names; asking when several fit; falling back to the `⌘K` search when the list has no match; pressing the window's Back button.
+- **Claude and Feishu:** opening the search with the keywords in it, then picking with the dial and closing with the back button.
+- **Keyboard:** right ⌘ held on its own starts listening; while a question waits, the arrows and Return answer it and do not reach the app in front.
 
-- whether Codex's `codex://threads/…` link lands on the chat it names;
-- whether the tabs and controls of apps such as VS Code can all be read;
-- whether holding right ⌥ conflicts with your input method or other software;
-- typing the keywords into each app's own search.
+Worth knowing in use:
+
+- **VS Code takes it for a screen reader.** After its controls are read for the first time, VS Code asks whether to turn on “screen reader optimized” mode and shows it in the status bar. Answer No, or set `editor.accessibilitySupport` to `off` in VS Code's settings.
+- **Codex chats that live on a remote machine are not in the list** and are found only through the `⌘K` search.
+- After a Codex chat is opened the overlay adds “result not verified”: the app cannot read back where the link landed.
+
+Not verified: the whole experience with a microphone and a human voice (the run replayed transcripts); physical keys (the keyboard key was a synthetic event); searches aimed at DeepSeek Harness, WorkBuddy and WeChat; keys, menus and typing in VS Code.
 
 ## Not implemented yet
 

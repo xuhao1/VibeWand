@@ -3,7 +3,7 @@ import SpeechInput
 
 /// The keyboard's command key: a right-hand modifier held on its own.
 enum CommandHotkey: String, CaseIterable {
-    case none, rightOption, rightCommand, rightControl, rightShift
+    case none, rightCommand, rightOption, rightControl, rightShift
     var title: String {
         switch self {
         case .none: return L10n.tr("不使用键盘", "No keyboard key")
@@ -53,7 +53,8 @@ final class CommandSettings: ObservableObject {
          credentials: any SpeechCredentialStore = KeychainSpeechCredentials(service: CommandSettings.service)) {
         self.defaults = defaults; self.credentials = credentials
         enabled = defaults.bool(forKey: "commandModeEnabled")
-        hotkey = defaults.string(forKey: "commandHotkey").flatMap(CommandHotkey.init(rawValue:)) ?? .rightOption
+        // Right Option is the voice key of some input methods, which take it before any other listener sees it.
+        hotkey = defaults.string(forKey: "commandHotkey").flatMap(CommandHotkey.init(rawValue:)) ?? .rightCommand
         model = defaults.string(forKey: "commandModel") ?? ""
     }
 

@@ -33,7 +33,7 @@ Computer use commonly means a model that looks at screenshots and outputs coordi
 | Named buttons beside the composer, and the sidebar's chat list | Pressing the model, effort and search buttons directly; choosing chats row by row in DeepSeek Harness |
 | Whether an input method is composing, and whether an unknown dialog is open | In both cases only the native Return and Esc are sent |
 | In a terminal, the few rows of text next to the cursor | Telling whether the cursor is at a recognised prompt, whether the prompt holds a draft, and whether a list covers the prompt |
-| Command mode also reads: window titles, the kind, name and state of the controls in the front window, and the menu bar | Letting the model find the control to press |
+| Command mode also reads: window titles, the kind, name and state of the controls in the front window, and the menu bar; a field's character count and caret before and after typing into it | Letting the model find the control to press; checking that typed text arrived |
 
 What is not read: conversation text, document contents, selected text. A field's content is reduced to “empty” or “has text”. The clipboard is only saved while something is pasted and then put back. Command mode's list of controls skips static text and images and keeps buttons, tabs, menu items, fields, list rows and the like.
 
@@ -82,7 +82,7 @@ One command runs for at most 24 steps and 120 seconds. A question left unanswere
 
 | App | Driven by buttons (released) | Finding a chat in command mode |
 | --- | --- | --- |
-| Codex | `⌘K` palette; effort slider and model list | Codex's own chat list is queried, the latest 60 are filtered by title and project folder, and the chat is opened with `codex://threads/…`; if the list is unavailable, the `⌘K` palette is used |
+| Codex | `⌘K` palette; effort slider and model list | Codex's own chat list is queried, the latest 60 are filtered by title and project folder, and the chat is opened with `codex://threads/…`. The list holds this Mac's chats only; when nothing matches or the list is unavailable, the `⌘K` palette is opened with the keywords in it |
 | Claude | `⌘K` palette; model menu, then the effort slider | Opens the `⌘K` search and types the keywords; you pick with the dial |
 | DeepSeek Harness | Sidebar chat list; two-level model menu | Enters the sidebar chat list and you pick row by row; there is no search field to type into |
 | WorkBuddy | Sidebar task search; model menu | Opens Global search and types the keywords |
@@ -127,6 +127,6 @@ What command mode sends to the model service is listed under [What is sent](comm
 | Claude Code, Codex and OpenCode in a terminal | Accepted in iTerm2 3.7.3 against Codex CLI 0.160.0, Claude Code 2.1.289 and OpenCode 1.18.34, with the terminal text read back after every step; presses came from the runtime, and physical device buttons were not pressed. See the [acceptance record](terminal-acceptance.md) |
 | WeChat | Search candidates and draft editing are unverified |
 | Command mode's kernel process, tool channel, cancellation, choosing, and command key | Covered by automated tests and by runs against the real model |
-| Command mode's results in real apps | Not yet observed: whether Codex's link lands on the chat it names, whether the controls of apps such as VS Code can all be read, typing keywords into each app's own search, and whether right ⌥ conflicts with an input method |
+| Command mode's results in real apps | Read back item by item on 2026-10-05 in TextEdit, VS Code, Codex, Claude and Feishu; see the [acceptance record](command-acceptance.md). Not run: a microphone and a human voice, physical keys, searches aimed at DeepSeek Harness, WorkBuddy and WeChat, and keys, menus and typing in VS Code |
 
-By this repository's convention, a capability whose result has not been observed in the real app does not count as supported. Keep the last row in mind when you use it.
+By this repository's convention, a capability whose result has not been observed in the real app does not count as supported. Keep in mind what the last row lists as not run.

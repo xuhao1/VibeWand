@@ -45,6 +45,7 @@ These records support implementation and provenance. They are not first-use inst
 - [Native controller and Bluetooth verification / 原生手柄与蓝牙实测](controller-input.md)
 - [AU05 protocol and historical checks / AU05 协议与历史检查](direct-device-plan.md)
 - [Command mode design (Chinese) / 命令模式设计方案](VibeWand_Computer_Use_设计方案.md)
+- [Command mode acceptance / 命令模式验收](command-acceptance.md)
 - [Settings design / 设置设计](settings-design.md)
 - [Liquid Glass HUD and action guidance / 液态玻璃悬浮窗与动作引导](overlay-liquid-glass.md)
 - [Appearance audit / 外观审查](ui-appearance-audit.md) and [screenshot gallery / 截图图集](ui-appearance-gallery.html)

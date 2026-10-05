@@ -22,9 +22,11 @@ final class BridgeRuntime {
     var autoSwitchSuspended = false
     let dictation = FnDictation()
     let voiceInput: VoiceInputController
-    private let suppliedCommand: CommandController?
+    /// Tests build the controller with their own settings and kernel, on this runtime's adapter and voice input.
+    private let makeCommand: ((AccessibilityAdapter, VoiceInputController) -> CommandController)?
     private(set) lazy var command: CommandController = {
-        let controller = suppliedCommand ?? CommandController(settings: CommandSettings(), tools: CommandTools(adapter: adapter), voice: voiceInput)
+        let controller = makeCommand?(adapter, voiceInput)
+            ?? CommandController(settings: CommandSettings(), tools: CommandTools(adapter: adapter), voice: voiceInput)
         controller.onChange = { [weak self] in self?.updateObservedState() }
         controller.settings.onChange = { [weak self] in self?.applyCommandSettings() }
         return controller
@@ -114,9 +116,10 @@ final class BridgeRuntime {
 
     init(source: (any HIDEventSource)? = nil, templates: DeviceTemplateStore = DeviceTemplateStore(),
          sourceFactory: ((HIDDeviceProfile?, DeviceTemplateID) throws -> any HIDEventSource)? = nil,
-         voiceInput: VoiceInputController? = nil, command: CommandController? = nil) {
+         voiceInput: VoiceInputController? = nil,
+         command: ((AccessibilityAdapter, VoiceInputController) -> CommandController)? = nil) {
         self.voiceInput = voiceInput ?? VoiceInputController()
-        suppliedCommand = command
+        makeCommand = command
         self.templates = templates
         suppliedSource = source != nil
         self.sourceFactory = sourceFactory ?? Self.makeSource

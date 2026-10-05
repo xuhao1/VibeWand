@@ -64,6 +64,27 @@ bash scripts/build-kernel.sh
 DEEPSEEK_VIBEWAND_DEV=… VIBEWAND_KERNEL_RESOURCES="$PWD/output" swift test --filter KernelLiveTests
 ```
 
+A second opt-in suite, `CommandLiveTests`, runs the production runtime against real apps, in windows it opens for itself, and reads each result back from the app. Once keyboard and mouse have been idle for a few seconds it takes the screen for a few seconds per scenario, then returns it. Name the scenarios to run:
+
+另一组需要显式启用的 `CommandLiveTests` 用生产运行时操作真实应用：在自己打开的窗口里执行，并从应用里读回每个结果。键盘和鼠标空闲几秒后，每个场景占用屏幕几秒再交还。用环境变量指定要跑的场景：
+
+```sh
+VIBEWAND_COMMAND_LIVE=textedit,keyboard,code,codex,search-claude DEEPSEEK_VIBEWAND_DEV=… VIBEWAND_KERNEL_RESOURCES="$PWD/output" swift test --filter CommandLiveTests
+```
+
+| Scenario / 场景 | Needs / 需要 | Covers / 覆盖 |
+| --- | --- | --- |
+| `textedit` | — | Typing, a confirmed and a refused Return, a menu item, switching apps / 输入、确认与拒绝的回车、菜单项、切换应用 |
+| `keyboard` | — | The keyboard command key, answering with arrows and Return; no model / 键盘命令键与方向键、回车作答；不用模型 |
+| `code` | Visual Studio Code | Reading tabs and pressing one by name; the test offers the model no keys or typing there / 读取并按下标签页；测试在这里不给模型按键和输入 |
+| `codex` | Codex running / 运行中 | Opening a chat by its link, the window's Back button / 用链接打开会话、窗口的后退按钮 |
+| `search-codex`, `search-claude`, `search-feishu` | That app running; one per run / 对应应用运行中，每次一个 | The app's own search opened with the keywords, then the dial / 打开应用自带搜索并填词，再交给旋钮 |
+| `say` | `VIBEWAND_COMMAND_LIVE_SAY` | One instruction of your choosing; a choice gets its first option, a confirmation is refused / 任意一句话；候选选第一个，确认一律拒绝 |
+
+`VIBEWAND_COMMAND_LIVE_HOLD=20` keeps each result on screen for that many seconds before the test closes its windows. The last run is recorded in [Command mode acceptance / 命令模式验收](command-acceptance.md).
+
+`VIBEWAND_COMMAND_LIVE_HOLD=20` 让每个结果在屏幕上停留这么多秒，然后测试才关闭自己的窗口。最近一次运行记录在[命令模式验收](command-acceptance.md)。
+
 ## Source layout / 源码布局
 
 `AU05Capture` emits normalized input as NDJSON and writes connection status to stderr. The CLI and GUI cannot own the AU05 simultaneously. Normal exit, SIGINT, and SIGTERM release the interface and temporary hooks.

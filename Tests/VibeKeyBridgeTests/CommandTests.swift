@@ -27,14 +27,14 @@ final class CommandTests: XCTestCase {
         let voice = VoiceInputController(preferences: SpeechPreferences(defaults: defaults),
                                          engineFactory: { _ in TranscriptReplayEngine(previews: previews) })
         let settings = CommandSettings(defaults: defaults, credentials: MemoryCredentials())
-        let command = CommandController(settings: settings, tools: CommandTools(adapter: AccessibilityAdapter(preferences: defaults)),
-                                        voice: voice, support: support)
         let kernel = ScriptedKernel(script)
-        command.openKernel = { kernel }
         let templates = DeviceTemplateStore(defaults: defaults)
         try templates.select(template)
-        let runtime = BridgeRuntime(source: UnconfiguredHIDSource(template: template.template), templates: templates,
-                                    voiceInput: voice, command: command)
+        let runtime = BridgeRuntime(source: UnconfiguredHIDSource(template: template.template), templates: templates, voiceInput: voice) {
+            let command = CommandController(settings: settings, tools: CommandTools(adapter: $0), voice: $1, support: support)
+            command.openKernel = { kernel }
+            return command
+        }
         if enabled { settings.setEnabled(true) }
         return (runtime, kernel, support)
     }
@@ -62,6 +62,16 @@ final class CommandTests: XCTestCase {
             XCTAssertEqual(runtime.configuration.action(.reading, .dial, .long), .sessions)
             runtime.command.settings.setEnabled(false)
             XCTAssertEqual(runtime.configuration.action(.reading, .ok, .long), GestureAction.none)
+        }
+    }
+
+    func testKeyboardCommandKeyDefaultsToRightCommandUntilTheUserPicksAnother() async {
+        await MainActor.run {
+            let defaults = isolatedDefaults()
+            // Right Option is the voice key of some input methods and never arrives where they run.
+            XCTAssertEqual(CommandSettings(defaults: defaults, credentials: MemoryCredentials()).hotkey, .rightCommand)
+            CommandSettings(defaults: defaults, credentials: MemoryCredentials()).setHotkey(.rightOption)
+            XCTAssertEqual(CommandSettings(defaults: defaults, credentials: MemoryCredentials()).hotkey, .rightOption)
         }
     }
 
