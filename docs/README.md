@@ -2,6 +2,8 @@
 
 [Project home](../README.md) · [中文首页](../README.zh-CN.md)
 
+**One wand to command them all.** One way in for every tool; the work stays in the software you chose. 一个入口操作所有工具，活儿仍由你选的软件完成。
+
 Start with setup, then learn the default workflow or customize it. User guides describe current behavior; engineering records preserve dated observations.
 
 先完成安装与连接，再了解默认操作或按自己的习惯配置。使用指南描述当前行为；工程记录保留特定版本的实测和设计历史。
@@ -15,6 +17,7 @@ Start with setup, then learn the default workflow or customize it. User guides d
 | [Settings and remapping](settings.en.md) | [设置与改键](settings.md) | Button editor, action library, timing, import/export, overlay / 按键编辑、动作库、时间、导入导出与悬浮反馈 |
 | [Voice input](voice-input.md) | [语音输入](voice-input.md) | Speech SDK, API protocols, Keychain and local checks / 系统听写、API、钥匙串与本地测试 |
 | [Applications](applications.en.md) | [应用适配](applications.md) | Built-in adapters, custom shortcuts, known limits / 内置适配、自定义快捷键与已知边界 |
+| [Computer use](computer-use.en.md) | [Computer use](computer-use.md) | How VibeWand reads and operates apps, the actions and tools it has, the rules it keeps, what is verified / 怎样看界面与操作应用、动作与工具、不变的规矩、验证情况 |
 | [Troubleshooting](troubleshooting.en.md) | [问题排查](troubleshooting.md) | Input capture, diagnostics, permission and connection problems / 采集、诊断、权限与连接问题 |
 
 ## Hardware and advanced configuration / 硬件与进阶配置

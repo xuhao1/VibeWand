@@ -2,7 +2,7 @@
 
 [简体中文](core-experience.md) · [Getting started](getting-started.en.md) · [Documentation](README.md)
 
-These are the 0.7.0 template defaults. Saved custom mappings take precedence; reset the active template if you want its defaults. Complete controls and hardware boundaries are in [Device templates](device-templates.en.md).
+These are the 0.8.4 template defaults. Saved custom mappings take precedence; reset the active template if you want its defaults. Complete controls and hardware boundaries are in [Device templates](device-templates.en.md).
 
 ## Navigation follows context
 
@@ -13,8 +13,9 @@ These are the 0.7.0 template defaults. Saved custom mappings take precedence; re
 | Recognized conversation, model, or effort picker | Select the previous / next candidate. |
 | macOS app switcher | Select the previous / next application. |
 | Browser | Scroll the page, including when a page input has focus. |
+| Terminal (iTerm2) | Scroll at an empty prompt; move the caret left / right when the prompt holds a draft; previous / next inside a `/resume` or `/model` list that VibeWand opened. |
 
-A shortcut alone does not establish that a picker opened. Supported adapters inspect available controls before applying picker behavior. Input-method candidates and unknown dialogs take priority and keep native confirmation/cancellation.
+A shortcut alone does not establish that a picker opened. Supported adapters inspect available controls before applying picker behavior. Input-method candidates and unknown dialogs take priority and keep native confirmation/cancellation. A terminal has no controls to inspect, so the adapter reads the few rows of text next to the cursor to tell the prompt, a draft and a list apart; see [Applications](applications.en.md#claude-code-codex-and-opencode-in-a-terminal). Which apps have these contexts is in [Supported programs at a glance](applications.en.md#supported-programs-at-a-glance).
 
 ## VibeKey / AU05
 

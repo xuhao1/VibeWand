@@ -4,7 +4,7 @@
 
 ## 1. Download and open
 
-Download **[VibeWand-0.7.0-macOS-arm64.zip](https://github.com/xuhao1/VibeWand/releases/download/v0.7.0/VibeWand-0.7.0-macOS-arm64.zip)** from [GitHub Releases](https://github.com/xuhao1/VibeWand/releases/latest). This package requires **macOS 13+** and an **Apple Silicon Mac**; it does not include an Intel binary.
+Download **[VibeWand-0.8.4-macOS-arm64.zip](https://github.com/xuhao1/VibeWand/releases/download/v0.8.4/VibeWand-0.8.4-macOS-arm64.zip)** from [GitHub Releases](https://github.com/xuhao1/VibeWand/releases/latest). This package requires **macOS 13+** and an **Apple Silicon Mac**; it does not include an Intel binary.
 
 1. Double-click the ZIP in Finder to extract **VibeWand.app**.
 2. Drag it into **Applications**.
@@ -38,11 +38,11 @@ Focus an editable field, hold the VibeKey microphone key or Controller △, and 
 
 ## 5. Try the default workflow
 
-1. Bring a supported app to the foreground and read a reply. Turn the dial or use R1 / R2 to scroll.
+1. Bring a [supported app](applications.en.md#supported-programs-at-a-glance) such as Codex or Claude to the foreground and read a reply. Turn the dial or use R1 / R2 to scroll.
 2. Focus a draft, hold the dictation button, speak, then release. With an observed nonempty draft, navigation moves the caret.
 3. Confirm only when ready: OK on VibeKey or ○ on Controller. Return follows the target app's send/newline preference.
 4. Double-press the dial or Controller × to open app switching. Navigate and confirm; back cancels.
 
 The floating panel shows input and context without taking keyboard focus. Its gear opens settings; × hides it. Restore it from the menu bar.
 
-Continue with [Default controls](core-experience.en.md), [Settings and remapping](settings.en.md), or [Troubleshooting](troubleshooting.en.md).
+Continue with [Default controls](core-experience.en.md), [Settings and remapping](settings.en.md), or [Troubleshooting](troubleshooting.en.md). For what VibeWand reads and does inside each app, see [Computer use](computer-use.en.md).

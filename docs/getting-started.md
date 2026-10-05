@@ -4,7 +4,7 @@
 
 ## 1. 下载并打开
 
-从 [GitHub Releases](https://github.com/xuhao1/VibeWand/releases/latest) 下载 **[VibeWand-0.7.0-macOS-arm64.zip](https://github.com/xuhao1/VibeWand/releases/download/v0.7.0/VibeWand-0.7.0-macOS-arm64.zip)**。本包要求 **macOS 13+**、**Apple Silicon Mac**，不含 Intel 可执行文件。
+从 [GitHub Releases](https://github.com/xuhao1/VibeWand/releases/latest) 下载 **[VibeWand-0.8.4-macOS-arm64.zip](https://github.com/xuhao1/VibeWand/releases/download/v0.8.4/VibeWand-0.8.4-macOS-arm64.zip)**。本包要求 **macOS 13+**、**Apple Silicon Mac**，不含 Intel 可执行文件。
 
 1. 在 Finder 中双击 ZIP，解压得到 **VibeWand.app**。
 2. 拖入「应用程序」。
@@ -38,11 +38,11 @@
 
 ## 5. 试一次默认流程
 
-1. 切到支持的应用，阅读回复。转动旋钮或使用 R1 / R2 滚屏。
+1. 切到[支持的应用](applications.md#支持的程序一览)，例如 Codex 或 Claude，阅读回复。转动旋钮或使用 R1 / R2 滚屏。
 2. 聚焦草稿，按住听写键说话，再松开。有字且被识别的草稿中，导航移动光标。
 3. 准备好再确认：VibeKey 使用 OK，手柄使用 ○；Return 的发送 / 换行行为由目标应用决定。
 4. 双击旋钮或手柄 × 打开应用切换，导航后确认，返回键取消。
 
 悬浮面板显示输入和场景，不抢键盘焦点。齿轮打开设置，× 隐藏面板，菜单栏可重新显示。
 
-接着阅读[默认操作](core-experience.md)、[设置与改键](settings.md)或[问题排查](troubleshooting.md)。
+接着阅读[默认操作](core-experience.md)、[设置与改键](settings.md)或[问题排查](troubleshooting.md)。想知道 VibeWand 在各个应用里具体读什么、做什么，见 [Computer use](computer-use.md)。

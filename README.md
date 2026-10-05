@@ -1,12 +1,16 @@
 # VibeWand
 
-A small macOS tool for driving Codex, Claude, DeepSeek Harness and WorkBuddy with a dial, a game controller or a remote.
+**One wand to command them all.**
 
-[简体中文](README.zh-CN.md) · [Get started](docs/getting-started.en.md) · [Documentation](docs/README.md) · [Project site](https://vibewand.xuhao1.me)
+A dial, a game controller or a remote, plus a spoken sentence, for driving the AI tools on your Mac: Codex, Claude, DeepSeek Harness and WorkBuddy, Claude Code, Codex and OpenCode in a terminal, and browsers, WeChat and Feishu.
+
+[简体中文](README.zh-CN.md) · [Get started](docs/getting-started.en.md) · [Apps](#apps) · [Computer use](#computer-use) · [Documentation](docs/README.md) · [Project site](https://vibewand.xuhao1.me)
 
 ![Read with a dial, edit and dictate with a controller, confirm with a remote](docs/images/workflow-hero-v2.png)
 
 Most of vibe coding is not typing. You read a reply, flip between chats, change the model, say a sentence, and wait. One hand is enough for all of that. VibeWand puts it on a dial or a controller so you can lean back while you work.
+
+The tools keep multiplying, and each has its own chat list, model menu and shortcuts. VibeWand replaces none of them. It puts them behind one set of motions: the same dial reads, the same button listens and the same press switches in every app, and the work is still done by the software you chose. What is unified is the way in, not the features. That is what "One wand to command them all" means.
 
 ## What it does
 
@@ -14,6 +18,7 @@ Most of vibe coding is not typing. You read a reply, flip between chats, change 
 - **Speak.** Hold the microphone button and talk. When you let go, the text is in the composer, and nothing is sent for you. Use the built-in recognition (macOS dictation or your own speech API), which records from the microphone of the device you are holding and takes your own vocabulary, or keep using an input method such as Typeless.
 - **Switch.** Press once for the chat list, turn to choose, press to confirm. Long-press for reasoning effort and models. Double-press to switch macOS apps.
 - **Remap.** Every button's press, double press and long press can be reassigned in Settings, and each device keeps its own layout.
+- **Command** (in the source, not yet in the download). Hold the command key and say “switch to the Codex chat about the microphone” or “open the Runtime.swift tab”, and it finds and opens it for you. Off by default; see [Command mode](docs/command-mode.en.md).
 
 <p align="center"><img src="docs/images/overlay-v081-screenshot-en.jpg" width="500" alt="Actual VibeWand 0.8.1 overlay and speech bar in Demo mode"></p>
 
@@ -37,17 +42,41 @@ Per-model details are in the [hardware guide](docs/device-templates.en.md).
 
 ## Apps
 
-| App | Chats | Model / effort | Dictation |
-| --- | --- | --- | --- |
-| Codex | ⌘K palette | Effort slider; press again for the model list | ✓ |
-| Claude | ⌘K palette | Model menu, then the effort slider | ✓ |
-| DeepSeek Harness | Sidebar chat list | Model menu and its submenu | ✓ |
-| WorkBuddy | Sidebar task search; ⌘K fallback | Model menu | Paste on release |
-| Claude Code, Codex and OpenCode in iTerm2 | Types `/resume` | Types `/model` | Pasted on release |
-| Browsers | Next tab | Address bar | ✓ |
-| WeChat, Feishu | Search / switch chats | — | ✓ |
+| Kind | Program | Chats | Model / effort | Dictation |
+| --- | --- | --- | --- | --- |
+| AI desktop apps | Codex | ⌘K palette | Effort slider; press again for the model list | ✓ |
+| | Claude | ⌘K palette | Model menu, then the effort slider | ✓ |
+| | DeepSeek Harness | Sidebar chat list | Model menu and its submenu | ✓ |
+| | WorkBuddy | Sidebar task search; ⌘K fallback | Model menu | Pasted on release |
+| Command-line agents | Claude Code, Codex and OpenCode in iTerm2 | Types `/resume` | Types `/model` | Pasted on release |
+| Browsers | Safari, Chrome, Edge, Brave, Firefox, Opera, Vivaldi | Next tab | Address bar | ✓ |
+| Messaging | WeChat, Feishu / Lark | Search / switch chats | — | ✓ |
+| Any other app | Added in Settings by bundle ID | The shortcut you assign | The shortcut you assign | ✓ |
 
-All five AI rows were exercised on a real machine. The terminal row was accepted in iTerm2 3.7.3 against Codex CLI 0.160.0, Claude Code 2.1.289 and OpenCode 1.18.34 with the screen read back after every step: with a draft at the prompt turning moves the cursor and ESC deletes, a command is typed only at an empty prompt, and buttons keep answering while the agent works; see the [acceptance record](docs/terminal-acceptance.md). WorkBuddy 5.6.2 passed native UI readback checks for task search and opening, model switching, draft editing and dictation delivery with transcript replay. Dictation is not tied to an app: native fields fill in as you speak, and everything else gets a single paste when you release, after which your clipboard is put back. You can add a shortcut rule for other apps in Settings; see [Applications](docs/applications.en.md).
+The first five rows, the AI tools, were exercised on a real machine. The terminal row was accepted in iTerm2 3.7.3 against Codex CLI 0.160.0, Claude Code 2.1.289 and OpenCode 1.18.34 with the screen read back after every step: with a draft at the prompt turning moves the cursor and ESC deletes, a command is typed only at an empty prompt, and buttons keep answering while the agent works; see the [acceptance record](docs/terminal-acceptance.md). WorkBuddy 5.6.2 passed native UI readback checks for task search and opening, model switching, draft editing and dictation delivery with transcript replay. WeChat has only a `⌘F` compatibility mapping, because its chat controls cannot be read.
+
+Three things work in apps that are not in the table. Dictation follows the keyboard focus: native fields fill in as you speak, and everything else gets a single paste when you release, after which your clipboard is put back. A double press switches macOS apps. The controller's touchpad moves the pointer and clicks. App actions such as chats and models go only to the apps in the table and to rules you added yourself, matched by full bundle ID and never by window title, and each one can be turned off in Settings. Per-app details, tested versions and known limits are in [Applications](docs/applications.en.md).
+
+## Computer use
+
+What VibeWand does is computer use: it works out what the front app is showing and operates it for you. It takes no screenshots and clicks no coordinates. It reads the control structure that macOS Accessibility provides, the same one a screen reader gets. An action starts either from a button you press or from a sentence you say.
+
+| | Driven by buttons | Driven by a sentence ([command mode](docs/command-mode.en.md)) |
+| --- | --- | --- |
+| Status | Released | In the source, off by default, not yet in the download |
+| Who decides what happens | The button and the current context, by fixed rules; no model is involved | The model you configured, choosing among 13 tools and nothing else |
+| What it looks at | Which app is in front; whether focus is in a field and whether the draft is empty; whether a chat, model or effort list is open and what it offers; input-method candidates and unknown dialogs | App, window and chat titles; the kind, name and state of the controls in the front window |
+| What it does | Presses buttons and adjusts sliders; sends shortcuts and arrow keys; scrolls the conversation; parks the pointer on a candidate or clicks it; writes or pastes text; switches apps | Finds and opens chats; opens an app's own search and types the keywords; switches apps, opens a file or URL; presses a control, sends a shortcut, chooses a menu item, types into a field |
+| Reach | The apps in the table above and the rules you added | Any app whose controls can be read, one at a time |
+
+Both paths keep the same rules:
+
+- **Nothing is sent for you.** Text stays in the field, and Return is yours to press. In command mode, a control whose name mentions deleting, sending, submitting or paying waits for your confirmation every time.
+- **An action goes only to the target that was in front when you pressed.** If the app, window or focus has changed, the action is dropped.
+- **Structure is read, content is not.** A field is known only as empty or not. Conversation text and documents are not read, no screenshot is taken, and nothing is typed into a password field. A terminal has no controls, so only the few rows next to the cursor are read to find the prompt, reduced to a state and dropped.
+- **No shell and no file access.** Configuration runs no scripts, and the model cannot reach anything outside its tool list.
+
+What each capability covers, which channel each app uses and what has been verified in real apps is in [Computer use](docs/computer-use.en.md).
 
 ## Install
 
@@ -74,11 +103,13 @@ The result is `dist/VibeWand.app`. More in the [development guide](docs/developm
 
 ## Documentation
 
-[Default controls](docs/core-experience.en.md) · [Settings and remapping](docs/settings.en.md) · [Voice input](docs/voice-input.md) · [Applications](docs/applications.en.md) · [Troubleshooting](docs/troubleshooting.en.md) · [Development](docs/development.md)
+[Default controls](docs/core-experience.en.md) · [Settings and remapping](docs/settings.en.md) · [Voice input](docs/voice-input.md) · [Command mode](docs/command-mode.en.md) · [Applications](docs/applications.en.md) · [Troubleshooting](docs/troubleshooting.en.md) · [Development](docs/development.md)
 
 ## Privacy
 
 Device input and configuration stay on your Mac. VibeWand has no server and needs no account. With an external input method it only holds Fn for you. With built-in recognition, audio stays in memory; macOS dictation runs on device when it can, and API mode sends audio to the endpoint you entered. Keys live in the macOS Keychain and are never part of an exported configuration. Dictated text goes into the field and no further; sending it is up to you. A terminal has no composer control, so VibeWand reads the few rows next to the cursor to find the prompt; they are reduced to a state in memory and dropped, never stored or sent anywhere.
+
+Command mode is off by default. Once you turn it on, the words of your commands, the titles of apps and chats, and the labels of controls in the front window while the interface is operated are sent to the model service you configured yourself. The contents of fields and documents are not. See [Command mode](docs/command-mode.en.md#what-is-sent).
 
 ## License
 

@@ -1,8 +1,36 @@
 # 应用适配
 
-[English](applications.en.md) · [文档目录](README.md)
+[English](applications.en.md) · [Computer use](computer-use.md) · [文档目录](README.md)
 
 在「应用适配」中可分别启用或关闭适配，设置保存在本机；未适配或禁用的应用不会收到业务按键。应用操作针对当前前台应用执行；切换前台或窗口后，不继续发送原上下文中延迟的操作。未知弹窗与已识别输入法候选优先得到原生确认 / 取消，避免把旋转错误解释为编辑动作。
+
+## 支持的程序一览
+
+应用按完整的 bundle ID 识别，不看窗口标题，也不看网页地址。
+
+| 程序 | bundle ID | 会话入口 | 模型入口 | 实测情况 |
+| --- | --- | --- | --- | --- |
+| [Codex](#codex) | `com.openai.codex` | `⌘K` 面板 | 强度滑块，再按一次进模型列表 | 本机实测 |
+| [Claude](#claude) | `com.anthropic.claudefordesktop` | `⌘K` 面板 | 模型菜单，确认后进强度滑块 | 本机实测 |
+| [DeepSeek Harness](#deepseek-harness) | `com.deepseek.dsh` | 侧边栏会话列表 | 两级模型菜单 | 本机 0.2.0-rc.2 实测 |
+| [WorkBuddy](#workbuddy) | `com.tencent.workbuddy.mac` | 侧边栏搜索，`⌘K` 回退 | 模型菜单 | 本机 5.6.2 验收 |
+| [iTerm2 里的 Claude Code、Codex、OpenCode](#终端里的-claude-codecodexopencode) | `com.googlecode.iterm2` | 空提示符下输入 `/resume` | 空提示符下输入 `/model` | 本机 iTerm2 3.7.3 验收，见[验收记录](terminal-acceptance.md) |
+| [浏览器](#浏览器)：Safari、Chrome、Edge、Brave、Firefox、Opera、Vivaldi | 各自的 bundle ID，含 Safari Technology Preview、Chrome Beta / Canary、Firefox Developer Edition | `⌃Tab` 下一标签页 | `⌘L` 地址栏 | 系统标准快捷键 |
+| [微信](#微信与飞书) | `com.tencent.xinWeChat`、`com.tencent.WeChat` | `⌘F` | — | 兼容映射；4.1.15 的聊天控件读不到 |
+| [飞书 / Lark](#微信与飞书) | `com.electron.lark`、`com.bytedance.Lark`、`com.larksuite.Lark` | `⌘K` | — | `⌘K` 搜索界面已在本机核对 |
+| [其他应用](#添加自定义应用) | 你指定的 bundle ID | 你指定的快捷键 | 你指定的快捷键 | 取决于目标应用 |
+
+每个应用里 VibeWand 具体读什么、按什么，以及命令模式下各应用怎样找会话，见 [Computer use](computer-use.md)。
+
+## 不在名单里的应用
+
+未适配的应用收不到会话、模型、滚屏这类应用动作，但下面三件事不分应用：
+
+- **听写。** 跟着键盘焦点走。原生输入框边说边写，其余应用在松开后粘贴一次，剪贴板随后恢复；读不到输入框的应用在光标处粘贴。密码框不接收听写。
+- **切换应用。** 双击旋钮或手柄 ×，转动选择，确认。
+- **指针。** 手柄触摸板移动指针，短按点击。
+
+想让某个应用也响应会话、模型这些按键，[添加一条自定义规则](#添加自定义应用)。[命令模式](command-mode.md)（源码已包含，尚未随安装包发布）还可以按控件操作任何读得到控件的前台窗口。
 
 ## Codex
 

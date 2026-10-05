@@ -1,8 +1,36 @@
 # Application support
 
-[简体中文](applications.md) · [Documentation](README.md)
+[简体中文](applications.md) · [Computer use](computer-use.en.md) · [Documentation](README.md)
 
 Settings → Applications lets you enable or disable each adapter, with settings saved locally. Unsupported or disabled apps receive no business-action keystrokes. App actions apply to the foreground target. Delayed actions do not continue in an unrelated app or window after focus changes. Recognized input-method candidates and unknown dialogs take precedence and receive native confirm / cancel behavior.
+
+## Supported programs at a glance
+
+Apps are recognised by their full bundle ID, never by a window title or a web address.
+
+| Program | Bundle ID | Chats | Models | Verification |
+| --- | --- | --- | --- | --- |
+| [Codex](#codex) | `com.openai.codex` | `⌘K` palette | Effort slider; press again for the model list | Exercised on a real machine |
+| [Claude](#claude) | `com.anthropic.claudefordesktop` | `⌘K` palette | Model menu, then the effort slider | Exercised on a real machine |
+| [DeepSeek Harness](#deepseek-harness) | `com.deepseek.dsh` | Sidebar chat list | Two-level model menu | Exercised with 0.2.0-rc.2 |
+| [WorkBuddy](#workbuddy) | `com.tencent.workbuddy.mac` | Sidebar search, `⌘K` fallback | Model menu | Accepted on 5.6.2 |
+| [Claude Code, Codex and OpenCode in iTerm2](#claude-code-codex-and-opencode-in-a-terminal) | `com.googlecode.iterm2` | Types `/resume` at an empty prompt | Types `/model` at an empty prompt | Accepted in iTerm2 3.7.3; see the [acceptance record](terminal-acceptance.md) |
+| [Browsers](#browsers): Safari, Chrome, Edge, Brave, Firefox, Opera, Vivaldi | Each browser's own bundle ID, including Safari Technology Preview, Chrome Beta / Canary and Firefox Developer Edition | `⌃Tab` for the next tab | `⌘L` for the address bar | Standard system shortcuts |
+| [WeChat](#wechat-and-feishu) | `com.tencent.xinWeChat`, `com.tencent.WeChat` | `⌘F` | — | Compatibility mapping; chat controls in 4.1.15 cannot be read |
+| [Feishu / Lark](#wechat-and-feishu) | `com.electron.lark`, `com.bytedance.Lark`, `com.larksuite.Lark` | `⌘K` | — | `⌘K` search checked on the local client |
+| [Any other app](#add-a-custom-application) | The bundle ID you choose | The shortcut you assign | The shortcut you assign | Depends on the target app |
+
+What VibeWand reads and presses in each app, and how command mode finds chats in each one, is in [Computer use](computer-use.en.md).
+
+## Apps that are not on the list
+
+An unsupported app receives no app actions such as chats, models or scrolling. Three things work regardless of the app:
+
+- **Dictation.** It follows the keyboard focus. Native fields fill in as you speak; other apps get one paste on release, after which the clipboard is put back; an app whose field cannot be read is pasted into at the caret. Password fields never receive dictation.
+- **App switching.** Double-press the dial or the controller's ×, turn to choose, confirm.
+- **The pointer.** The controller's touchpad moves the pointer, and a tap clicks.
+
+To make an app respond to the chat and model buttons as well, [add a custom rule](#add-a-custom-application). [Command mode](command-mode.en.md), which is in the source but not yet in the download, can also operate the front window of any app whose controls can be read.
 
 ## Codex
 
