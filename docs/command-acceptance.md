@@ -103,6 +103,79 @@ Not run in this round: plugin mode on a real `~/.dsh`; a model service signed in
 
 这一轮没有测：在真实的 `~/.dsh` 上运行插件模式；经 OAuth 或 DeepSeek 账号登录的模型服务；桌面版自己的窗口（看的是与它共用界面的网页版）；终端安装的 `dsh`；未验证版本的例外（文件内容与 Harness 自己的 `allow-version` 命令写出的一致，但没有在第二个 Harness 版本上实际用过）；Claude 和飞书的搜索。
 
+## Fourth round, unreleased: one coordinator, pictures, a harness's tools, the keyboard / 第四轮（未发布）：一个协调器、截图、Harness 的工具、键盘
+
+On 2026-10-06, after 0.9.0, the two kernels were put on one coordinator bundle and one code path, and four things were added: conversations that outlive the kernel process, a picture of the window the model may ask for, the harness's own tools in plugin mode, and the keyboard as a device. None of it is released. The runs used the working tree, the kernel assembled from it, DeepSeek's `deepseek-flash`, and for plugin mode the same **DeepSeek Harness desktop 0.2.0-rc.2** as round three, again with a harness home of the test's own.
+
+2026-10-06，在 0.9.0 之后，两种内核改为共用一个协调器 bundle 和一条代码路径，并新增四项：比内核进程活得久的对话、模型可以要的窗口截图、插件模式下 Harness 自己的工具，以及把键盘当设备。这些都还没有发布。运行用的是工作区的代码和由它组装的内核，模型是 DeepSeek 的 `deepseek-flash`；插件模式用的仍是第三轮那份 **DeepSeek Harness 桌面版 0.2.0-rc.2**，同样在测试自己的 Harness 目录里。
+
+In real windows the test opened (`CommandLiveTests`) / 在测试自己打开的真实窗口里：
+
+| What was run / 跑了什么 | Result / 结果 |
+| --- | --- |
+| `textedit`, on the built-in kernel / 内置内核 | The six instructions of round one, as before / 第一轮的六句话，与之前相同 |
+| `plugin`, on the installed harness / 安装的 Harness | Typing and switching apps, as in round three, now through the same start path as the built-in kernel / 输入与切换应用，与第三轮相同，现在与内置内核走同一条启动路径 |
+| `resume`: 输入 wand-alpha-7, the kernel process let go, then “把我上一条让你输入的那个词，原样再输入一遍” | The second command ran in the same conversation, as its second command, and the word is in the document twice / 第二条命令在同一段对话里、作为它的第二条执行，这个词在文档里出现了两次 |
+| `sight`: a document saying “the wand sees ZQ47 here”, “看一眼这个窗口，文档里写的那个四位编号是什么？” | `ui_screenshot` was called and the answer named ZQ47. The picture kept with the record is 1346×878 and shows that one window / 调用了 `ui_screenshot`，回答里是 ZQ47。随记录保存的那张图是 1346×878，只有这一个窗口 |
+| `plugin-sight`: the same document and question on the installed harness / 同一份文档和问题，在安装的 Harness 上 | `ui_screenshot` was called and the answer quoted the line with ZQ47. The picture, 1346×878, is an object in the harness home's attachment store. With the harness's web interface started on a copy of that home, the conversation is listed under Ungrouped with its title, and in its Trajectory view the Result of the `ui_screenshot` step shows the picture; the Chat view shows that step's attachment record / 调用了 `ui_screenshot`，回答引用了含 ZQ47 的那一行。这张 1346×878 的图是 Harness 目录的附件库里的一个对象。在这份目录的副本上启动 Harness 网页界面：对话带着标题列在“未分组”下，Trajectory 视图里 `ui_screenshot` 那一步的 Result 显示了这张图；Chat 视图显示的是这一步的附件记录 |
+| `plugin-tools`: “用 bash 工具运行 echo wand-$((40+2))，然后把它输出的那个词输入到这个文档里” | `bash`, then `ui_type`; “wand-42” is in the document. The context after it was 11.6k, against 2.4k for a comparable command with VibeWand's tools only / 先 `bash` 再 `ui_type`，文档里有“wand-42”。之后的上下文是 11.6k，只带 VibeWand 工具的同类命令是 2.4k |
+| `keyboard-layout`, scripted, no model / 脚本内核，不用模型 | With ⌃K as the dictation combination: held, dictation started and the replayed words arrived in the document, and the line ⌃K would have cut is intact; a plain digit reached the document; ⌃⌘→ pressed while right ⌘ was held as the command key turned once and ended the listening / 把 ⌃K 设为听写组合键：按住后听写开始，回放的文字进了文档，而 ⌃K 本来会剪掉的那一行还在；普通的数字键进了文档；按住右 ⌘（命令键）时按 ⌃⌘→，转了一格并结束了听取 |
+| `keyboard`, `probe`, `plugin-start` | As before / 与之前相同 |
+
+The kernel alone, with a stand-in for the desktop (`KernelLiveTests`) / 单独的内核、替身桌面：
+
+| What was run / 跑了什么 | Result / 结果 |
+| --- | --- |
+| A conversation taken up by a later process / 后来的进程接上同一段对话 | On the shipped harness the session was resumed and the others in its store were removed; on the installed one it was resumed and nothing else in the store was touched / 自带的那份接上了会话，并清掉了会话库里其余的；安装的那份接上了会话，库里别的没有动 |
+| A picture a tool shows reaches the model, on the shipped harness / 工具给出的图片到达模型（自带的那份） | Shown a plain green picture and asked its colour, the model answered green / 给它一张纯绿色的图并问颜色，模型答的是绿色 |
+| The whole harness, on the installed one, permission “ask when risky” / 全部工具（安装的那份），“只确认有风险的” | A command writing outside the working folder was put to the user through VibeWand's gateway: declined, the file was not written; allowed, it was / 一条要写到工作目录之外的命令经 VibeWand 的网关问用户：拒绝后文件没有写出，同意后写出了 |
+| The title the harness lists a conversation under / Harness 给对话的标题 | “VibeWand · ” followed by the command; a long Chinese command is cut cleanly at 84 bytes / “VibeWand · ”加命令原话；很长的中文命令在 84 字节处整字截断 |
+| A bundle declaring another harness version / 声明了别的版本的 bundle | Refused, as in round three / 与第三轮一样被拒绝 |
+
+What was learnt about the harness's own apps, on the test's home with its standard web interface / 在测试目录上用 Harness 的标准网页界面观察到的：a running harness lists a conversation another process wrote only after its page is reloaded, and shows it as Untitled until it is opened; a conversation opened there is held by that harness, and VibeWand's attempt to resume it is refused, after which the next command starts a new one. / 运行中的 Harness 要刷新页面才会列出别的进程写入的对话，点开之前显示为“未命名”；在那里点开过的对话被那份 Harness 占住，VibeWand 再去接会被拒绝，下一条命令于是开始新对话。
+
+The first-run guide (seven steps, Chinese and English, light and dark, with a device and with the keyboard), the overlay for all four layouts, the command settings page in both kernel modes and a marked picture were looked at as images rendered from hidden views in the test process. Liquid Glass does not draw off screen, so these show layout and wording only.
+
+首次引导（七步，中英文、浅色深色、有设备和用键盘各一份）、四种布局的悬浮面板、两种内核下的命令模式设置页，以及一张带编号的截图，都是在测试进程里用隐藏的视图渲染成图片后看的。离屏渲染画不出 Liquid Glass，这些图只能看排版和文字。
+
+Not run in this round: the guide, the keyboard layout and the new settings in the running app; a physical keyboard, and whether actions sent while its modifiers are physically held behave the same in every app; granting Screen Recording to the app bundle (the test process used a permission it already had); a model other than DeepSeek's looking at a picture; “View conversations in the browser” from the button to the page (the web app was only checked to start on a scratch home and report its address); the desktop app's own window after it is reopened; the harness's question on the real overlay rather than through the gateway; plugin mode on a real `~/.dsh`; the VS Code, Codex, Claude and Feishu scenarios, whose tools did not change.
+
+这一轮没有测：运行中的应用里的引导、键盘布局和新设置；实体键盘，以及按住它的修饰键时 VibeWand 发出的动作在各个应用里是否都一样；给应用包授权屏幕录制（测试进程用的是它已有的权限）；DeepSeek 以外的模型看图；“在浏览器里查看对话”从按钮到页面的全过程（只核对过网页版能在临时目录上启动并报出地址）；桌面版重开后它自己的窗口；Harness 的询问出现在真实悬浮窗上的样子（核对的是经网关的那一段）；在真实的 `~/.dsh` 上运行插件模式；VS Code、Codex、Claude 和飞书的场景，它们用到的工具没有改动。
+
+## Fifth round, unreleased: a menu that opens, any key of a keyboard, SenseVoice / 第五轮（未发布）：弹出的菜单、键盘上的任意键、SenseVoice
+
+On 2026-10-06 the owner tried the development build and reported that in Codex a spoken command to change the model or its effort could not be carried out. The task records of those attempts show why. Codex's model button (in the app now named ChatGPT, **26.930.31730**) opens a popover whose four controls sit at the very end of a window of some 340, and a snapshot printed the first 150. The effort is no list of options: it is one row, “Power”, set with the left and right arrows, and where it stands is only announced, as “GPT-6 Astra Extra High, 4 of 5.”, in text a snapshot did not read. While the popover is open the button is named “Select effort”, so looking for it by its earlier name found nothing. The model pressed the right button each time, read the same list again, and gave up.
+
+2026-10-06，作者试用开发版后反馈：在 Codex 里用说的命令换模型或强度，做不成。那几次的任务记录给出了原因。Codex 的模型按钮（应用现在叫 ChatGPT，**26.930.31730**）点开的是一个弹层，里面四个控件排在窗口三百四十来个控件的最末尾，而快照只打印前 150 个。强度不是一组选项，而是叫“Power”的一行，用左右方向键调，停在哪一档只以播报的形式给出（“GPT-6 Astra Extra High, 4 of 5.”），快照不读这种文字。弹层开着的时候按钮自己改名叫“Select effort”，按原来的名字找它就找不到。模型每次都按对了按钮，又读到同一份清单，于是放弃。
+
+What changed: a snapshot leads with what is new or changed since the one before it; it reads what the app announces as a status line and the keys a control says it is worked with; the control the app's adapter presses for the dial is marked as the model picker; `ui_key` can be sent to one control, one press for each call, and answers with what the app then announced; and labels that hand out access wait for the user like those that send or destroy.
+
+改动：快照把上一次之后新出现或变了的排在最前；读应用播报的状态行和控件自己声明的操作按键；适配里旋钮要按的那个控件被标成模型选择器；`ui_key` 可以发给指定的控件，一次一下，返回里带上应用随后播报的内容；交出权限的按钮和发送、删除的一样，先问用户。
+
+In the real Codex window, which is the owner's own, after keyboard and mouse had been idle (`CommandLiveTests`, scenario `codex-model`, `deepseek-flash`, built-in kernel). The test read the model and the effort from the popover first and put both back at the end / 在真实的 Codex 窗口里（作者自己的那个窗口），等键盘和鼠标空闲后进行；测试先从弹层里读出模型和强度，结束时都还原：
+
+| What was said / 说了什么 | Tools / 工具 | Result read back from the button / 从按钮读回的结果 |
+| --- | --- | --- |
+| 强度调到 low。 | `ui_snapshot` (filter “model”) → `ui_press` → `ui_snapshot` → `ui_key` ← ×3, answered “Extended, 3 of 5”, “Standard, 2 of 5”, “Light, 1 of 5” → `ui_key` escape → `ui_snapshot` → `finish`: 9 calls, 10 in a later run that began with `list_targets` / 9 次调用，后来一次多了开头的 `list_targets`，是 10 次 | “GPT-6 Astra Extra High” became “GPT-6 Astra Light”. Codex has no level called low; the model took the lowest and said so / 变成“GPT-6 Astra Light”。Codex 没有叫 low 的档位，模型取了最低一档并在结果里说明 |
+| 把模型换成 GPT-6.1 Sol。 | Button, “Select model”, the list, the model, escape: 10 or 11 calls / 按钮、“Select model”、列表、选中、关闭：10 或 11 次调用 | “GPT-6.1 Sol Light” |
+| 把模型换回 GPT-6 Astra，强度调回去，让按钮显示 GPT-6 Astra Extra High。 | 13 calls, three presses of → among them / 13 次调用，其中三下 → | “GPT-6 Astra Extra High”, as before the test / 与测试前相同 |
+
+Runs of the same scenario while the change was being made / 改动过程中同一个场景的几次运行：
+
+- The first run that passed took 24 calls for the effort alone, which is the step limit: nothing told the model where an assistant app keeps its effort, and it opened the mode switcher and the profile menu before the model button. The prompt now says where, and the snapshot marks the model picker. / 第一次通过时，光是调强度就用了 24 次调用，正好是步数上限：没有任何东西告诉模型这类应用把强度放在哪，它先去点了模式切换和个人菜单。现在提示词里写了，快照也把模型选择器标了出来。
+- With a repeat count on `ui_key`, the model pressed → four times from “1 of 5” for a level it wrongly took to be the fifth, and reached Codex's top level, which brought up a dialog with “Use Full access”, “Continue” and “Close dialog”. It pressed “Close dialog”; the permission control beside the composer looked the same before and after. The repeat count was removed, so that each press is answered with the level before the next, and “full access”, “allow”, “grant”, “authorize” and “approve” were added to the labels that wait for the user. / `ui_key` 带重复次数时，模型从“1 of 5”连按了四下 →，它误以为目标是第五档，于是到了 Codex 的最高一档，弹出了一个有“Use Full access”“Continue”“Close dialog”的对话框。它按了“Close dialog”；输入框旁的权限控件前后看起来一样。重复次数已去掉，每按一下先读回档位再按下一下；“full access”、允许、授权、批准、同意也加进了必须先问用户的名单。
+- One run stopped at its first press because another app had come to the front; nothing had been changed. / 有一次在第一下按键时停了，因为别的应用到了前台；什么都没改。
+
+`textedit`, run again because every interface tool's answer changed / 因为界面工具的返回都变了，重跑了 `textedit`：the six instructions of round one passed. Of the first four runs, one ended three instructions in words without calling `finish`, so the overlay showed the model's last words as needing attention although the work was done; once a model does that in a conversation it tends to go on doing it. The prompt's last rule now says that a reply in words ends nothing and that the user is shown only what `finish` or `need_user` carries; four further runs ended every instruction with `finish`, and so did `codex-model` run after that. / 第一轮的六句话通过。头四次运行里有一次，三句话都是用一句话收尾而没有调用 `finish`，事情做完了，悬浮窗却把模型最后那句话当成需要注意显示出来；模型在一段对话里这样做过一次，后面往往接着这样做。提示词最后一条现在写明：用话回答不算结束，用户只看得到 `finish` 或 `need_user` 带的那一句。之后四次运行每一句都以 `finish` 结束，随后重跑的 `codex-model` 也是。
+
+The keyboard, in a TextEdit window the test opened (`keyboard-layout`, scripted, no model) / 键盘，在测试自己打开的文本编辑窗口里（脚本内核，不用模型）：the number pad's 5, with no modifier, went into the document as usual; with a recording under way the next press of it was handed to the recorder and reached nothing else; set as a control's combination, it then stood for that control and did not reach the document. The earlier steps of the scenario passed as before. / 数字小键盘的 5，不带修饰键，先照常进了文档；开始录制后，再按它的那一下交给了录制，没有传给别处；设成一个键位的组合键以后，它代表这个键位，不再进文档。这个场景原有的几步与之前一样通过。
+
+SenseVoice was run on recordings, not on a microphone: see [Voice input](voice-input.md#下一版尚未发布本机-sensevoice--sensevoice-on-this-mac). / SenseVoice 用录音文件跑过，没有用麦克风，见[语音输入](voice-input.md#下一版尚未发布本机-sensevoice--sensevoice-on-this-mac)。
+
+Not run in this round: the model and effort controls of Claude, DeepSeek Harness and WorkBuddy by a spoken command; Codex while a turn is running; the “Use Full access” question on the real overlay (the labels are covered by a unit test); a physical keyboard, a custom keyboard with extra keys, and the recorder in the running app; dictation through SenseVoice with a microphone; the earlier scenarios other than `textedit` and `keyboard-layout` (`code`, `codex`, the searches and the plugin-mode ones), whose tools changed in what a snapshot lists and how a key is sent but were not run again.
+
+这一轮没有测：用说的命令去调 Claude、DeepSeek Harness 和 WorkBuddy 的模型与强度；Codex 正在执行一轮任务时的情况；“Use Full access”在真实悬浮窗上的那一问（名单由单元测试覆盖）；实体键盘、带扩展键的自定义键盘，以及运行中的应用里的录制界面；用麦克风经 SenseVoice 听写；`textedit` 和 `keyboard-layout` 以外的原有场景（`code`、`codex`、几个搜索和插件模式的那些），它们用到的工具在“快照列什么”和“按键怎么发”上有改动，但没有重跑。
+
 ## Not run / 没有测的
 
 - A microphone and a human voice: transcripts were replayed. / 麦克风和真人语音：用的是转录回放。

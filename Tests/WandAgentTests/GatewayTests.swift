@@ -75,6 +75,44 @@ final class GatewayTests: XCTestCase {
         let extra = await gateway.call("ui_snapshot", [:])
         XCTAssertTrue(extra.isError)
         XCTAssertEqual(host.performed.count, Gateway.stepLimit)
+        // Told to say how far it got, the model still can.
+        let closing = await gateway.call("need_user", ["reason": "步数用完了，只找到两个"])
+        XCTAssertFalse(closing.isError)
+        let ending = await gateway.ending
+        XCTAssertEqual(ending, .needsUser("步数用完了，只找到两个"))
+    }
+
+    /// Only the tools a gateway was given exist for it: the window's picture is one more when the user allows it.
+    func testAToolThatWasNotMountedIsUnknown() async {
+        let host = FakeHost(), closed = Gateway(host: host)
+        let refused = await closed.call("ui_screenshot", [:])
+        XCTAssertTrue(refused.isError)
+        let seeing = Gateway(tools: ToolCatalog.mounted(sight: true), host: host)
+        let shown = await seeing.call("ui_screenshot", [:])
+        XCTAssertFalse(shown.isError)
+        XCTAssertEqual(host.performed, ["ui_screenshot"])
+        XCTAssertTrue(host.confirmations.isEmpty, "looking changes nothing and is never asked about")
+    }
+
+    /// A harness's own tool that wants to leave its sandbox is the user's to allow, in whatever mode.
+    func testARuntimeToolLeavingItsSandboxAlwaysAsksAndTheAnswerIsRecorded() async throws {
+        let journal = try TaskJournal(root: journalRoot())
+        defer { TaskJournal.clear(root: journal.directory.deletingLastPathComponent()) }
+        let host = FakeHost(), gateway = Gateway(host: host, permission: .risky, journal: journal)
+        var allowed = await gateway.approve("bash", ["command": "rm -rf build"])
+        XCTAssertTrue(allowed)
+        host.allow = false
+        allowed = await gateway.approve("bash", ["command": "rm -rf ~"])
+        XCTAssertFalse(allowed)
+        XCTAssertEqual(host.confirmations, ["bash", "bash"])
+        XCTAssertTrue(host.performed.isEmpty, "the runtime runs its own tools; the gateway only asks")
+        XCTAssertEqual(try lines(journal).map { "\($0["kind"]?.string ?? "") \($0["tool"]?.string ?? "")" }, ["confirmed bash", "declined bash"])
+        // After stop nothing is allowed and nobody is asked.
+        host.allow = true
+        await gateway.stop()
+        allowed = await gateway.approve("bash", ["command": "ls"])
+        XCTAssertFalse(allowed)
+        XCTAssertEqual(host.confirmations.count, 2)
     }
 
     func testCallsRequestedTogetherRunOneAtATime() async {
@@ -173,13 +211,43 @@ final class GatewayTests: XCTestCase {
         XCTAssertEqual(try lines(journal).last?["text"]?.string?.count, TaskJournal.resultLimit)
     }
 
+    func testAPictureAToolShowedIsKeptBesideTheRecordAndCallsOfTheRuntimesOwnToolsAreRecordedToo() async throws {
+        let root = journalRoot()
+        defer { TaskJournal.clear(root: root) }
+        let journal = try TaskJournal(root: root)
+        let host = FakeHost(), gateway = Gateway(tools: ToolCatalog.mounted(sight: true), host: host, journal: journal)
+        let picture = Data([0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3])
+        host.result = { tool, _ in tool == "ui_screenshot" ? ToolOutcome(text: "window \"备忘录\", 800×600 px", image: picture) : .ok("ok") }
+        // The runtime reports every call; VibeWand's own are recorded by the gateway that ran them, once.
+        journal.note(.toolStarted(id: "1", name: "mcp__vibewand__ui_screenshot"))
+        let shown = await gateway.call("ui_screenshot", [:])
+        XCTAssertEqual(shown.image, picture)
+        journal.note(.toolEnded(id: "1", failed: false, text: "window …"))
+        journal.note(.toolStarted(id: "2", name: "bash", input: ["command": "ls ~/Desktop"]))
+        journal.note(.toolEnded(id: "2", failed: false, text: "notes.md"))
+        journal.note(.toolStarted(id: "3", name: "read", input: ["path": "/nowhere"]))
+        journal.note(.toolEnded(id: "3", failed: true, text: "No such file"))
+        let recorded = try lines(journal)
+        XCTAssertEqual(recorded.map { "\($0["kind"]?.string ?? "") \($0["tool"]?.string ?? "")" },
+                       ["call ui_screenshot", "result ui_screenshot", "call bash", "result bash", "call read", "result read"])
+        XCTAssertEqual(recorded[1]["image"], "picture-1.jpg")
+        XCTAssertEqual(try Data(contentsOf: journal.directory.appendingPathComponent("picture-1.jpg")), picture)
+        XCTAssertEqual(recorded[2]["arguments"], ["command": "ls ~/Desktop"])
+        XCTAssertEqual(recorded[3]["text"], "notes.md")
+        XCTAssertEqual(recorded[5]["ok"], false)
+        // Read back, the record knows where its pictures are, and counts every tool call as a step.
+        let record = try XCTUnwrap(TaskJournal.recent(root: root).first)
+        XCTAssertEqual(record.directory.path, journal.directory.path)
+        XCTAssertEqual(record.steps, 3)
+    }
+
     func testTheJournalWritesThinkingWholeBeforeTheStepItLedToAndReadsBackAsARecord() throws {
         let root = journalRoot()
         defer { TaskJournal.clear(root: root) }
         let journal = try TaskJournal(root: root)
         journal.record("instruction", ["text": "切到 Codex", "app": "Finder", "model": "deepseek-flash", "turn": 2])
         journal.note(.thought("用户想去")); journal.note(.thought(" Codex。"))
-        journal.note(.toolStarted(id: "1", name: "activate_app"))
+        journal.note(.toolStarted(id: "1", name: "mcp__vibewand__activate_app"))
         journal.record("call", ["tool": "activate_app", "arguments": ["app": "codex"]])
         journal.record("result", ["tool": "activate_app", "ok": true, "verified": true, "text": "{}"])
         journal.note(.toolEnded(id: "1", failed: false))

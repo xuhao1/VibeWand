@@ -244,7 +244,7 @@ final class BridgeRuntime {
         inputStarted = false
         syncCompanions()
         device.stop(); cancelAll(); pollTimer?.invalidate(); demoTimer?.invalidate(); gestureTimer?.invalidate(); gestureTimer = nil
-        keyboard.stop(); command.shutdownKernel()
+        keyboard.stop(); command.shutdown(); voiceInput.senseVoice.shutdown()
     }
 
     // MARK: Command mode
@@ -252,7 +252,7 @@ final class BridgeRuntime {
     /// A command setting changed: bindings follow, and the next command starts a fresh kernel and conversation.
     private func applyCommandSettings() {
         configuration.commandLayer = commandBindings
-        command.shutdownKernel()
+        command.endConversation()
         applyKeyboard(); refresh(); onSettingsChanged?()
     }
     /// The keyboard listener needs the Accessibility grant, which may arrive after launch.
@@ -299,8 +299,9 @@ final class BridgeRuntime {
     /// Keeps one listening source for every other layout that can receive
     /// input without further setup. A supplied test source never has companions.
     private func syncCompanions() {
+        // The keyboard is not one of them: its combinations are taken from the app in front only while it is the layout in use.
         let wanted: [DeviceTemplateID] = followsActiveDevice && inputStarted && !suppliedSource
-            ? DeviceTemplateID.allCases.filter { $0 != templates.selectedID && templates.readiness(for: $0).hasInputConfiguration }
+            ? DeviceTemplateID.allCases.filter { $0 != templates.selectedID && $0 != .keyboard && templates.readiness(for: $0).hasInputConfiguration }
             : []
         for id in Array(companions.keys) where !wanted.contains(id) { dropCompanion(id) }
         for id in wanted where companions[id] == nil {
@@ -365,8 +366,9 @@ final class BridgeRuntime {
         inputReady = next.connection == .ready
         if !inputReady { unreadySince = ProcessInfo.processInfo.systemUptime }
         deviceStatus = connectionSummary
-        // The previous device keeps listening unless its template lost its backend.
-        if templates.readiness(for: previousID).hasInputConfiguration { wireCompanion(previous, id: previousID) }
+        // The previous device keeps listening unless its template lost its backend. The keyboard stops: its
+        // combinations go back to the app in front once another device is the one in use.
+        if previousID != .keyboard, templates.readiness(for: previousID).hasInputConfiguration { wireCompanion(previous, id: previousID) }
         else { previous.stop() }
         refresh(); onSettingsChanged?()
     }
@@ -401,6 +403,7 @@ final class BridgeRuntime {
         case .dualSense: return UserDefaults.standard.bool(forKey: "dualSenseVoiceEnabled") && DualSenseMicrophoneSource.hardwareAvailable
             ? DualSenseMicrophoneSource() : GameControllerInputSource()
         case .xiaomiRemote: return UnconfiguredHIDSource(template: template.template)
+        case .keyboard: return KeyboardInputSource()
         }
     }
 
@@ -479,7 +482,12 @@ final class BridgeRuntime {
             else { self.snapshot.action = self.captureOnly ? L10n.tr("只显示物理事件，不发送操作", "Physical events only; no actions sent") : L10n.tr("直连已就绪，等待操作", "Connected; ready for input") }
             self.refresh()
         }
-        device.onEvent = { [weak self] event in self?.receiveHardware(event) }
+        device.onEvent = { [weak self] event in
+            guard let self else { return }
+            // A combination that holds the command key's modifier is the keyboard layout's, not a command.
+            if self.device is KeyboardInputSource { self.keyboard.abandon() }
+            self.receiveHardware(event)
+        }
         (device as? any ControllerPointerEventSource)?.onPointerMotion = { [weak self, weak source = device] motion in
             guard let self, let source, self.device === source else { return }
             self.receivePointerMotion(motion)

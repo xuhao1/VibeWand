@@ -91,19 +91,24 @@ public final class APIDictationEngine: DictationEngine {
     private var previewTask: Task<Void, Never>?
     private var generation = 0
     private var apiKey: String?
+    private let previewSeconds: Double
+    /// `client` is the service that turns a finished recording into text: a remote API, or a recogniser on this
+    /// Mac, which can afford a preview more often than an upload can.
     public init(configuration: SpeechConfiguration, credentials: any SpeechCredentialStore,
-                client: any SpeechTranscribing = SpeechAPIClient()) {
-        self.configuration = configuration; self.credentials = credentials; self.client = client
+                client: any SpeechTranscribing = SpeechAPIClient(), previewSeconds: Double = 2.5) {
+        self.configuration = configuration; self.credentials = credentials; self.client = client; self.previewSeconds = previewSeconds
     }
     public func start() async throws {
-        // Fail before recording if a remote destination has no credential.
-        let host = try configuration.apiURL().host ?? ""
-        let key = try await credentials.readAsync(account: configuration.credentialAccount)
+        try await client.prepare()
+        // Fail before recording if a remote destination has no credential. A recogniser on this Mac has none to ask for.
+        var key: String?
+        if !configuration.provider.isLocal {
+            let host = try configuration.apiURL().host ?? ""
+            key = try await credentials.readAsync(account: configuration.credentialAccount)
+            if !["localhost", "127.0.0.1", "::1", "[::1]"].contains(host), key == nil { throw SpeechInputError.missingAPIKey }
+        }
         apiKey = key
         try Task.checkCancellation()
-        if !["localhost", "127.0.0.1", "::1", "[::1]"].contains(host), key == nil {
-            throw SpeechInputError.missingAPIKey
-        }
         let token = generation
         let configuration = self.configuration
         if configuration.provider == .qwenRealtime {
@@ -131,9 +136,9 @@ public final class APIDictationEngine: DictationEngine {
             try await capture.start()
             // A file-upload API has no live audio channel. Bounded snapshots
             // provide previews using only the explicitly selected provider.
-            previewTask = Task { [weak self] in
+            previewTask = Task { [weak self, previewSeconds] in
                 while !Task.isCancelled {
-                    try? await Task.sleep(nanoseconds: 2_500_000_000)
+                    try? await Task.sleep(nanoseconds: UInt64(previewSeconds * 1_000_000_000))
                     guard let self, token == self.generation, !Task.isCancelled else { return }
                     do {
                         let audio = try self.capture.snapshot()

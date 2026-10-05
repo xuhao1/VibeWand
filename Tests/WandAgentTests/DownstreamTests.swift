@@ -44,55 +44,11 @@ final class DownstreamTests: XCTestCase {
         XCTAssertEqual(CodexAppServer.locate(desktopApp: app)?.path, binary.path)
     }
 
-    func testKernelLaunchUsesItsOwnHomeAndAMinimalEnvironment() throws {
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent("vw-kernel-\(UUID().uuidString)")
-        let profile = root.appendingPathComponent("profile"), home = root.appendingPathComponent("home")
-        try FileManager.default.createDirectory(at: profile, withIntermediateDirectories: true)
-        try Data("[]\n".utf8).write(to: profile.appendingPathComponent("cordis.yml"))
-        defer { try? FileManager.default.removeItem(at: root) }
-        let install = KernelInstall(command: ["/opt/node", "/opt/dsh/bin.js"], profile: profile)
-        let route = ModelRoute(wire: .openAIChat, baseURL: "https://models.example/v1", model: "wand-large", key: "test-key")
-        let launch = try install.launch(home: home, route: route)
-        XCTAssertEqual(launch.executable.path, "/opt/node")
-        XCTAssertEqual(launch.arguments, ["/opt/dsh/bin.js", "--profile", "vibewand"])
-        XCTAssertEqual(launch.directory.path, home.appendingPathComponent("workspace").path)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: home.appendingPathComponent("profiles/vibewand/cordis.yml").path))
-        XCTAssertEqual(Set(launch.environment.keys), ["PATH", "HOME", "TMPDIR", "LANG", "DSH_HOME", "VIBEWAND_SYSTEM_PROMPT",
-                                                      "VIBEWAND_MODEL", "VIBEWAND_ROUTE", "VIBEWAND_MODEL_KEY"])
-        XCTAssertEqual(launch.environment["DSH_HOME"], home.path)
-        XCTAssertEqual(launch.environment["VIBEWAND_SYSTEM_PROMPT"], CoordinatorPrompt.system)
-        XCTAssertEqual(launch.environment["VIBEWAND_MODEL"], "wand-large")
-        XCTAssertEqual(launch.environment["VIBEWAND_MODEL_KEY"], "test-key")
-        // The key travels in the environment only; the route names the variable, never the value.
-        XCTAssertFalse(launch.environment["VIBEWAND_ROUTE"]!.contains("test-key"))
-        // A newer app replaces the installed profile rather than keeping a stale one.
-        try Data("[1]\n".utf8).write(to: profile.appendingPathComponent("cordis.yml"))
-        _ = try install.launch(home: home, route: route)
-        XCTAssertEqual(try String(contentsOf: home.appendingPathComponent("profiles/vibewand/cordis.yml"), encoding: .utf8), "[1]\n")
-        XCTAssertNil(KernelInstall(resources: root))
-
-        // A bundled kernel's packages are linked beside the installed profile, where the runtime looks for them.
-        let modules = root.appendingPathComponent("node_modules")
-        try FileManager.default.createDirectory(at: modules, withIntermediateDirectories: true)
-        let notes = try KernelInstall(command: ["/opt/node"], profile: profile, packages: modules).launch(home: home, route: route, instructions: " 那个项目指 VibeWand \n")
-        let link = home.appendingPathComponent("profiles/vibewand/node_modules")
-        XCTAssertEqual(try FileManager.default.destinationOfSymbolicLink(atPath: link.path), modules.path)
-        // The user's notes follow the rules and are said not to override them.
-        let prompt = try XCTUnwrap(notes.environment["VIBEWAND_SYSTEM_PROMPT"])
-        XCTAssertTrue(prompt.hasPrefix(CoordinatorPrompt.system) && prompt.hasSuffix("never override the rules above.\n那个项目指 VibeWand"))
-    }
-
     func testAModelRouteBecomesOneProviderInTheKernelsVocabulary() throws {
-        func provider(_ route: ModelRoute) -> JSONValue { KernelInstall.provider(route)["vibewand"]! }
-        // The least a route says: where, how, and which model. A server without a key is still sent a placeholder.
+        func provider(_ route: ModelRoute) -> JSONValue { Harness.provider(route)["vibewand"]! }
+        // The least a route says: where, how, and which model.
         let plain = provider(ModelRoute(wire: .openAIChat, baseURL: "http://127.0.0.1:8000/v1", model: "qwen"))
         XCTAssertEqual(plain, ["api": "openai-completions", "baseURL": "http://127.0.0.1:8000/v1", "apiKeyEnv": "VIBEWAND_MODEL_KEY", "models": [["id": "qwen"]]])
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent("vw-route-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: root.appendingPathComponent("profile"), withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: root) }
-        let keyless = try KernelInstall(command: ["/opt/node"], profile: root.appendingPathComponent("profile"))
-            .launch(home: root.appendingPathComponent("home"), route: ModelRoute(wire: .openAIChat, baseURL: "http://127.0.0.1:8000/v1", model: "qwen"))
-        XCTAssertEqual(keyless.environment["VIBEWAND_MODEL_KEY"], "none")
 
         // A context length sizes the model and leaves room for the reply; a reasoning level is declared so that it is sent.
         let tuned = provider(ModelRoute(wire: .anthropic, baseURL: "https://api.anthropic.com", model: "claude", key: "k",
@@ -111,6 +67,10 @@ final class DownstreamTests: XCTestCase {
         XCTAssertEqual(extra["compat"], ["thinkingFormat": "qwen-chat-template"])
         XCTAssertEqual(extra["reasoning"], "high")
         XCTAssertEqual(extra["apiKeyEnv"], "VIBEWAND_MODEL_KEY")
+
+        // A model is sent pictures only when the user says it takes them.
+        XCTAssertNil(plain["models"]?.array?.first?["input"])
+        XCTAssertEqual(provider(ModelRoute(wire: .openAIChat, baseURL: "http://127.0.0.1:8000/v1", model: "qwen", images: true))["models"], [["id": "qwen", "input": ["text", "image"]]])
     }
 
     func testModelListingAsksEachProtocolItsOwnWayAndReadsWhatServersAnswer() throws {
@@ -147,26 +107,5 @@ final class DownstreamTests: XCTestCase {
         XCTAssertEqual(KernelEvent.parse(["sessionUpdate": "usage_update", "used": 128, "size": 262_144]), .usage(used: 128, size: 262_144))
         XCTAssertNil(KernelEvent.parse(["sessionUpdate": "usage_update", "used": 128, "size": 0]))
         XCTAssertNil(KernelEvent.parse(["sessionUpdate": "config_option_update"]))
-    }
-
-    /// The shipped profile is an allowlist by construction. Nothing that runs
-    /// commands, touches files, browses or spawns agents may appear in it.
-    func testShippedKernelProfileMountsNoToolsOfItsOwn() throws {
-        let repository = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        let patch = try String(contentsOf: repository.appendingPathComponent("kernel/profile/cordis.patch.yml"), encoding: .utf8)
-        let packages = patch.split(separator: "\n").compactMap { line -> String? in
-            let text = line.trimmingCharacters(in: .whitespaces)
-            guard text.hasPrefix("name: '@deepseek-ai/") else { return nil }
-            return String(text.dropFirst("name: '@deepseek-ai/".count).dropLast())
-        }
-        XCTAssertEqual(Set(packages), [
-            "dsh-acp-app", "dsh-acp", "dsh-llm-pi-ai", "dsh-llm", "dsh-llm-retry", "cordis-plugin-timer", "dsh-session",
-            "dsh-session-projection", "dsh-session-title", "dsh-session-persistence-jsonl", "dsh-system-prompt", "dsh-tools",
-            "dsh-agent", "dsh-agent-loop", "dsh-jobs-local", "dsh-token-meter", "dsh-user-approval"
-        ])
-        XCTAssertEqual(packages.count, 17)
-        XCTAssertTrue(patch.contains("policy: never"))
-        let manifest = try String(contentsOf: repository.appendingPathComponent("kernel/profile/package.json"), encoding: .utf8)
-        XCTAssertTrue(manifest.contains("\"bundles\": []"))
     }
 }

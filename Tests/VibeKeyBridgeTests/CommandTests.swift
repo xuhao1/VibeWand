@@ -43,7 +43,7 @@ final class CommandTests: XCTestCase {
         try templates.select(template)
         let runtime = BridgeRuntime(source: UnconfiguredHIDSource(template: template.template), templates: templates, voiceInput: voice) {
             let command = CommandController(settings: settings, tools: CommandTools(adapter: $0), voice: $1, support: support)
-            command.openKernel = { kernel }
+            command.openKernel = { _ in kernel }
             return command
         }
         if !enabled { settings.setEnabled(false) }
@@ -124,9 +124,17 @@ final class CommandTests: XCTestCase {
         XCTAssertTrue(settings.usable)
         XCTAssertFalse(settings.keySaved)
         // The route the kernel is given carries the settings as chosen, and no key where none was saved.
-        let route = await settings.route()
-        XCTAssertEqual(route, ModelRoute(wire: .openAIChat, baseURL: "http://127.0.0.1:8000/v1", model: "Qwen-Local", key: nil, contextWindow: 32_000,
-                                         reasoning: .off, extra: ["compat": ["thinkingFormat": "qwen-chat-template"]]))
+        func route(_ settings: CommandSettings) async -> ModelRoute? {
+            if case .route(let route)? = await settings.models() { return route } else { return nil }
+        }
+        let chosen = await route(settings)
+        XCTAssertEqual(chosen, ModelRoute(wire: .openAIChat, baseURL: "http://127.0.0.1:8000/v1", model: "Qwen-Local", key: nil, contextWindow: 32_000,
+                                          reasoning: .off, extra: ["compat": ["thinkingFormat": "qwen-chat-template"]]))
+        // A model is declared to take pictures only once the user has let it see.
+        settings.setSight(true)
+        let seeing = await route(settings)
+        XCTAssertEqual(seeing?.images, true)
+        settings.setSight(false)
 
         var custom = settings.configuration(for: CommandEndpoint.custom)
         custom.baseURL = " https://gateway.example/openai/v1 "; custom.wire = .anthropic; custom.model = "wand-large"
@@ -135,14 +143,14 @@ final class CommandTests: XCTestCase {
         XCTAssertTrue(settings.usable, "an address the user described may need no key")
         try settings.saveKey("sk-gateway")
         XCTAssertEqual(ring.keys["https://gateway.example"], "sk-gateway")
-        let keyed = await settings.route()
+        let keyed = await route(settings)
         XCTAssertEqual(keyed?.key, "sk-gateway")
         XCTAssertEqual(keyed?.wire, .anthropic)
         // Pointing the same endpoint at another host does not take the key along.
         custom.baseURL = "https://elsewhere.example/v1"
         try settings.setModel(custom)
         XCTAssertFalse(settings.keySaved)
-        let moved = await settings.route()
+        let moved = await route(settings)
         XCTAssertNil(moved?.key)
 
         // What was set is validated, and each endpoint comes back as it was left.
@@ -157,13 +165,13 @@ final class CommandTests: XCTestCase {
         // A remote service without its key is not usable, so nothing is handed to the kernel.
         try reopened.setModel(reopened.configuration(for: "openai"))
         XCTAssertFalse(reopened.usable)
-        let none = await reopened.route()
+        let none = await reopened.models()
         XCTAssertNil(none)
     }
 
     @MainActor
     func testPluginModeNeedsOnlyAnInstalledHarnessAndNamesTheModelThatHarnessIsSetTo() async throws {
-        final class Installed { var plugin: HarnessPlugin? }
+        final class Installed { var harness: Harness? }
         let files = FileManager.default
         let home = files.temporaryDirectory.appendingPathComponent("vw-harness-home-\(UUID().uuidString)")
         addTeardownBlock { try? files.removeItem(at: home) }
@@ -176,36 +184,49 @@ final class CommandTests: XCTestCase {
                 model: Qwen-Local
 
             """.write(to: home.appendingPathComponent("profiles/desktop/cordis.patch.yml"), atomically: true, encoding: .utf8)
-        let repository = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let bundles = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("kernel")
         let installed = Installed(), defaults = isolatedDefaults()
-        let settings = CommandSettings(defaults: defaults, credentials: KeyRing(), harness: { installed.plugin })
+        let locate: (CommandKernelMode) -> Harness? = { $0 == .harness ? installed.harness : nil }
+        let settings = CommandSettings(defaults: defaults, credentials: KeyRing(), harness: locate)
         XCTAssertEqual(settings.kernelMode, .builtIn)
         XCTAssertFalse(settings.usable, "the built-in kernel has no key yet")
         settings.setKernelMode(.harness)
         XCTAssertFalse(settings.usable, "no harness is installed")
-        installed.plugin = HarnessPlugin(launcher: URL(fileURLWithPath: "/opt/harness/bin/dsh"), bundle: repository.appendingPathComponent("kernel/plugin"), home: home)
+        installed.harness = Harness(command: ["/opt/harness/bin/dsh"], home: home, coordinator: bundles.appendingPathComponent("coordinator"),
+                                    overlay: bundles.appendingPathComponent("overlay"))
         // The models and keys are the harness's: VibeWand needs none of its own.
         XCTAssertTrue(settings.usable)
         XCTAssertTrue(settings.active)
         XCTAssertEqual(settings.modelName, "Qwen-Local")
-        let none = await settings.route()
-        XCTAssertNil(none, "a route is how the built-in kernel is told its model")
-        settings.setHarnessModel(HarnessPlugin.Model(provider: "deepseek-official", model: "deepseek-v4-pro"))
+        var models = await settings.models()
+        XCTAssertEqual(models, .harness(nil, reasoning: .automatic), "the model is the harness's own to name")
+        settings.setHarnessModel(Harness.Model(provider: "deepseek-official", model: "deepseek-v4-pro"))
         settings.setHarnessReasoning(.low); settings.setHarnessUnverified(true)
         XCTAssertEqual(settings.modelName, "deepseek-v4-pro")
+        models = await settings.models()
+        XCTAssertEqual(models, .harness(Harness.Model(provider: "deepseek-official", model: "deepseek-v4-pro"), reasoning: .low))
 
-        let reopened = CommandSettings(defaults: defaults, credentials: KeyRing(), harness: { installed.plugin })
+        // The harness's own tools are the user's to hand over, on an installed harness only.
+        XCTAssertEqual(settings.tools, .own)
+        settings.setHarnessTools(.all)
+        XCTAssertEqual(settings.tools, .all)
+        settings.setKernelMode(.builtIn)
+        XCTAssertEqual(settings.tools, .own, "the shipped harness has none of its own to add")
+        settings.setKernelMode(.harness)
+
+        let reopened = CommandSettings(defaults: defaults, credentials: KeyRing(), harness: locate)
         XCTAssertEqual(reopened.kernelMode, .harness)
-        XCTAssertEqual(reopened.harnessModel, HarnessPlugin.Model(provider: "deepseek-official", model: "deepseek-v4-pro"))
+        XCTAssertEqual(reopened.harnessModel, Harness.Model(provider: "deepseek-official", model: "deepseek-v4-pro"))
         XCTAssertEqual(reopened.harnessReasoning, .low)
         XCTAssertTrue(reopened.harnessUnverified)
+        XCTAssertEqual(reopened.tools, .all)
         reopened.setHarnessModel(nil)
         XCTAssertEqual(reopened.modelName, "Qwen-Local")
-        XCTAssertNil(CommandSettings(defaults: defaults, credentials: KeyRing(), harness: { installed.plugin }).harnessModel)
+        XCTAssertNil(CommandSettings(defaults: defaults, credentials: KeyRing(), harness: locate).harnessModel)
 
         // What the user is told when plugin mode cannot start names the versions on both sides.
-        let refused = CommandController.describe(HarnessPlugin.Failure.unverified("0.3.0"))
-        XCTAssertTrue(refused.contains("0.3.0") && refused.contains(HarnessPlugin.verified[0]), refused)
+        let refused = CommandController.describe(Harness.Failure.unverified("0.3.0"))
+        XCTAssertTrue(refused.contains("0.3.0") && refused.contains(Harness.verified[0]), refused)
         XCTAssertTrue(CommandController.describe(CommandController.Failure.harnessMissing).contains("DeepSeek Harness"))
     }
 
@@ -241,7 +262,7 @@ final class CommandTests: XCTestCase {
         await MainActor.run {
             XCTAssertEqual(runtime.snapshot.command.text, "已切到 Codex")
             XCTAssertFalse(runtime.snapshot.command.capturesControls)
-            XCTAssertTrue(kernel.prompts[0].hasPrefix("Command: 切到 Codex\n"))
+            XCTAssertTrue(kernel.prompts[0].hasPrefix("VibeWand · 切到 Codex\n"))
         }
         let task = try XCTUnwrap(try FileManager.default.contentsOfDirectory(at: support.appendingPathComponent("tasks"), includingPropertiesForKeys: nil).first)
         let journal = try String(contentsOf: task.appendingPathComponent("journal.jsonl"), encoding: .utf8)
@@ -319,9 +340,158 @@ final class CommandTests: XCTestCase {
         }
         await wait("the third ends") { runtime.snapshot.command.phase == .done && runtime.command.turns == 0 }
         await MainActor.run { runtime.stop() }
+        // The harness's web app says where it listens on its first line; that address is what the browser is given.
+        XCTAssertEqual(CommandController.address(in: "dsh web: http://127.0.0.1:55038/?token=abc_DEF-123\n")?.absoluteString, "http://127.0.0.1:55038/?token=abc_DEF-123")
+        XCTAssertNil(CommandController.address(in: "(node:1) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.\n"))
         XCTAssertEqual(CommandController.tokens(950), "950")
         XCTAssertEqual(CommandController.tokens(262_144), "262.1k")
         XCTAssertEqual(CommandController.tokens(1_048_576), "1.05M")
+    }
+
+    /// A conversation outlives the kernel process: it is taken up again for as long as the user keeps conversations.
+    func testAConversationIsCarriedAcrossKernelStartsForAsLongAsTheUserKeepsIt() async throws {
+        let script: [(tool: String, arguments: JSONValue)] = [("list_targets", [:]), ("finish", ["summary": "好"])]
+        let (runtime, kernel, support) = try await MainActor.run { try makeRuntime(script: script) }
+        final class Starts { var asked: [String?] = []; var refuse = false; var kernels: [ScriptedKernel] = [] }
+        let starts = Starts()
+        await MainActor.run {
+            runtime.command.settings.setHistoryMinutes(1_440)
+            kernel.usage = (1_200, 8_000)
+            runtime.command.run("第一条")
+        }
+        await wait("the first ends") { runtime.snapshot.command.phase == .done }
+        await MainActor.run {
+            XCTAssertEqual(runtime.command.settings.conversation?.session, "scripted")
+            XCTAssertEqual(runtime.command.settings.conversation?.turns, 1)
+            XCTAssertEqual(runtime.command.settings.conversation?.usage?.used, 1_200)
+            // Commands stop coming and the process is let go. The conversation is not.
+            runtime.command.rest()
+            XCTAssertEqual(runtime.command.turns, 1)
+            XCTAssertNotNil(runtime.command.settings.conversation)
+            runtime.command.openKernel = { resume in
+                starts.asked.append(resume)
+                let next = ScriptedKernel(script, session: starts.refuse ? nil : resume)
+                next.usage = (2_000, 8_000); starts.kernels.append(next)
+                return next
+            }
+            runtime.command.run("第二条")
+            // What was kept is on the overlay before the kernel is back.
+            XCTAssertTrue(runtime.snapshot.command.detail.contains("1.2k/8.0k"), runtime.snapshot.command.detail)
+        }
+        await wait("the second ends") { runtime.snapshot.command.phase == .done }
+        await MainActor.run {
+            XCTAssertEqual(kernel.shutdowns, 1, "the first kernel had gone before the next one started")
+            XCTAssertEqual(starts.asked, ["scripted"])
+            XCTAssertEqual(runtime.command.turns, 2)
+            XCTAssertEqual(runtime.command.settings.conversation?.turns, 2)
+            // A third command finds the kernel still there and starts none.
+            runtime.command.run("第三条")
+        }
+        await wait("the third ends") { runtime.snapshot.command.phase == .done && runtime.command.turns == 3 }
+        let records = TaskJournal.recent(root: support.appendingPathComponent("tasks"))
+        XCTAssertEqual(records.map(\.turn).sorted(), [1, 2, 3])
+        await MainActor.run {
+            XCTAssertEqual(starts.asked.count, 1)
+            // Kept longer ago than the user asked for, it is not taken up: the next command opens a new one.
+            runtime.command.rest()
+            var old = runtime.command.settings.conversation!
+            old.last = Date().addingTimeInterval(-2 * 86_400)
+            runtime.command.settings.conversation = old
+            runtime.command.run("过了两天")
+            XCTAssertTrue(runtime.snapshot.command.detail.contains(L10n.tr("新对话", "new conversation")), runtime.snapshot.command.detail)
+        }
+        await wait("a new conversation") { runtime.snapshot.command.phase == .done }
+        await MainActor.run {
+            XCTAssertEqual(starts.asked, ["scripted", nil])
+            XCTAssertEqual(runtime.command.turns, 1)
+            XCTAssertEqual(runtime.command.settings.conversation?.session, "scripted")
+        }
+    }
+
+    func testAConversationKeptForGoodIsTakenUpHoweverOldAndOneThatCannotBeGivesWayToANewOne() async throws {
+        let script: [(tool: String, arguments: JSONValue)] = [("finish", ["summary": "好"])]
+        let (runtime, _, _) = try await MainActor.run { try makeRuntime(script: script) }
+        final class Starts { var asked: [String?] = []; var refuse = false }
+        let starts = Starts()
+        await MainActor.run {
+            runtime.command.settings.setHistoryMinutes(-1)
+            runtime.command.settings.conversation = CommandConversation(session: "long-ago", last: Date().addingTimeInterval(-400 * 86_400), turns: 41, used: 3_000, size: 8_000)
+            runtime.command.openKernel = { resume in
+                starts.asked.append(resume)
+                return ScriptedKernel(script, session: starts.refuse ? nil : resume)
+            }
+            runtime.command.run("还记得吗")
+        }
+        await wait("the task ends") { runtime.snapshot.command.phase == .done }
+        await MainActor.run {
+            XCTAssertEqual(starts.asked, ["long-ago"])
+            XCTAssertEqual(runtime.command.turns, 42)
+            // The harness's own app has the conversation open, or it is gone: the kernel cannot take it up.
+            runtime.command.rest()
+            starts.refuse = true
+            runtime.command.run("再来")
+        }
+        await wait("a new conversation") { runtime.snapshot.command.phase == .done && runtime.command.turns == 1 }
+        await MainActor.run {
+            XCTAssertEqual(starts.asked, ["long-ago", "long-ago"])
+            XCTAssertEqual(runtime.command.settings.conversation?.session, "scripted")
+            XCTAssertEqual(runtime.command.settings.conversation?.turns, 1)
+            // A setting that changes ends the conversation, as before.
+            runtime.command.settings.setStepLimit(12)
+            XCTAssertNil(runtime.command.settings.conversation)
+            XCTAssertEqual(runtime.command.turns, 0)
+            runtime.stop()
+        }
+    }
+
+    /// What a restart of VibeWand finds: the conversation, how far it has got and how full it is.
+    @MainActor
+    func testTheConversationIsKnownAgainAfterVibeWandRestartsButNotOnceItIsSpent() {
+        let defaults = isolatedDefaults()
+        let voice = VoiceInputController(preferences: SpeechPreferences(defaults: defaults), engineFactory: { _ in TranscriptReplayEngine(previews: []) })
+        func restarted() -> CommandController {
+            CommandController(settings: CommandSettings(defaults: defaults, credentials: MemoryCredentials()), tools: CommandTools(adapter: AccessibilityAdapter()), voice: voice)
+        }
+        let settings = CommandSettings(defaults: defaults, credentials: MemoryCredentials())
+        settings.conversation = CommandConversation(session: "s-1", last: Date().addingTimeInterval(-600), turns: 7, used: 2_000, size: 8_000)
+        XCTAssertEqual(restarted().turns, 0, "kept five minutes by default, and ten have passed")
+        settings.setHistoryMinutes(30)
+        XCTAssertEqual(restarted().turns, 7)
+        XCTAssertEqual(restarted().usage?.used, 2_000)
+        settings.conversation?.used = 6_500
+        XCTAssertEqual(restarted().turns, 0, "past four fifths of its window it is not carried on")
+        settings.conversation?.used = 2_000
+        settings.setHistoryMinutes(0)
+        XCTAssertEqual(restarted().turns, 0)
+    }
+
+    /// The picture a model is shown carries the ids of the latest snapshot where their controls are. No window is captured here.
+    func testAPictureOfAWindowIsMarkedWithTheIdsOfItsControls() throws {
+        // A plain grey "window" of 300×200 points, captured at twice that.
+        let size = CGSize(width: 600, height: 400)
+        let canvas = try XCTUnwrap(CGContext(data: nil, width: 600, height: 400, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        canvas.setFillColor(CGColor(gray: 0.5, alpha: 1)); canvas.fill(CGRect(origin: .zero, size: size))
+        let window = CGRect(x: 100, y: 50, width: 300, height: 200)
+        let layout = InterfaceTools.Layout(title: "备忘录", frame: window, marks: [
+            (id: "e1", frame: CGRect(x: 120, y: 70, width: 80, height: 30)), (id: "e12", frame: CGRect(x: 300, y: 200, width: 60, height: 24))])
+        let picture = try XCTUnwrap(InterfaceTools.mark(try XCTUnwrap(canvas.makeImage()), layout: layout))
+        XCTAssertEqual(picture.prefix(2), Data([0xFF, 0xD8]), "a JPEG")
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(data: picture))
+        XCTAssertEqual(bitmap.pixelsWide, 600)
+        XCTAssertEqual(bitmap.pixelsHigh, 400)
+        func colour(_ x: Int, _ y: Int) throws -> NSColor { try XCTUnwrap(bitmap.colorAt(x: x, y: y)?.usingColorSpace(.sRGB)) }
+        // The first control's tag sits at its top-left corner: (120−100, 70−50) points, twice that in pixels, counted from the top.
+        let tag = try colour(43, 44)
+        XCTAssertGreaterThan(tag.redComponent, 0.7, "\(tag)")
+        XCTAssertLessThan(tag.greenComponent, 0.5, "\(tag)")
+        // Away from any control the window is as it was.
+        let plain = try colour(560, 30)
+        XCTAssertEqual(plain.redComponent, plain.greenComponent, accuracy: 0.03, "\(plain)")
+        XCTAssertEqual(plain.redComponent, plain.blueComponent, accuracy: 0.03, "\(plain)")
+        if let path = ProcessInfo.processInfo.environment["VIBEWAND_COMMAND_OVERLAY_REVIEW"] {
+            try picture.write(to: URL(fileURLWithPath: path).appendingPathComponent("marked-window.jpg"))
+        }
     }
 
     func testSettingsCanCheckTheModelAndFailuresAreSaidInTheServicesWords() async throws {
@@ -331,11 +501,12 @@ final class CommandTests: XCTestCase {
         XCTAssertTrue(checked.ok, checked.detail)
         XCTAssertTrue(checked.detail.contains("64.0k"), checked.detail)
         await MainActor.run {
-            XCTAssertEqual(kernel.prompts, ["Reply with the single word: ok"])
+            XCTAssertEqual(kernel.prompts.count, 1)
+            XCTAssertTrue(kernel.prompts[0].hasPrefix("VibeWand · connection test: reply with the single word ok\n"), kernel.prompts[0])
             // The check leaves no conversation behind.
             XCTAssertEqual(runtime.command.turns, 0)
             XCTAssertNil(runtime.command.usage)
-            runtime.command.openKernel = { throw RPCError(code: -32603, message: #"Internal error: turn failed: 401: {"message":"Authentication Fails, Your api key: ****0000 is invalid","type":"authentication_error"}"#) }
+            runtime.command.openKernel = { _ in throw RPCError(code: -32603, message: #"Internal error: turn failed: 401: {"message":"Authentication Fails, Your api key: ****0000 is invalid","type":"authentication_error"}"#) }
         }
         let failed = await runtime.command.probe()
         XCTAssertFalse(failed.ok)
@@ -345,10 +516,10 @@ final class CommandTests: XCTestCase {
         try FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
         try """
             dsh: warning: 1 entry did not activate
-            llm-route (@deepseek-ai/dsh-llm-pi-ai): ValidationError: invalid config:
+            llm-pi-ai (@deepseek-ai/dsh-llm-pi-ai): ValidationError: invalid config:
               - $.providers.vibewand.compat.thinkingFormat expected "openai" | "qwen" but got "nonsense" (at providers.vibewand.compat.thinkingFormat)
             """.write(to: logs.appendingPathComponent("kernel.log"), atomically: true, encoding: .utf8)
-        await MainActor.run { runtime.command.openKernel = { throw RPCError(code: -32603, message: #"Internal error: no adapter registered for provider "vibewand""#) } }
+        await MainActor.run { runtime.command.openKernel = { _ in throw RPCError(code: -32603, message: #"Internal error: no adapter registered for provider "vibewand""#) } }
         let refused = await runtime.command.probe()
         XCTAssertTrue(refused.detail.hasSuffix(#"compat.thinkingFormat expected "openai" | "qwen" but got "nonsense" (at providers.vibewand.compat.thinkingFormat)"#), refused.detail)
         XCTAssertEqual(CommandController.brief("Internal error: turn failed: Connection error."), "Connection error.")
@@ -455,7 +626,7 @@ final class CommandTests: XCTestCase {
         }
         await wait("the task ends") { runtime.snapshot.command.phase == .done }
         await MainActor.run {
-            XCTAssertTrue(kernel.prompts.first?.hasPrefix("Command: 切到 Codex\n") == true)
+            XCTAssertTrue(kernel.prompts.first?.hasPrefix("VibeWand · 切到 Codex\n") == true)
             XCTAssertTrue(dictated.texts.isEmpty)
             runtime.stop()
         }
@@ -521,7 +692,7 @@ final class CommandTests: XCTestCase {
         let journal = try TaskJournal(root: support.appendingPathComponent("tasks"), now: Date().addingTimeInterval(2))
         journal.record("instruction", ["text": "切到 Codex 里讨论麦克风的那个会话", "app": "Visual Studio Code", "model": "deepseek-flash", "turn": 2])
         journal.note(.thought("用户想去 Codex 里一个关于麦克风的会话。先查会话列表，再打开最匹配的那一个。"))
-        journal.note(.toolStarted(id: "1", name: "find_sessions"))
+        journal.note(.toolStarted(id: "1", name: "mcp__vibewand__find_sessions"))
         journal.record("call", ["tool": "find_sessions", "arguments": ["app": "codex", "query": "麦克风"]])
         journal.record("result", ["tool": "find_sessions", "ok": true, "verified": true,
                                   "text": #"{"matched":true,"sessions":[{"folder":"VibekeyPluginCodex","id":"t-101","title":"VibeWand 麦克风延迟排查","updated":"10-05 14:10"}]}"#])
@@ -596,20 +767,61 @@ final class CommandTests: XCTestCase {
             InterfaceControl(element: element, kind: "button", label: "Run"),
             InterfaceControl(element: element, kind: "text", label: "(unnamed)", state: "has text")
         ]
-        XCTAssertEqual(InterfaceTools.describe(controls, window: "VibeWand", filter: nil, truncated: false), """
+        let plain = InterfaceTools.describe(controls, window: "VibeWand", filter: nil, truncated: false)
+        XCTAssertEqual(plain.text, """
             window "VibeWand"
             e1 tab "Runtime.swift" selected
             e2 tab "Gestures.swift"
             e3 button "Run"
             e4 text "(unnamed)" has text
             """)
-        XCTAssertEqual(InterfaceTools.describe(controls, window: "VibeWand", filter: "gestures", truncated: false),
+        XCTAssertEqual(plain.shown, [0, 1, 2, 3])
+        XCTAssertEqual(InterfaceTools.describe(controls, window: "VibeWand", filter: "gestures", truncated: false).text,
                        "window \"VibeWand\"\ne2 tab \"Gestures.swift\"")
-        XCTAssertTrue(InterfaceTools.describe(controls, window: "", filter: "nothing", truncated: true).contains("no control matches"))
+        XCTAssertTrue(InterfaceTools.describe(controls, window: "", filter: "nothing", truncated: true).text.contains("no control matches"))
         controls += (0..<InterfaceTools.shownLimit).map { InterfaceControl(element: element, kind: "row", label: "row \($0)") }
-        let long = InterfaceTools.describe(controls, window: "", filter: nil, truncated: true)
+        let long = InterfaceTools.describe(controls, window: "", filter: nil, truncated: true).text
         XCTAssertTrue(long.contains("(4 more not shown; pass filter to narrow)"))
         XCTAssertTrue(long.contains("too large to read completely"))
+    }
+
+    /// Codex's model button opens a popover at the very end of a long window. What a press brought has to
+    /// lead the next listing, or the model never sees it: that is how "set the effort to low" used to end.
+    func testSnapshotLeadsWithWhatAnActionBroughtOrChanged() {
+        let element = AXUIElementCreateSystemWide()
+        var controls = (0..<InterfaceTools.shownLimit + 40).map { InterfaceControl(element: element, kind: "button", label: "chat \($0)") }
+        controls.append(InterfaceControl(element: element, kind: "menu", label: "Select effort"))
+        controls.append(InterfaceControl(element: element, kind: "item", label: "Select model"))
+        controls.append(InterfaceControl(element: element, kind: "status", label: "GPT-6 Astra Extra High, 4 of 5."))
+        controls.append(InterfaceControl(element: element, kind: "item", label: "Power", state: "keys: ArrowLeft ArrowRight"))
+        let count = controls.count, fresh = Set(count - 4..<count)
+        let listing = InterfaceTools.describe(controls, window: "ChatGPT", filter: nil, truncated: false, fresh: fresh)
+        let lines = listing.text.components(separatedBy: "\n")
+        XCTAssertEqual(Array(lines.prefix(7)), [
+            "window \"ChatGPT\"", "new or changed since the last snapshot:",
+            "e\(count - 3) menu \"Select effort\"", "e\(count - 2) item \"Select model\"",
+            "e\(count - 1) status \"GPT-6 Astra Extra High, 4 of 5.\"", "e\(count) item \"Power\" keys: ArrowLeft ArrowRight",
+            "as before:"
+        ])
+        XCTAssertEqual(lines[7], "e1 button \"chat 0\"")
+        // The limit still holds, and the positions printed are the ones a picture marks.
+        XCTAssertEqual(listing.shown.count, InterfaceTools.shownLimit)
+        XCTAssertEqual(Array(listing.shown.prefix(5)), [count - 4, count - 3, count - 2, count - 1, 0])
+        XCTAssertTrue(listing.text.contains("(44 more not shown; pass filter to narrow)"))
+        // A filter narrows first; what it leaves is set apart only when part of it is new.
+        XCTAssertEqual(InterfaceTools.describe(controls, window: "ChatGPT", filter: "select", truncated: false, fresh: fresh).text,
+                       "window \"ChatGPT\"\ne\(count - 3) menu \"Select effort\"\ne\(count - 2) item \"Select model\"")
+        // A filter also reaches what a control is known as and how it is worked.
+        XCTAssertEqual(InterfaceTools.describe(controls, window: "", filter: "arrow", truncated: false).text, "window \"\"\ne\(count) item \"Power\" keys: ArrowLeft ArrowRight")
+        // Another window, or a view that was replaced, is all new: it is listed plainly.
+        let replaced = InterfaceTools.describe(Array(controls.suffix(4)), window: "", filter: nil, truncated: false, fresh: Set(0..<4)).text
+        XCTAssertFalse(replaced.contains("new or changed"))
+        // Codex names its model button after the model; the snapshot marks it with what the adapter knows it as.
+        XCTAssertTrue(ApplicationProfile.codex.isModelTrigger(role: "AXPopUpButton", hint: "GPT-6 Astra Extra High"))
+        XCTAssertFalse(ApplicationProfile.codex.isModelTrigger(role: "AXPopUpButton", hint: "Select effort"))
+        XCTAssertFalse(ApplicationProfile.codex.isModelTrigger(role: "AXMenuItem", hint: "Select model"))
+        XCTAssertEqual(KeyStroke.parse("ArrowLeft")?.code, 123)
+        XCTAssertEqual(KeyStroke.parse("arrowright")?.code, 124)
     }
 
     func testMenuTitlesAreMatchedLooselyButNeverInvented() {

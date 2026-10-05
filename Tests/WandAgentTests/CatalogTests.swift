@@ -19,8 +19,25 @@ final class CatalogTests: XCTestCase {
         XCTAssertFalse(ToolCatalog.all.contains { $0.effect == .submit })
     }
 
+    /// Seeing the window is one more tool, mounted only when the user has turned it on.
+    func testThePictureOfTheWindowIsMountedOnlyWhenTheUserLetsTheModelSee() {
+        XCTAssertEqual(ToolCatalog.mounted(sight: false), ToolCatalog.all)
+        XCTAssertEqual(ToolCatalog.mounted(sight: true).map(\.name), ToolCatalog.all.map(\.name) + ["ui_screenshot"])
+        XCTAssertEqual(ToolCatalog.screenshot.effect, .read)
+        XCTAssertFalse(ToolCatalog.all.contains(ToolCatalog.screenshot))
+        // The model is told of it only then, and of a harness's own tools only when they are mounted.
+        XCTAssertFalse(CoordinatorPrompt.system.contains("ui_screenshot") || CoordinatorPrompt.system.contains("harness"))
+        XCTAssertEqual(CoordinatorPrompt.system(instructions: " "), CoordinatorPrompt.system)
+        let seeing = CoordinatorPrompt.system(instructions: "", sight: true)
+        XCTAssertTrue(seeing.hasPrefix(CoordinatorPrompt.system) && seeing.contains("ui_screenshot"))
+        let whole = CoordinatorPrompt.system(instructions: "叫我老徐", tools: .all)
+        XCTAssertTrue(whole.contains("this harness's own") && !whole.contains("ui_screenshot") && whole.hasSuffix("叫我老徐"))
+    }
+
     func testDestructiveAndSendingControlsNeedTheUser() {
-        for label in ["Delete", "Move to Trash", "Don't Save", "Discard Changes", "Send", "发送", "删除会话", "不保存", "退出登录", "Submit feedback"] {
+        for label in ["Delete", "Move to Trash", "Don't Save", "Discard Changes", "Send", "发送", "删除会话", "不保存", "退出登录", "Submit feedback",
+                      // Handing an agent more reach is the user's call too: Codex asks this when its effort is pushed to the top.
+                      "Use Full access", "Allow", "Approve for this session", "始终允许", "授权访问"] {
             XCTAssertTrue(ControlRisk.needsConfirmation(label), label)
         }
         for label in ["Runtime.swift", "Close Tab", "关闭标签页", "Open Recent", "下一个", "Search", "Save", "Explorer"] {
@@ -28,16 +45,19 @@ final class CatalogTests: XCTestCase {
         }
     }
 
-    func testTaskPromptLeadsWithTheWordsUnchangedThenTheirContext() {
+    func testTaskPromptOpensWithVibeWandsNameAndTheWordsUnchangedThenTheirContext() {
         let prompt = CoordinatorPrompt.task("把这段报错交给 Codex，先不要改代码", frontApp: "Visual Studio Code",
                                            window: "Runtime.swift — VibeWand", now: Date(timeIntervalSince1970: 1_791_186_000))
         let lines = prompt.split(separator: "\n").map(String.init)
-        XCTAssertEqual(lines.count, 3)
-        // A runtime titles a conversation from its opening words, so the command is what a list of them shows.
-        XCTAssertEqual(lines[0], "Command: 把这段报错交给 Codex，先不要改代码")
-        XCTAssertTrue(lines[1].hasPrefix("Now: 2026-10-0"))
-        XCTAssertEqual(lines[2], "The user was in: Visual Studio Code, window \"Runtime.swift — VibeWand\"")
-        XCTAssertEqual(CoordinatorPrompt.task("停", frontApp: "", window: "").split(separator: "\n").count, 2)
+        XCTAssertEqual(lines.count, 2)
+        // A runtime titles a conversation from its opening words, so a list of them shows whose it is and what was asked.
+        XCTAssertEqual(lines[0], "VibeWand · 把这段报错交给 Codex，先不要改代码")
+        XCTAssertNotNil(lines[1].range(of: #"^\d\d:\d\d [A-Z][a-z]{2} 2026-10-0\d\. The user was in Visual Studio Code, window "Runtime\.swift — VibeWand"$"#, options: .regularExpression), lines[1])
+        // With a one-word command the title's five words end on the time, not on a stray word of context.
+        let short = CoordinatorPrompt.task("打开计算器", frontApp: "", window: "", now: Date(timeIntervalSince1970: 1_791_186_000))
+        XCTAssertNotNil(short.split(whereSeparator: \.isWhitespace).prefix(5).joined(separator: " ")
+            .range(of: #"^VibeWand · 打开计算器 \d\d:\d\d [A-Z][a-z]{2}$"#, options: .regularExpression), short)
+        XCTAssertEqual(short.split(separator: "\n").count, 2)
     }
 
     func testKernelEventsAreReadFromSessionUpdates() {
@@ -46,6 +66,12 @@ final class CatalogTests: XCTestCase {
         XCTAssertEqual(KernelEvent.parse(["sessionUpdate": "tool_call", "toolCallId": "c1", "title": "mcp__vibewand__find_sessions", "status": "in_progress"]),
                        .toolStarted(id: "c1", name: "mcp__vibewand__find_sessions"))
         XCTAssertEqual(KernelEvent.parse(["sessionUpdate": "tool_call_update", "toolCallId": "c1", "status": "failed"]), .toolEnded(id: "c1", failed: true))
+        // A tool of the runtime's own comes with what it was called with and what it answered.
+        XCTAssertEqual(KernelEvent.parse(["sessionUpdate": "tool_call", "toolCallId": "c2", "title": "bash", "rawInput": ["command": "ls"]]),
+                       .toolStarted(id: "c2", name: "bash", input: ["command": "ls"]))
+        XCTAssertEqual(KernelEvent.parse(["sessionUpdate": "tool_call_update", "toolCallId": "c2", "status": "completed", "content": [
+            ["type": "content", "content": ["type": "text", "text": "a.txt"]], ["type": "content", "content": ["type": "image", "data": "…"]],
+            ["type": "content", "content": ["type": "text", "text": "b.txt"]]]]), .toolEnded(id: "c2", failed: false, text: "a.txt\nb.txt"))
         XCTAssertNil(KernelEvent.parse(["sessionUpdate": "tool_call_update", "toolCallId": "c1", "status": "in_progress"]))
         XCTAssertNil(KernelEvent.parse(["sessionUpdate": "usage_update", "used": 629]))
     }

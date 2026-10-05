@@ -44,6 +44,19 @@ final class ToolSocketTests: XCTestCase {
         XCTAssertEqual(refused["isError"], true)
     }
 
+    func testAPictureTravelsBesideTheTextAndOnlyTheMountedToolsAreListed() async throws {
+        let picture = Data([0xFF, 0xD8, 0xFF, 0xE0, 9, 8, 7])
+        let socket = try ToolSocket(path: path(), tools: ToolCatalog.mounted(sight: true)) { _, _ in ToolOutcome(text: "window \"备忘录\"", image: picture) }
+        defer { socket.close() }
+        let client = try connect(socket.path)
+        let listed = try await client.request("tools/list")
+        XCTAssertEqual(listed["tools"]?.array?.last?["name"], "ui_screenshot")
+        let shown = try await client.request("tools/call", ["name": "ui_screenshot"])
+        XCTAssertEqual(shown["content"]?.array?.count, 2)
+        XCTAssertEqual(shown["content"]?.array?[0], ["type": "text", "text": "window \"备忘录\""])
+        XCTAssertEqual(shown["content"]?.array?[1], ["type": "image", "data": .string(picture.base64EncodedString()), "mimeType": "image/jpeg"])
+    }
+
     func testOnlyAnAdmittedProcessMayConnect() async throws {
         let socket = try ToolSocket(path: path()) { _, _ in .ok("ok") }
         defer { socket.close() }

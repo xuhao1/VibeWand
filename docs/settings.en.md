@@ -8,14 +8,14 @@ The menu bar keeps everyday entry points. One native settings window groups conf
 
 | Page | Purpose |
 | --- | --- |
-| General | Interface language, device and foreground-app status, Accessibility permission, and dictation information |
-| Devices & inputs | Device photo hotspots, input groups, contextual gestures, action library, timing, and layout import / export |
+| General | Interface language, device and foreground-app status, Accessibility permission, and dictation information; from the next version, which is not released yet, also the way into the [first-run guide](getting-started.en.md#the-first-run-guide-next-version-not-released-yet) |
+| Devices & inputs | Device photo hotspots, input groups, contextual gestures, action library, timing, and layout import / export; from the next version the [Keyboard](device-templates.en.md#keyboard) layout, whose key combinations are recorded by pressing them, a custom keyboard's extra keys included |
 | Applications | Built-in adapter switches, custom apps, Chat / Browser presets, and editable shortcuts |
 | Overlay | Visibility, descriptions, size, opacity, position, and image export |
-| Developer | Demo, physical-event capture, compatibility, diagnostics, and reconnect |
+| Developer | Demo, physical-event capture, compatibility, diagnostics, and reconnect; from the next version, opening the first-run guide or making it appear at the next launch as it does the first time |
 | About | Version, license, author, and personal / project website links |
-| Voice input | External / built-in dictation, system / API, microphone source (follow the device / system sound input), vocabulary and subject hint, language, endpoint, separate keys, testing and exports |
-| Command mode | The switch and what it sends, the model key and model name, the keyboard command key, viewing and clearing local records; see [Command mode](command-mode.en.md) |
+| Voice input | External / built-in dictation, system / API, microphone source (follow the device / system sound input), vocabulary and subject hint, language, endpoint, separate keys, testing and exports; from the next version one more service, [SenseVoice](voice-input.md#下一版尚未发布本机-sensevoice--sensevoice-on-this-mac) on this Mac, with where its models are and the button that downloads them |
+| Command mode | The switch and what it sends, the kernel (built in or plugin mode) and its model, what the model can use (tool scope, a picture of the window), the permission mode, how long a conversation is kept, the keyboard command key, viewing and clearing local records; see [Command mode](command-mode.en.md) |
 
 ## Remap a control
 

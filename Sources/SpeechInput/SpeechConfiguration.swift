@@ -2,7 +2,11 @@ import Foundation
 import CryptoKit
 
 public enum SpeechInputMode: String, Codable, CaseIterable { case external, builtIn }
-public enum SpeechProvider: String, Codable, CaseIterable { case system, qwenRealtime, transcriptionAPI }
+public enum SpeechProvider: String, Codable, CaseIterable {
+    case system, senseVoice, qwenRealtime, transcriptionAPI
+    /// Recognised on this Mac: there is no address, model name or key to set.
+    public var isLocal: Bool { self == .system || self == .senseVoice }
+}
 public enum DictationTextStyle: String, Codable, CaseIterable { case verbatim, polished }
 /// `device` records from the device whose key started dictation, when it has a microphone.
 public enum SpeechMicrophone: String, Codable, CaseIterable { case device, system }
@@ -86,9 +90,9 @@ public struct SpeechConfiguration: Codable, Equatable {
     public mutating func selectProvider(_ value: SpeechProvider) {
         guard value != provider else { return }
         var profiles = apiProfiles ?? [:]
-        if provider != .system { profiles[provider.rawValue] = SpeechAPISettings(endpoint: endpoint, model: model) }
+        if !provider.isLocal { profiles[provider.rawValue] = SpeechAPISettings(endpoint: endpoint, model: model) }
         provider = value
-        if value != .system {
+        if !value.isLocal {
             let saved = profiles[value.rawValue] ?? (value == .qwenRealtime ?
                 SpeechAPISettings(endpoint: "wss://dashscope.aliyuncs.com/api-ws/v1/realtime", model: "qwen3.8-omni-flash-realtime") :
                 SpeechAPISettings(endpoint: "https://your-service.example/v1", model: "whisper-1"))
@@ -134,7 +138,7 @@ public struct SpeechConfiguration: Codable, Equatable {
         try polishing?.validate()
         try vocabulary?.validate()
         for (id, settings) in apiProfiles ?? [:] {
-            guard let provider = SpeechProvider(rawValue: id), provider != .system else { throw SpeechInputError.invalidConfiguration }
+            guard let provider = SpeechProvider(rawValue: id), !provider.isLocal else { throw SpeechInputError.invalidConfiguration }
             var profile = SpeechConfiguration()
             profile.provider = provider; profile.endpoint = settings.endpoint; profile.model = settings.model
             try profile.validate()
@@ -179,7 +183,7 @@ public final class SpeechPreferences {
 
 public enum SpeechInputError: Error, Equatable, LocalizedError {
     case invalidEndpoint, invalidConfiguration, missingAPIKey, microphoneDenied, speechDenied
-    case unavailable, recordingFailed, tooLong, noSpeech, emptyAudio, timedOut, protocolRejected, polishingUnavailable
+    case unavailable, recordingFailed, tooLong, noSpeech, emptyAudio, timedOut, protocolRejected, polishingUnavailable, modelMissing
     case http(Int), keychain(Int32)
     public var errorDescription: String? {
         switch self {
@@ -196,6 +200,7 @@ public enum SpeechInputError: Error, Equatable, LocalizedError {
         case .timedOut: return "Speech recognition timed out."
         case .protocolRejected: return "The service rejected the speech request. Check its protocol, model and credentials."
         case .polishingUnavailable: return "Text polishing is unavailable; the original transcript has been kept. Configure a polishing service and its key."
+        case .modelMissing: return "The SenseVoice models are not on this Mac yet. Download them in Voice input settings."
         case .http(let code): return "Speech service returned HTTP \(code). Check the endpoint, model and credentials."
         case .keychain(let code): return "Keychain operation failed (\(code))."
         }

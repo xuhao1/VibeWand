@@ -16,8 +16,10 @@ struct SpeechAPICheck {
             else { break }
             arguments.removeFirst()
         }
-        guard arguments.count == 4, let provider = SpeechProvider(rawValue: arguments[0]), provider != .system else {
+        if arguments.first == SpeechProvider.senseVoice.rawValue, arguments.count == 5 { return await senseVoice(Array(arguments.dropFirst())) }
+        guard arguments.count == 4, let provider = SpeechProvider(rawValue: arguments[0]), !provider.isLocal else {
             print("Usage: SpeechAPICheck [--stream] [--polish] [--no-vocabulary] [--terms a,b] qwenRealtime|transcriptionAPI <endpoint> <model> <audio-file>")
+            print("       SpeechAPICheck senseVoice <node> <SenseVoice plug-in folder> <model folder> <audio-file>")
             exit(2)
         }
         do {
@@ -59,6 +61,29 @@ struct SpeechAPICheck {
             // Network/provider errors are normalized so credentials never reach output.
             let safe = DictationSession.safeError(error)
             print("Speech check failed: \(safe.localizedDescription)")
+            exit(1)
+        }
+    }
+
+    /// The recogniser on this Mac, on an audio file: the Node to run it, the folder of the harness's SenseVoice
+    /// plug-in, and the folder its models are kept in. Nothing is downloaded here.
+    @MainActor static func senseVoice(_ arguments: [String]) async {
+        let plugin = URL(fileURLWithPath: arguments[1])
+        let service = SenseVoice(runtime: SenseVoice.Runtime(node: URL(fileURLWithPath: arguments[0]), worker: plugin.appendingPathComponent("lib/worker.js"),
+            assets: plugin.appendingPathComponent("runtime/assets.json"), stores: [URL(fileURLWithPath: arguments[2])]))
+        defer { service.shutdown() }
+        do {
+            let audio = try SpeechAudio.read(from: URL(fileURLWithPath: arguments[3]))
+            var start = Date()
+            try await service.prepare()
+            let text = try await service.transcribe(audio, configuration: SpeechConfiguration(), apiKey: nil)
+            print("Recognized \(String(format: "%.1f", audio.duration))s audio in \(String(format: "%.2f", Date().timeIntervalSince(start)))s, the recogniser's start included")
+            start = Date()
+            _ = try await service.transcribe(audio, configuration: SpeechConfiguration(), apiKey: nil)
+            print("Again, with the recogniser loaded: \(String(format: "%.2f", Date().timeIntervalSince(start)))s")
+            print(text)
+        } catch {
+            print("Speech check failed: \(DictationSession.safeError(error).localizedDescription)")
             exit(1)
         }
     }

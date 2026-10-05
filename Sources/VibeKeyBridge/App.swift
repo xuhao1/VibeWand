@@ -5,6 +5,8 @@ import SpeechInput
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// Read before anything else writes a preference: whether this is someone's first launch.
+    private let guideOwed = Onboarding.owed()
     let runtime: BridgeRuntime
     private var replayURL: URL?
     private var transcriptReplayDuration: Double?
@@ -37,6 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var overlay: OverlayController!
     private var statusItem: NSStatusItem!
     private var settings: SettingsController?
+    private var onboarding: OnboardingController?
     private var showItem: NSMenuItem!
     private var connectionItem: NSMenuItem!
     private var signalSources: [DispatchSourceSignal] = []
@@ -61,6 +64,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.overlay.update(state)
             self.overlay.showForCommand(state.command.active)
             self.settings?.update(state)
+            self.onboarding?.update(state)
             self.connectionItem?.title = state.captureOnly ? L10n.tr("仅采集物理事件", "Input capture only") : state.demo ? L10n.tr("演示模式", "Demo mode") : state.connected ? L10n.tr("设备已连接", "Device connected") : L10n.tr("等待设备连接", "Waiting for device")
             if let url = self.diagnosticsURL { try? self.runtime.exportSnapshot(url) }
         }
@@ -119,6 +123,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             source.setEventHandler { NSApp.terminate(nil) }; source.resume(); signalSources.append(source)
         }
         updateMenu()
+        // The guide opens by itself for someone new, and never during a scripted run of the app.
+        let scripted = ["--demo", "--capture-only", "--settings", "--replay-transcript", "--replay-speech", "--speech-test-editor", "--diagnostics-path",
+                        "--render-dark", "--render-overlay", "--render-settings", "--render-audit"].contains(where: CommandLine.arguments.contains)
+        if CommandLine.arguments.contains("--onboarding") || (guideOwed && !scripted) { presentOnboarding() }
         if CommandLine.arguments.contains("--settings") { openSettings() }
         if CommandLine.arguments.contains("--render-dark") {
             presentSettings()
@@ -197,11 +205,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func languageChanged() { buildMenu(); updateMenu(); settings?.refresh() }
     @objc private func openAbout() { presentSettings(tab: 5) }
     @objc private func openSettings() { presentSettings() }
+    private func presentOnboarding() {
+        if onboarding == nil {
+            let guide = OnboardingController(runtime: runtime, overlay: overlay) { [weak self] section in self?.presentSettings(tab: section.rawValue) }
+            guide.onClose = { [weak self] in
+                guard let self else { return }
+                self.onboarding = nil
+                if self.settings?.window?.isVisible != true { NSApp.setActivationPolicy(.accessory) }
+            }
+            onboarding = guide
+        }
+        NSApp.setActivationPolicy(.regular)
+        onboarding?.present()
+    }
     private func presentSettings(tab: Int? = nil) {
         if settings == nil {
             settings = SettingsController(runtime: runtime, overlay: overlay)
-            settingsCloseObserver = NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: settings?.window, queue: .main) { _ in
-                MainActor.assumeIsolated { _ = NSApp.setActivationPolicy(.accessory) }
+            settings?.onGuide = { [weak self] in self?.presentOnboarding() }
+            settingsCloseObserver = NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: settings?.window, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { if self?.onboarding == nil { _ = NSApp.setActivationPolicy(.accessory) } }
             }
         }
         // Keep an open (including minimized) settings window easy to find in the Dock.

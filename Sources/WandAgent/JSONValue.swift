@@ -18,6 +18,7 @@ public enum JSONValue: Equatable, Sendable {
     public var int: Int? { number.flatMap { Int(exactly: $0) } }
     public var bool: Bool? { if case .bool(let value) = self { return value }; return nil }
     public var array: [JSONValue]? { if case .array(let value) = self { return value }; return nil }
+    public var object: [String: JSONValue]? { if case .object(let value) = self { return value }; return nil }
 
     /// One line with stable key order, as sent on the wire and written to the journal.
     public var text: String { String(decoding: (try? Self.encoder.encode(self)) ?? Data("null".utf8), as: UTF8.self) }

@@ -49,6 +49,10 @@ In the chat picker, × confirms and ○ goes back. Model/effort pickers and app 
 
 Left / right navigate, center confirms, double-center switches apps, and long-center opens conversations. Menu opens conversations / the next browser tab, long-Menu opens models, voice holds dictation, and back cancels or deletes by context. The preset requires a verified device profile; it is not ready-to-use hardware support.
 
+## Keyboard: with no device (next version, not released yet)
+
+With the Keyboard layout selected, six key combinations stand in for the buttons, with VibeKey's default actions: ⌃⌥⌘ Space held dictates, ⌃⌥⌘ ↑ is the main button (press for chats, double press to switch apps, long press for models), ⌃⌥⌘ ← / → navigate, ⌃⌥⌘ Return confirms, and ⌃⌥⌘ Backspace deletes or goes back. Each one can be recorded as another key by pressing it, a custom keyboard's extra keys included; see [Device templates](device-templates.en.md#keyboard).
+
 ## Dictate, edit, then confirm
 
 Focus a draft → hold the microphone key or △ → speak → release → move the caret or delete → confirm when ready. Your selected external input method, system SDK or speech API handles recognition. Releasing a dictation hold does not also click, confirm, or send.

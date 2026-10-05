@@ -8,9 +8,11 @@ public struct KernelLaunch {
     public var directory: URL
     /// Receives the runtime's diagnostics. Its standard output carries only protocol frames.
     public var log: URL?
-    public init(executable: URL, arguments: [String], environment: [String: String], directory: URL, log: URL? = nil) {
+    /// A reasoning effort asked for by name. It is set on a conversation whose model offers it and left alone otherwise.
+    public var effort: String?
+    public init(executable: URL, arguments: [String], environment: [String: String], directory: URL, log: URL? = nil, effort: String? = nil) {
         self.executable = executable; self.arguments = arguments; self.environment = environment
-        self.directory = directory; self.log = log
+        self.directory = directory; self.log = log; self.effort = effort
     }
 }
 
@@ -24,8 +26,10 @@ public struct ToolRelay: Equatable {
 public enum KernelEvent: Equatable {
     case thought(String)
     case message(String)
-    case toolStarted(id: String, name: String)
-    case toolEnded(id: String, failed: Bool)
+    /// `input` is what the tool was called with, as the runtime reports it.
+    case toolStarted(id: String, name: String, input: JSONValue = .null)
+    /// `text` is what the tool answered, pictures left out.
+    case toolEnded(id: String, failed: Bool, text: String = "")
     /// Tokens the conversation occupies after the latest reply, out of what the model's context holds.
     case usage(used: Int, size: Int)
 
@@ -36,11 +40,12 @@ public enum KernelEvent: Equatable {
         case "agent_thought_chunk": return update["content"]?["text"]?.string.map(KernelEvent.thought)
         case "tool_call":
             guard let id = update["toolCallId"]?.string else { return nil }
-            return .toolStarted(id: id, name: update["title"]?.string ?? "")
+            return .toolStarted(id: id, name: update["title"]?.string ?? "", input: update["rawInput"] ?? .null)
         case "tool_call_update":
             guard let id = update["toolCallId"]?.string, let status = update["status"]?.string,
                   status == "completed" || status == "failed" else { return nil }
-            return .toolEnded(id: id, failed: status == "failed")
+            let said = (update["content"]?.array ?? []).compactMap { $0["content"]?["text"]?.string }
+            return .toolEnded(id: id, failed: status == "failed", text: said.joined(separator: "\n"))
         case "usage_update":
             guard let used = update["used"]?.int, let size = update["size"]?.int, size > 0 else { return nil }
             return .usage(used: used, size: size)
@@ -84,7 +89,7 @@ public struct KernelOptions: Equatable, Sendable {
 }
 
 /// One agent runtime process, driven over the Agent Client Protocol.
-/// The runtime is given no file or terminal capability; its only tools are the ones mounted per session.
+/// The runtime is given no file or terminal capability of the client's; the tools mounted per session are VibeWand's.
 public final class KernelProcess {
     private let process = Process()
     private let stdin = Pipe()
@@ -93,6 +98,10 @@ public final class KernelProcess {
     private var listeners: [String: (KernelEvent) -> Void] = [:]
     public var pid: pid_t { process.processIdentifier }
     public var onExit: (() -> Void)?
+    /// A runtime that has tools of its own asks before one of their calls goes beyond its sandbox: the session
+    /// and the call's id, answered with whether to allow it this once. With nobody to ask, the runtime is told
+    /// so and fails the call closed.
+    public var onPermission: ((_ session: String, _ call: String) async -> Bool)?
 
     public init(_ launch: KernelLaunch) throws {
         // A kernel that dies mid-write must not take the app with it.
@@ -114,6 +123,15 @@ public final class KernelProcess {
                   let update = params["update"], let event = KernelEvent.parse(update) else { return }
             self?.listener(for: session)?(event)
         }
+        rpc.onRequest = { [weak self] method, params, reply in
+            guard method == "session/request_permission", let ask = self?.onPermission, let session = params["sessionId"]?.string,
+                  let call = params["toolCall"]?["toolCallId"]?.string else { reply(.failure(.methodNotFound)); return }
+            Task {
+                let wanted = await ask(session, call) ? "allow_once" : "reject_once"
+                let option = (params["options"]?.array ?? []).first { $0["kind"]?.string == wanted }?["optionId"]
+                reply(.success(["outcome": option.map { ["outcome": "selected", "optionId": $0] } ?? ["outcome": "cancelled"]]))
+            }
+        }
         process.terminationHandler = { [weak self] _ in self?.rpc.close(); self?.onExit?() }
         try process.run()
         rpc.start()
@@ -129,13 +147,23 @@ public final class KernelProcess {
 
     /// Opens a session and returns it with what can be chosen for it.
     public func openSession(directory: URL, relay: ToolRelay?) async throws -> (id: String, options: KernelOptions) {
-        let servers: [JSONValue] = relay.map { [[
-            "name": .string($0.name), "command": .string($0.command),
-            "args": .array($0.arguments.map(JSONValue.string)), "env": []
-        ]] } ?? []
-        let result = try await rpc.request("session/new", ["cwd": .string(directory.path), "mcpServers": .array(servers)])
+        let result = try await rpc.request("session/new", ["cwd": .string(directory.path), "mcpServers": Self.servers(relay)])
         guard let session = result["sessionId"]?.string else { throw RPCError(code: 0, message: "The kernel returned no session") }
         return (session, KernelOptions(result["configOptions"] ?? []))
+    }
+
+    /// Takes up a session an earlier process left in the runtime's store, with its whole conversation.
+    /// Fails when the session is gone or another process, such as the runtime's own app, has it open.
+    public func resumeSession(_ session: String, directory: URL, relay: ToolRelay?) async throws -> KernelOptions {
+        let result = try await rpc.request("session/resume", ["sessionId": .string(session), "cwd": .string(directory.path), "mcpServers": Self.servers(relay)])
+        return KernelOptions(result["configOptions"] ?? [])
+    }
+
+    private static func servers(_ relay: ToolRelay?) -> JSONValue {
+        .array(relay.map { [[
+            "name": .string($0.name), "command": .string($0.command),
+            "args": .array($0.arguments.map(JSONValue.string)), "env": []
+        ]] } ?? [])
     }
 
     public func setOption(_ id: String, to value: String, session: String) async throws {
@@ -154,12 +182,30 @@ public final class KernelProcess {
 
     public func cancel(session: String) { rpc.notify("session/cancel", ["sessionId": .string(session)]) }
 
-    /// The runtime drains and exits when its input closes; it is terminated if it lingers.
-    public func stop() {
+    /// Asks the runtime to close a session, which is what has it write the conversation out in full: with tools
+    /// mounted, a runtime that is only told to exit does not get that far before it has to be stopped. Waits for
+    /// the answer, though not for long.
+    public func closeSession(_ session: String) async {
+        let answered = Locked(false)
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            let settle: @Sendable () -> Void = { answered.update { if !$0 { $0 = true; continuation.resume() } } }
+            Task { _ = try? await self.rpc.request("session/close", ["sessionId": .string(session)]); settle() }
+            DispatchQueue.global().asyncAfter(deadline: .now() + 2, execute: settle)
+        }
+    }
+
+    /// The runtime drains and exits when its input closes; it is terminated if it lingers. `done` runs once it has gone.
+    public func stop(then done: @escaping () -> Void = {}) {
+        let process = self.process, exit = process.terminationHandler, told = Locked(false)
+        // The process may go between being given the handler and being asked whether it runs.
+        let once = { told.update { if !$0 { $0 = true; done() } } }
+        process.terminationHandler = { exit?($0); once() }
+        guard process.isRunning else { return once() }
         try? stdin.fileHandleForWriting.close()
-        let process = self.process
         DispatchQueue.global().asyncAfter(deadline: .now() + 3) { if process.isRunning { process.terminate() } }
     }
+    /// Stops the runtime and returns once it has gone.
+    public func exit() async { await withCheckedContinuation { continuation in stop { continuation.resume() } } }
 
     private func listener(for session: String) -> ((KernelEvent) -> Void)? {
         lock.lock(); defer { lock.unlock() }

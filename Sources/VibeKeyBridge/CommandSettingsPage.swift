@@ -8,9 +8,6 @@ struct CommandSettingsPage: View {
     @ObservedObject var model: SettingsModel
     @ObservedObject var settings: CommandSettings
     @State private var draft = CommandModel(CommandEndpoint.all[0])
-    @State private var keyDraft = ""
-    @State private var listed: [ListedModel] = []
-    @State private var listNote = ""
     @State private var busy = false
     @State private var checked: (ok: Bool, detail: String)?
     @State private var notes = ""
@@ -19,19 +16,32 @@ struct CommandSettingsPage: View {
     @State private var conversation = ""
     /// What the installed harness says its version is; nil while it is being asked or when there is none.
     @State private var harnessVersion: String?
+    @State private var mayRecord = CGPreflightScreenCaptureAccess()
 
-    private static let disclosure = (
-        "配置好模型后，这些内容会离开这台 Mac，发给你在下面选的模型服务：你说出的命令原话；应用、窗口和会话的标题，项目文件夹名；操作界面时前台窗口里控件上的文字。输入框和文档的内容、选中的文字不会发给它。",
-        "Once a model is set up, the following leaves this Mac for the model service you choose below: the words of your command; the titles of apps, windows and chats, and project folder names; the labels of controls in the front window when the interface is operated. The contents of fields and documents, and selected text, are not sent to it."
-    )
     private var command: CommandController { model.runtime.command }
+    /// What leaves this Mac, as the settings in force make it.
+    private var disclosure: String {
+        var text = tr("配置好模型后，这些内容会离开这台 Mac，发给你选的模型服务：你说出的命令原话；应用、窗口和会话的标题，项目文件夹名；操作界面时前台窗口里控件上的文字。",
+                      "Once a model is set up, the following leaves this Mac for the model service you chose: the words of your command; the titles of apps, windows and chats, and project folder names; the labels of controls in the front window when the interface is operated.")
+        if settings.sight {
+            text += tr("你打开了“让模型看窗口截图”：模型要看时，被操作的那个窗口的截图也会发给它，窗口里显示的内容都在图上。",
+                       " You turned on letting the model see: when it asks to look, a picture of the window being operated is sent too, with everything that window shows.")
+        } else {
+            text += tr("输入框和文档的内容、选中的文字、截图不会发给它。", " The contents of fields and documents, selected text and screenshots are not sent to it.")
+        }
+        if settings.tools == .all {
+            text += tr("你打开了 Harness 的全部工具：模型用它们读到的文件内容、命令输出和网页内容也会发给它。",
+                       " You turned on the harness's own tools: what the model reads with them, file contents, command output and web pages, is sent to it as well.")
+        }
+        return text
+    }
 
     var body: some View {
         StandardPage(title: tr("命令模式", "Command mode"),
                      subtitle: tr("按住命令键说一句话，VibeWand 替你找到应用、会话或控件。", "Hold the command key and say what you want. VibeWand finds the app, chat or control.")) {
             HStack(alignment: .top, spacing: 16) {
-                VStack(spacing: 16) { switchCard; modelCard; notesCard }.frame(maxWidth: .infinity, alignment: .topLeading)
-                VStack(spacing: 16) { permissionCard; conversationCard; recordsCard; keyCard }.frame(maxWidth: .infinity, alignment: .topLeading)
+                VStack(spacing: 16) { switchCard; modelCard; notesCard; keyCard }.frame(maxWidth: .infinity, alignment: .topLeading)
+                VStack(spacing: 16) { reachCard; permissionCard; conversationCard; recordsCard }.frame(maxWidth: .infinity, alignment: .topLeading)
             }
         }
         .onAppear { draft = settings.model; notes = settings.instructions; conversation = conversationLine }
@@ -39,7 +49,9 @@ struct CommandSettingsPage: View {
             guard settings.kernelMode == .harness, let harness = settings.harness else { harnessVersion = nil; return }
             harnessVersion = await command.version(of: harness)
         }
-        .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in conversation = conversationLine }
+        .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in
+            conversation = conversationLine; mayRecord = CGPreflightScreenCaptureAccess()
+        }
         .sheet(isPresented: $showingHistory) { CommandHistorySheet(command: command) }
         .alert(tr("跳过全部确认？", "Bypass all confirmations?"), isPresented: $askingBypass) {
             Button(tr("跳过", "Bypass"), role: .destructive) { settings.setPermission(.bypass) }
@@ -55,12 +67,12 @@ struct CommandSettingsPage: View {
             Label(readiness.text, systemImage: readiness.ready ? "checkmark.circle" : "exclamationmark.circle")
                 .font(.system(size: 14, weight: .medium)).foregroundStyle(readiness.ready ? Color.primary : Color.orange)
             SettingsNote(text: tr("默认开启。模型没配好之前，命令键不起作用，设备上的按键也保持原样。", "On by default. Until a model is set up the command key does nothing, and the device's keys keep what they did."))
-            SettingsNote(text: tr(Self.disclosure.0, Self.disclosure.1))
+            SettingsNote(text: disclosure)
         }
     }
     private var readiness: (ready: Bool, text: String) {
         if !settings.enabled { return (false, tr("已关闭", "Turned off")) }
-        if !Self.kernelReady { return (false, tr("此版本未包含命令内核", "This build does not include the command kernel")) }
+        if settings.kernelMode == .builtIn, !kernelReady { return (false, tr("此版本未包含命令内核", "This build does not include the command kernel")) }
         if settings.kernelMode == .harness {
             return settings.usable ? (true, tr("已就绪：经 DeepSeek Harness 使用 ", "Ready: through DeepSeek Harness, on ") + settings.modelName)
                                    : (false, tr("没有找到已安装的 DeepSeek Harness", "No installed DeepSeek Harness found"))
@@ -73,9 +85,11 @@ struct CommandSettingsPage: View {
     private var modelCard: some View {
         SettingsCard(title: tr("模型", "Model")) {
             Picker(tr("内核", "Kernel"), selection: Binding(get: { settings.kernelMode }, set: { settings.setKernelMode($0); checked = nil })) {
-                Text(tr("内置（VibeWand 自带）", "Built in (shipped with VibeWand)")).tag(CommandKernelMode.builtIn)
-                Text(tr("插件模式（用已安装的 DeepSeek Harness）", "Plugin mode (the DeepSeek Harness you installed)")).tag(CommandKernelMode.harness)
+                Text(tr("内置（VibeWand 自带的 DeepSeek Harness）", "Built in (the DeepSeek Harness VibeWand ships)")).tag(CommandKernelMode.builtIn)
+                Text(tr("插件模式（你已安装的 DeepSeek Harness）", "Plugin mode (the DeepSeek Harness you installed)")).tag(CommandKernelMode.harness)
             }
+            SettingsNote(text: tr("两种内核跑的是同一个协调器，用法相同。内置的那份只是替你装好了，模型在下面配置；插件模式用你自己那份里的模型、密钥和登录，对话也存在它那里。",
+                                  "Both kernels run the same coordinator and are used the same way. The built-in one is simply installed for you, with its model set up below; plugin mode uses the models, keys and sign-ins of your own harness, which also keeps the conversations."))
             if settings.kernelMode == .harness { harnessSettings } else { builtInSettings }
             if let checked {
                 Label(checked.detail, systemImage: checked.ok ? "checkmark.circle" : "xmark.octagon").font(.system(size: 13))
@@ -87,22 +101,30 @@ struct CommandSettingsPage: View {
     /// Plugin mode: the user's own harness runs the coordinator. Its models and sign-ins are set up in its own apps.
     @ViewBuilder private var harnessSettings: some View {
         if let harness = settings.harness {
-            let verified = harnessVersion.map(HarnessPlugin.verified.contains) ?? true
+            let verified = harnessVersion.map(Harness.verified.contains) ?? true
             Label(harnessVersion.map { "DeepSeek Harness \($0) · " + (verified ? tr("已验证", "verified") : tr("未验证", "not verified")) } ?? tr("正在询问 DeepSeek Harness 的版本…", "Asking DeepSeek Harness for its version…"),
                   systemImage: verified ? "checkmark.seal" : "exclamationmark.triangle")
                 .font(.system(size: 14, weight: .medium)).foregroundStyle(verified ? Color.primary : Color.orange)
             if !verified {
                 SettingsToggleRow(title: tr("仍然在这个未验证的版本上尝试", "Try this unverified version anyway"),
                                   isOn: Binding(get: { settings.harnessUnverified }, set: { settings.setHarnessUnverified($0) }))
-                SettingsNote(text: tr("插件声明兼容的 DeepSeek Harness 版本是 \(HarnessPlugin.verified.joined(separator: "、"))，Harness 自己会拒绝在其他版本上加载它。打开这一项，VibeWand 会按 Harness 的规矩为“这个插件版本 + 这个 Harness 版本”登记一条例外；它可能出错，出错时改回内置内核。",
-                                      "The plugin declares DeepSeek Harness \(HarnessPlugin.verified.joined(separator: ", ")) as compatible, and the harness itself refuses to load it on any other. With this on, VibeWand records an exemption the way the harness does, for exactly this plugin version on this harness version. It may fail; switch back to the built-in kernel if it does."))
+                SettingsNote(text: tr("插件声明兼容的 DeepSeek Harness 版本是 \(Harness.verified.joined(separator: "、"))，Harness 自己会拒绝在其他版本上加载它。打开这一项，VibeWand 会按 Harness 的规矩为“这个插件版本 + 这个 Harness 版本”登记一条例外；它可能出错，出错时改回内置内核。",
+                                      "The plugin declares DeepSeek Harness \(Harness.verified.joined(separator: ", ")) as compatible, and the harness itself refuses to load it on any other. With this on, VibeWand records an exemption the way the harness does, for exactly this plugin version on this harness version. It may fail; switch back to the built-in kernel if it does."))
             }
-            SettingsNote(text: tr("VibeWand 的协调器作为插件运行在你自己的 DeepSeek Harness 上：模型服务、密钥和登录都用它的，每段对话保存在它那里，可以在它的桌面版或网页版的“未分组”里打开，查看完整上下文。模型能调用的仍然只有 VibeWand 的 13 个工具。它会在 \(harness.home.path)/profiles/vibewand 里写入自己的配置，别的不动。",
-                                  "VibeWand's coordinator runs as a plugin on your own DeepSeek Harness: the model services, keys and sign-ins are its own, and each conversation is kept there, where its desktop or web app lists it under Ungrouped with its full context. The model can still call VibeWand's 13 tools and nothing else. VibeWand writes its own profile to \(harness.home.path)/profiles/vibewand and touches nothing else."))
+            SettingsNote(text: tr("每段对话保存在你的 Harness 里，标题以“VibeWand ·”开头，不属于任何项目，列在它的“未分组”下，点开能看到完整上下文。VibeWand 只在 \(harness.home?.path ?? "")/profiles/vibewand 里写自己的配置，别的不动。",
+                                  "Each conversation is kept in your harness under a title that starts with “VibeWand ·”. It belongs to no project, so the harness lists it under Ungrouped, where it opens with its whole context. VibeWand writes its own profile to \(harness.home?.path ?? "")/profiles/vibewand and touches nothing else."))
+            HStack {
+                Button(tr("在浏览器里查看对话", "View conversations in the browser"), action: command.openHarnessViewer).buttonStyle(.borderedProminent)
+                Button(tr("打开 DeepSeek Harness", "Open DeepSeek Harness")) {
+                    if let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.deepseek.dsh") { NSWorkspace.shared.open(app) }
+                }.disabled(NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.deepseek.dsh") == nil)
+            }
+            SettingsNote(text: tr("“在浏览器里查看”会新启动一份 Harness 网页版，列表一定是最新的。已经开着的 Harness 桌面版或网页版不会发现别的程序写入的新对话：桌面版要重新打开，网页版要刷新页面，而且新对话在点开之前显示为“未命名”。",
+                                  "“View in the browser” starts a fresh copy of the harness's web app, so its list is always current. A harness desktop or web app that is already open does not notice a conversation another program wrote: reopen the desktop app or reload the web page, and until it is opened a new conversation shows as Untitled."))
             Divider()
             Picker(tr("模型", "Model"), selection: Binding(get: { settings.harnessModel }, set: { settings.setHarnessModel($0) })) {
-                Text(tr("跟随 Harness 的默认（\(harness.defaultModel.provider) / \(harness.defaultModel.model)）", "Follow the harness's default (\(harness.defaultModel.provider) / \(harness.defaultModel.model))")).tag(HarnessPlugin.Model?.none)
-                ForEach(harnessChoices, id: \.self) { Text("\($0.provider) / \($0.model)").tag(HarnessPlugin.Model?.some($0)) }
+                Text(tr("跟随 Harness 的默认（\(harness.defaultModel.provider) / \(harness.defaultModel.model)）", "Follow the harness's default (\(harness.defaultModel.provider) / \(harness.defaultModel.model))")).tag(Harness.Model?.none)
+                ForEach(harnessChoices, id: \.self) { Text("\($0.provider) / \($0.model)").tag(Harness.Model?.some($0)) }
             }
             Picker(tr("思考强度", "Reasoning"), selection: Binding(get: { settings.harnessReasoning }, set: { settings.setHarnessReasoning($0) })) {
                 Text(tr("模型默认", "Model default")).tag(ModelRoute.Reasoning.automatic)
@@ -115,9 +137,6 @@ struct CommandSettingsPage: View {
                                   "The default model and the services on offer come from the settings of the harness's \(harness.source == "web" ? "web" : "desktop") app, read each time a conversation starts; a change made there applies to the next conversation. After a test, every model of your harness is listed here. A reasoning level applies only when the chosen model offers it."))
             HStack {
                 Button(tr("测试并列出模型", "Test and list models"), action: testHarness).disabled(busy)
-                Button(tr("打开 DeepSeek Harness", "Open DeepSeek Harness")) {
-                    if let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.deepseek.dsh") { NSWorkspace.shared.open(app) }
-                }.disabled(NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.deepseek.dsh") == nil)
                 if busy { ProgressView().controlSize(.small) }
             }
             SettingsNote(text: tr("每次测试会在 Harness 里留下一段很短的对话。", "Each test leaves one very short conversation in the harness."))
@@ -129,8 +148,8 @@ struct CommandSettingsPage: View {
         }
     }
     /// The harness's models as its last conversation listed them, with the saved choice kept in the list.
-    private var harnessChoices: [HarnessPlugin.Model] {
-        let listed = command.catalog.map { HarnessPlugin.Model(provider: $0.provider, model: $0.model) }
+    private var harnessChoices: [Harness.Model] {
+        let listed = command.catalog.map { Harness.Model(provider: $0.provider, model: $0.model) }
         return (settings.harnessModel.map { [$0] } ?? []).filter { !listed.contains($0) } + listed
     }
     private func testHarness() {
@@ -139,7 +158,189 @@ struct CommandSettingsPage: View {
     }
 
     @ViewBuilder private var builtInSettings: some View {
-        Picker(tr("服务", "Service"), selection: Binding(get: { draft.endpoint }, set: { draft = settings.configuration(for: $0); listed = []; listNote = ""; checked = nil; keyDraft = "" })) {
+        CommandModelBasics(model: model, settings: settings, draft: $draft) { checked = nil }
+        HStack(spacing: 16) {
+            Picker(tr("思考强度", "Reasoning"), selection: $draft.reasoning) {
+                Text(tr("模型默认", "Model default")).tag(ModelRoute.Reasoning.automatic)
+                Text(tr("关闭", "Off")).tag(ModelRoute.Reasoning.off)
+                Text(tr("低", "Low")).tag(ModelRoute.Reasoning.low)
+                Text(tr("中", "Medium")).tag(ModelRoute.Reasoning.medium)
+                Text(tr("高", "High")).tag(ModelRoute.Reasoning.high)
+            }.fixedSize()
+            Spacer(minLength: 0)
+            Text(tr("上下文长度", "Context length")).font(.system(size: 13))
+            TextField(tr("自动", "Automatic"), text: Binding(
+                get: { draft.contextWindow > 0 ? String(draft.contextWindow) : "" },
+                set: { draft.contextWindow = Int($0.filter(\.isNumber)) ?? 0 })).textFieldStyle(.roundedBorder).frame(width: 110)
+        }
+        SettingsNote(text: tr("思考强度选“模型默认”时不发送任何参数；选了档位而服务不认识时，测试会报错。上下文长度是模型能容纳的 token 数，从列表里选模型时会自动填上；留空由内核按 262144 计算。对话用到八成后，下一条命令自动开始新对话。",
+                              "“Model default” sends no reasoning parameter; a level the service does not know shows up as an error when you test. Context length is how many tokens the model holds, filled in when you pick a model from the list; left empty, the kernel assumes 262144. Once a conversation has used four fifths of it, the next command starts a new one."))
+        DisclosureGroup(tr("附加参数（JSON）", "Extra settings (JSON)")) {
+            TextEditor(text: $draft.extra).font(.system(size: 12, design: .monospaced)).frame(height: 64)
+                .overlay { RoundedRectangle(cornerRadius: 6).stroke(Color.primary.opacity(0.12)) }
+            SettingsNote(text: tr("写进内核里这个服务的配置，覆盖上面生成的同名项。例如本机 Qwen 关闭思考：{\"compat\": {\"thinkingFormat\": \"qwen-chat-template\"}}；自定义请求头：{\"headers\": {\"X-Title\": \"VibeWand\"}}。",
+                                  "Merged into the kernel's settings for this service, over the generated ones of the same name. For a local Qwen that should stop thinking: {\"compat\": {\"thinkingFormat\": \"qwen-chat-template\"}}; for extra request headers: {\"headers\": {\"X-Title\": \"VibeWand\"}}."))
+        }.font(.system(size: 13))
+        HStack {
+            Button(tr("保存配置", "Save settings")) { model.perform { try settings.setModel(draft); draft = settings.model } }.disabled(draft == settings.model)
+            Button(tr("保存并测试", "Save and test"), action: test).disabled(busy || draft.model.isEmpty || !kernelReady)
+            if busy { ProgressView().controlSize(.small) }
+        }
+    }
+    private func test() {
+        model.perform { try settings.setModel(draft); draft = settings.model }
+        guard draft == settings.model else { return }
+        busy = true; checked = nil
+        Task { checked = await command.probe(); busy = false }
+    }
+
+    private var notesCard: some View {
+        SettingsCard(title: tr("给模型的备注", "Notes for the model")) {
+            TextEditor(text: $notes).font(.system(size: 13)).frame(height: 76)
+                .overlay { RoundedRectangle(cornerRadius: 6).stroke(Color.primary.opacity(0.12)) }
+            HStack {
+                Button(tr("保存备注", "Save notes")) { settings.setInstructions(notes); notes = settings.instructions }
+                    .disabled(notes.trimmingCharacters(in: .whitespacesAndNewlines) == settings.instructions)
+            }
+            SettingsNote(text: tr("每次对话开头都会告诉模型的话：常用的叫法、偏好的应用、项目的别名。它补充规则，不能改变规则；随命令一起发给模型服务。",
+                                  "Told to the model at the start of every conversation: what you call things, the apps you prefer, nicknames of projects. It adds to the rules and cannot change them, and it is sent to the model service with your commands."))
+        }
+    }
+
+    // MARK: Permission, conversation, records
+
+    /// What the model can use: whose tools, and whether it may look at the window.
+    private var reachCard: some View {
+        SettingsCard(title: tr("模型能用什么", "What the model can use")) {
+            let whole = settings.kernelMode == .harness && settings.harness?.overlay != nil
+            Picker(tr("工具", "Tools"), selection: Binding(get: { settings.tools }, set: { settings.setHarnessTools($0) })) {
+                Text(tr("仅 VibeWand 的工具", "VibeWand's tools only")).tag(Harness.Tools.own)
+                Text(tr("加上 Harness 的全部工具", "The harness's own tools as well")).tag(Harness.Tools.all)
+            }.pickerStyle(.segmented).disabled(!whole)
+            SettingsNote(text: !whole ? tr("内置内核只带 VibeWand 的工具：找应用和会话、读取和操作前台窗口的控件。换成插件模式后，可以把你那份 Harness 自带的工具也交给模型。",
+                                           "The built-in kernel carries VibeWand's tools only: finding apps and chats, reading and operating the controls of the front window. In plugin mode the tools of your own harness can be handed to the model as well.")
+                : settings.tools == .own ? tr("模型只能找应用和会话、读取和操作前台窗口的控件。没有命令行，不读写文件，不上网。",
+                                              "The model can find apps and chats, and read and operate the controls of the front window. No shell, no files, no web.")
+                : tr("除了 VibeWand 的工具，模型还能用 Harness 自带的命令行、文件读写、网页搜索、技能和子任务，相当于对着你的 Harness 说话。它的工作目录是 VibeWand 的一个临时目录，回答较长时悬浮窗只显示一行，全文在 Harness 里看。",
+                     "Beside VibeWand's tools the model has the harness's own shell, file tools, web search, skills and subagents: you are talking to your harness. Its working directory is a scratch folder of VibeWand's, and when an answer is long the overlay shows one line while the whole of it is in the harness."))
+            Divider()
+            SettingsToggleRow(title: tr("让模型看窗口截图", "Let the model see the window"), isOn: Binding(get: { settings.sight }, set: { on in
+                settings.setSight(on)
+                if on, !CGPreflightScreenCaptureAccess() { mayRecord = CGRequestScreenCaptureAccess() }
+            }))
+            if settings.sight {
+                HStack {
+                    Label(mayRecord ? tr("屏幕录制权限已授权", "Screen recording is allowed") : tr("还没有屏幕录制权限", "Screen recording is not allowed yet"),
+                          systemImage: mayRecord ? "checkmark.shield" : "exclamationmark.triangle")
+                        .font(.system(size: 14, weight: .medium)).foregroundStyle(mayRecord ? Color.primary : Color.orange)
+                    Spacer(minLength: 8)
+                    if !mayRecord {
+                        Button(tr("打开系统设置…", "Open System Settings…")) {
+                            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!)
+                        }
+                    }
+                }
+            }
+            SettingsNote(text: tr("默认关闭。打开后模型多一个工具：需要时看一眼被操作的那个窗口的截图，上面标着控件的编号，用来读窗口里显示的内容、分清长得一样的控件、核对只有眼睛看得出的结果。它只拍那一个窗口，仍然不点坐标。需要 macOS 的“屏幕录制”权限和一个能看图的模型；授权后要重新打开 VibeWand 才生效。",
+                                  "Off by default. When on, the model has one more tool: a picture of the window being operated, taken when it asks, with the controls' ids marked on it. It is for reading what the window shows, telling look-alike controls apart and checking results only the eye can see. Only that one window is in the picture, and nothing is clicked by coordinate. It needs the macOS Screen Recording permission and a model that takes pictures; VibeWand has to be reopened after the permission is given."))
+        }
+    }
+
+    private var permissionCard: some View {
+        SettingsCard(title: tr("权限", "Permission")) {
+            Picker("", selection: Binding(get: { settings.permission }, set: { if $0 == .bypass { askingBypass = true } else { settings.setPermission($0) } })) {
+                ForEach(PermissionMode.allCases, id: \.self) { Text($0.title).tag($0) }
+            }.pickerStyle(.segmented).labelsHidden()
+            SettingsNote(text: settings.permission.summary)
+            if settings.tools == .all { SettingsNote(text: settings.permission.harnessSummary) }
+            SettingsNote(text: tr("当前档位显示在悬浮窗的命令下方。无论哪一档，返回键都能随时停止，需要挑选时仍会让你选。",
+                                  "The mode in force is shown under a command on the overlay. In every mode the back key stops at any moment, and a choice is still yours to make."))
+        }
+    }
+
+    private var conversationCard: some View {
+        SettingsCard(title: tr("对话与上下文", "Conversation and context")) {
+            Label(conversation, systemImage: "text.bubble").font(.system(size: 14, weight: .medium)).fixedSize(horizontal: false, vertical: true)
+            Picker(tr("保留对话", "Keep a conversation"), selection: Binding(get: { settings.historyMinutes }, set: { settings.setHistoryMinutes($0) })) {
+                Text(tr("每条命令重新开始", "Start afresh every command")).tag(0)
+                Text(tr("5 分钟内接着说", "Carry on within 5 minutes")).tag(5)
+                Text(tr("30 分钟内接着说", "Carry on within 30 minutes")).tag(30)
+                Text(tr("2 小时内接着说", "Carry on within 2 hours")).tag(120)
+                Text(tr("一天内接着说", "Carry on within a day")).tag(1_440)
+                Text(tr("一周内接着说", "Carry on within a week")).tag(10_080)
+                Text(tr("一直保留，直到我开始新对话", "Keep it until I start a new one")).tag(-1)
+            }
+            Picker(tr("单条命令最长用时", "Longest one command may run"), selection: Binding(get: { settings.timeLimit }, set: { settings.setTimeLimit($0) })) {
+                ForEach([60, 120, 300, 600], id: \.self) { Text(tr("\($0 / 60) 分钟", $0 == 60 ? "1 minute" : "\($0 / 60) minutes")).tag($0) }
+            }
+            Picker(tr("单条命令最多步数", "Most steps in one command"), selection: Binding(get: { settings.stepLimit }, set: { settings.setStepLimit($0) })) {
+                ForEach([12, 24, 48], id: \.self) { Text("\($0)").tag($0) }
+            }
+            Button(tr("现在开始新对话", "Start a new conversation now")) { command.endConversation(); conversation = conversationLine }.disabled(command.turns == 0)
+            SettingsNote(text: tr("同一段对话里可以接着说“不是这个，换下一个”。对话存在内核的会话库里：内核进程空闲 5 分钟后退出，下一条命令再把同一段对话接上，重新打开 VibeWand 之后也一样。保留得越久，上下文占得越多，回答越慢也越贵；用到八成时下一条命令自动开始新对话。本机模型建议用时放长。改动命令模式的任何设置都会开始新对话。",
+                                  "Within one conversation you can go on with “not that one, the next”. The conversation lives in the kernel's session store: the kernel process exits after five idle minutes and the next command takes the same conversation up again, also after VibeWand is reopened. The longer it is kept, the more context it holds and the slower and costlier each answer; at four fifths full the next command starts a new one. Give a local model more time. Changing any command-mode setting starts a new conversation."))
+            if settings.kernelMode == .harness {
+                SettingsNote(text: tr("在 Harness 里点开过的对话会被它接手，VibeWand 这边接不上时自动开始新对话。", "A conversation you opened in the harness is taken over by it; when VibeWand cannot take it up again it starts a new one."))
+            }
+        }
+    }
+    private var conversationLine: String {
+        guard command.turns > 0, settings.conversation != nil else { return tr("当前没有进行中的对话，下一条命令是新对话", "No conversation in progress. The next command starts one.") }
+        let turns = tr("当前对话已有 \(command.turns) 条命令", command.turns == 1 ? "This conversation has 1 command" : "This conversation has \(command.turns) commands")
+        guard let usage = command.usage else { return turns }
+        return turns + tr("，上下文 ", ", context ") + "\(CommandController.tokens(usage.used)) / \(CommandController.tokens(usage.size))（\(usage.used * 100 / usage.size)%）"
+    }
+
+    private var recordsCard: some View {
+        SettingsCard(title: tr("Agent 记录", "Agent records")) {
+            HStack {
+                Button(tr("查看记录…", "View records…")) { showingHistory = true }.buttonStyle(.borderedProminent)
+                Button(tr("在访达中显示", "Show in Finder")) {
+                    try? FileManager.default.createDirectory(at: command.support, withIntermediateDirectories: true)
+                    NSWorkspace.shared.activateFileViewerSelecting([command.support])
+                }
+                Button(tr("清除全部记录", "Clear all records")) { command.clearRecords(); conversation = conversationLine }
+            }
+            SettingsNote(text: tr("每条命令的原话、模型的思考和回答、每一步工具调用和它返回的内容（应用、窗口、会话的标题和控件上的文字，过长的截断；打开看截图后还有模型看过的图）都保存在本机，14 天后自动删除。内置内核自己的会话库只留还能接着说的那一段。",
+                                  "The words of each command, what the model thought and said, and every tool call with what it returned (titles of apps, windows and chats and the labels of controls, cut when long; with seeing turned on, the pictures the model looked at as well) are kept on this Mac and deleted after 14 days. The built-in kernel's own session store keeps only the conversation that can still be carried on."))
+        }
+    }
+
+    private var keyCard: some View {
+        SettingsCard(title: tr("命令键", "Command key")) {
+            SettingsNote(text: tr("按住说话，松开执行。VibeKey：长按旋钮并保持（命令模式可用时，模型入口改为长按 OK）。手柄：按住 L2。",
+                                  "Hold to speak, release to run. VibeKey: long-press the dial and keep holding (the model entry moves to a long press of OK while command mode is usable). Controller: hold L2."))
+            Picker(tr("键盘", "Keyboard"), selection: Binding(get: { settings.hotkey }, set: { settings.setHotkey($0) })) {
+                ForEach(CommandHotkey.allCases, id: \.self) { Text($0.title).tag($0) }
+            }
+            SettingsNote(text: tr("单独按住这个键约 0.2 秒开始听；和其他键一起按时照常是修饰键。需要选择或确认时，方向键、回车和 Esc 交给命令，其余时间不受影响。",
+                                  "Hold this key on its own for about 0.2 s to start listening; with another key it is an ordinary modifier. When a choice or confirmation is waiting, the arrows, Return and Esc answer it; otherwise they are untouched."))
+            SettingsNote(text: tr("已被输入法或其他软件占用的键到不了 VibeWand，例如豆包输入法用右 ⌥ 做语音键。按住没有反应时请换一个。",
+                                  "A key that an input method or another app has taken never reaches VibeWand; the Doubao input method, for one, uses right ⌥ for voice. If holding the key does nothing, pick another."))
+            Divider()
+            SettingsNote(text: tr("也可以在“设备与按键”里把“命令（按住说话）”绑到任意按键。", "You can also bind “Command (hold to speak)” to any button under Devices & inputs."))
+            Button(tr("设备与按键…", "Devices & inputs…")) { model.section = .devices }
+        }
+    }
+
+    private var kernelReady: Bool { settings.harness(.builtIn) != nil }
+}
+
+/// The least a model needs to be usable: where it is served, the key for that address, and which model. Settings
+/// goes on to the finer points below it; the first-run guide stops here.
+struct CommandModelBasics: View {
+    @ObservedObject var model: SettingsModel
+    @ObservedObject var settings: CommandSettings
+    @Binding var draft: CommandModel
+    /// Called when another service is picked: what was known about the old one no longer holds.
+    var changed: () -> Void = {}
+    @State private var keyDraft = ""
+    @State private var listed: [ListedModel] = []
+    @State private var listNote = ""
+    @State private var fetching = false
+
+    var body: some View {
+        Picker(tr("服务", "Service"), selection: Binding(get: { draft.endpoint }, set: { draft = settings.configuration(for: $0); listed = []; listNote = ""; keyDraft = ""; changed() })) {
             ForEach(CommandEndpoint.all) { Text($0.title).tag($0.id) }
         }
         if draft.endpoint == CommandEndpoint.custom {
@@ -175,38 +376,12 @@ struct CommandSettingsPage: View {
                         }
                     }
                 }.disabled(listed.isEmpty).fixedSize()
-                Button(tr("获取模型列表", "Fetch models"), action: fetchModels).disabled(busy || draft.origin == nil)
+                Button(tr("获取模型列表", "Fetch models"), action: fetchModels).disabled(fetching || draft.origin == nil)
             }
             if !listNote.isEmpty { SettingsNote(text: listNote) }
         }
-        HStack(spacing: 16) {
-            Picker(tr("思考强度", "Reasoning"), selection: $draft.reasoning) {
-                Text(tr("模型默认", "Model default")).tag(ModelRoute.Reasoning.automatic)
-                Text(tr("关闭", "Off")).tag(ModelRoute.Reasoning.off)
-                Text(tr("低", "Low")).tag(ModelRoute.Reasoning.low)
-                Text(tr("中", "Medium")).tag(ModelRoute.Reasoning.medium)
-                Text(tr("高", "High")).tag(ModelRoute.Reasoning.high)
-            }.fixedSize()
-            Spacer(minLength: 0)
-            Text(tr("上下文长度", "Context length")).font(.system(size: 13))
-            TextField(tr("自动", "Automatic"), text: Binding(
-                get: { draft.contextWindow > 0 ? String(draft.contextWindow) : "" },
-                set: { draft.contextWindow = Int($0.filter(\.isNumber)) ?? 0 })).textFieldStyle(.roundedBorder).frame(width: 110)
-        }
-        SettingsNote(text: tr("思考强度选“模型默认”时不发送任何参数；选了档位而服务不认识时，测试会报错。上下文长度是模型能容纳的 token 数，从列表里选模型时会自动填上；留空由内核按 262144 计算。对话用到八成后，下一条命令自动开始新对话。",
-                              "“Model default” sends no reasoning parameter; a level the service does not know shows up as an error when you test. Context length is how many tokens the model holds, filled in when you pick a model from the list; left empty, the kernel assumes 262144. Once a conversation has used four fifths of it, the next command starts a new one."))
-        DisclosureGroup(tr("附加参数（JSON）", "Extra settings (JSON)")) {
-            TextEditor(text: $draft.extra).font(.system(size: 12, design: .monospaced)).frame(height: 64)
-                .overlay { RoundedRectangle(cornerRadius: 6).stroke(Color.primary.opacity(0.12)) }
-            SettingsNote(text: tr("写进内核里这个服务的配置，覆盖上面生成的同名项。例如本机 Qwen 关闭思考：{\"compat\": {\"thinkingFormat\": \"qwen-chat-template\"}}；自定义请求头：{\"headers\": {\"X-Title\": \"VibeWand\"}}。",
-                                  "Merged into the kernel's settings for this service, over the generated ones of the same name. For a local Qwen that should stop thinking: {\"compat\": {\"thinkingFormat\": \"qwen-chat-template\"}}; for extra request headers: {\"headers\": {\"X-Title\": \"VibeWand\"}}."))
-        }.font(.system(size: 13))
-        HStack {
-            Button(tr("保存配置", "Save settings")) { model.perform { try settings.setModel(draft); draft = settings.model } }.disabled(draft == settings.model)
-            Button(tr("保存并测试", "Save and test"), action: test).disabled(busy || draft.model.isEmpty || !Self.kernelReady)
-            if busy { ProgressView().controlSize(.small) }
-        }
     }
+
     private var keyState: String {
         if settings.keySaved(for: draft) { return tr("这个地址的密钥已保存", "Key saved for this address") }
         return draft.keyOptional ? tr("尚未保存密钥（这个地址可以不需要）", "No key saved (this address may not need one)") : tr("尚未保存这个地址的密钥", "No key saved for this address")
@@ -219,10 +394,10 @@ struct CommandSettingsPage: View {
     }
 
     private func fetchModels() {
-        busy = true; listNote = ""
+        fetching = true; listNote = ""
         let wanted = draft, typed = keyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         Task {
-            defer { busy = false }
+            defer { fetching = false }
             // A key typed but not yet saved is tried as it is; it goes nowhere but the address shown.
             let key = typed.isEmpty ? await settings.readKey(for: wanted) : typed
             do {
@@ -240,99 +415,6 @@ struct CommandSettingsPage: View {
             }
         }
     }
-    private func test() {
-        model.perform { try settings.setModel(draft); draft = settings.model }
-        guard draft == settings.model else { return }
-        busy = true; checked = nil
-        Task { checked = await command.probe(); busy = false }
-    }
-
-    private var notesCard: some View {
-        SettingsCard(title: tr("给模型的备注", "Notes for the model")) {
-            TextEditor(text: $notes).font(.system(size: 13)).frame(height: 76)
-                .overlay { RoundedRectangle(cornerRadius: 6).stroke(Color.primary.opacity(0.12)) }
-            HStack {
-                Button(tr("保存备注", "Save notes")) { settings.setInstructions(notes); notes = settings.instructions }
-                    .disabled(notes.trimmingCharacters(in: .whitespacesAndNewlines) == settings.instructions)
-            }
-            SettingsNote(text: tr("每次对话开头都会告诉模型的话：常用的叫法、偏好的应用、项目的别名。它补充规则，不能改变规则；随命令一起发给模型服务。",
-                                  "Told to the model at the start of every conversation: what you call things, the apps you prefer, nicknames of projects. It adds to the rules and cannot change them, and it is sent to the model service with your commands."))
-        }
-    }
-
-    // MARK: Permission, conversation, records
-
-    private var permissionCard: some View {
-        SettingsCard(title: tr("权限", "Permission")) {
-            Picker("", selection: Binding(get: { settings.permission }, set: { if $0 == .bypass { askingBypass = true } else { settings.setPermission($0) } })) {
-                ForEach(PermissionMode.allCases, id: \.self) { Text($0.title).tag($0) }
-            }.pickerStyle(.segmented).labelsHidden()
-            SettingsNote(text: settings.permission.summary)
-            SettingsNote(text: tr("当前档位显示在悬浮窗的命令下方。无论哪一档，返回键都能随时停止，需要挑选时仍会让你选。",
-                                  "The mode in force is shown under a command on the overlay. In every mode the back key stops at any moment, and a choice is still yours to make."))
-        }
-    }
-
-    private var conversationCard: some View {
-        SettingsCard(title: tr("对话与上下文", "Conversation and context")) {
-            Label(conversation, systemImage: "text.bubble").font(.system(size: 14, weight: .medium)).fixedSize(horizontal: false, vertical: true)
-            Picker(tr("保留对话", "Keep a conversation"), selection: Binding(get: { settings.historyMinutes }, set: { settings.setHistoryMinutes($0) })) {
-                Text(tr("每条命令重新开始", "Start afresh every command")).tag(0)
-                Text(tr("5 分钟内接着说", "Carry on within 5 minutes")).tag(5)
-                Text(tr("30 分钟内接着说", "Carry on within 30 minutes")).tag(30)
-                Text(tr("2 小时内接着说", "Carry on within 2 hours")).tag(120)
-            }
-            Picker(tr("单条命令最长用时", "Longest one command may run"), selection: Binding(get: { settings.timeLimit }, set: { settings.setTimeLimit($0) })) {
-                ForEach([60, 120, 300, 600], id: \.self) { Text(tr("\($0 / 60) 分钟", $0 == 60 ? "1 minute" : "\($0 / 60) minutes")).tag($0) }
-            }
-            Picker(tr("单条命令最多步数", "Most steps in one command"), selection: Binding(get: { settings.stepLimit }, set: { settings.setStepLimit($0) })) {
-                ForEach([12, 24, 48], id: \.self) { Text("\($0)").tag($0) }
-            }
-            Button(tr("现在开始新对话", "Start a new conversation now")) { command.shutdownKernel(); conversation = conversationLine }.disabled(command.turns == 0)
-            SettingsNote(text: tr("同一段对话里可以接着说“不是这个，换下一个”。保留得越久，上下文占得越多，回答越慢也越贵；本机模型建议用时放长。改动这里任何一项都会开始新对话。",
-                                  "Within one conversation you can go on with “not that one, the next”. The longer it is kept, the more context it holds and the slower and costlier each answer; give a local model more time. Changing anything here starts a new conversation."))
-        }
-    }
-    private var conversationLine: String {
-        guard command.turns > 0 else { return tr("当前没有进行中的对话，下一条命令是新对话", "No conversation in progress. The next command starts one.") }
-        let turns = tr("当前对话已有 \(command.turns) 条命令", command.turns == 1 ? "This conversation has 1 command" : "This conversation has \(command.turns) commands")
-        guard let usage = command.usage else { return turns }
-        return turns + tr("，上下文 ", ", context ") + "\(CommandController.tokens(usage.used)) / \(CommandController.tokens(usage.size))（\(usage.used * 100 / usage.size)%）"
-    }
-
-    private var recordsCard: some View {
-        SettingsCard(title: tr("Agent 记录", "Agent records")) {
-            HStack {
-                Button(tr("查看记录…", "View records…")) { showingHistory = true }.buttonStyle(.borderedProminent)
-                Button(tr("在访达中显示", "Show in Finder")) {
-                    try? FileManager.default.createDirectory(at: command.support, withIntermediateDirectories: true)
-                    NSWorkspace.shared.activateFileViewerSelecting([command.support])
-                }
-                Button(tr("清除全部记录", "Clear all records")) { command.clearRecords(); conversation = conversationLine }
-            }
-            SettingsNote(text: tr("每条命令的原话、模型的思考和回答、每一步工具调用和它返回的内容（应用、窗口、会话的标题和控件上的文字，过长的截断）都保存在本机，14 天后自动删除。内核自己的对话日志只保留最近一次启动的。",
-                                  "The words of each command, what the model thought and said, and every tool call with what it returned (titles of apps, windows and chats and the labels of controls, cut when long) are kept on this Mac and deleted after 14 days. The kernel's own conversation log is kept only for its latest start."))
-        }
-    }
-
-    private var keyCard: some View {
-        SettingsCard(title: tr("命令键", "Command key")) {
-            SettingsNote(text: tr("按住说话，松开执行。VibeKey：长按旋钮并保持（命令模式可用时，模型入口改为长按 OK）。手柄：按住 L2。",
-                                  "Hold to speak, release to run. VibeKey: long-press the dial and keep holding (the model entry moves to a long press of OK while command mode is usable). Controller: hold L2."))
-            Picker(tr("键盘", "Keyboard"), selection: Binding(get: { settings.hotkey }, set: { settings.setHotkey($0) })) {
-                ForEach(CommandHotkey.allCases, id: \.self) { Text($0.title).tag($0) }
-            }
-            SettingsNote(text: tr("单独按住这个键约 0.2 秒开始听；和其他键一起按时照常是修饰键。需要选择或确认时，方向键、回车和 Esc 交给命令，其余时间不受影响。",
-                                  "Hold this key on its own for about 0.2 s to start listening; with another key it is an ordinary modifier. When a choice or confirmation is waiting, the arrows, Return and Esc answer it; otherwise they are untouched."))
-            SettingsNote(text: tr("已被输入法或其他软件占用的键到不了 VibeWand，例如豆包输入法用右 ⌥ 做语音键。按住没有反应时请换一个。",
-                                  "A key that an input method or another app has taken never reaches VibeWand; the Doubao input method, for one, uses right ⌥ for voice. If holding the key does nothing, pick another."))
-            Divider()
-            SettingsNote(text: tr("也可以在“设备与按键”里把“命令（按住说话）”绑到任意按键。", "You can also bind “Command (hold to speak)” to any button under Devices & inputs."))
-            Button(tr("设备与按键…", "Devices & inputs…")) { model.section = .devices }
-        }
-    }
-
-    private static var kernelReady: Bool { CommandController.install() != nil }
 }
 
 /// What the coordinator did, instruction by instruction: its thinking, each tool call and what came back.
@@ -413,6 +495,12 @@ struct CommandHistorySheet: View {
             row(failed ? "xmark.circle" : "arrow.left.circle", failed ? .red : .green,
                 tool + (failed ? tr(" 失败", " failed") : line["verified"]?.bool == false ? tr(" 已执行，结果未能核对", " ran, result not verified") : tr(" 返回", " returned")),
                 line["text"]?.string ?? line["error"]?.string ?? "", mono: true, dimmed: true)
+            // What the model was shown, as it was sent.
+            if let name = line["image"]?.string, let picture = NSImage(contentsOf: record.directory.appendingPathComponent(name)) {
+                Image(nsImage: picture).resizable().scaledToFit().frame(maxWidth: 520, alignment: .leading)
+                    .clipShape(RoundedRectangle(cornerRadius: 8)).overlay { RoundedRectangle(cornerRadius: 8).stroke(Color.primary.opacity(0.12)) }
+                    .padding(.leading, 27)
+            }
         case "confirmed": row("hand.thumbsup", .green, tr("你确认了 ", "You confirmed ") + tool, "")
         case "declined": row("hand.raised", .orange, tr("你没有确认 ", "You did not confirm ") + tool, "")
         case "usage":

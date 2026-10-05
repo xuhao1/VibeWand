@@ -14,6 +14,21 @@ This package is ad-hoc signed and has not been notarized by Apple. If macOS bloc
 
 To try it without hardware, choose **Settings → Developer → Demo**. Return to **Live control** to use your device. If you prefer to compile it, follow [Build from source](development.md#build-from-source--从源码编译), then open the resulting app in Finder.
 
+### The first-run guide (next version, not released yet)
+
+From the next version on, the first time VibeWand opens it shows a guide that walks you through steps 2 to 5 below and command mode. Every step can be skipped:
+
+| Step | What it does |
+| --- | --- |
+| Permissions | Whether Accessibility and the microphone are allowed, each with a button straight to System Settings |
+| Your device | Pick the device in your hand, press a few buttons and turn it: what lights up has been received. Nothing you press in this step reaches an app. With no device, pick Keyboard |
+| Voice | One of four: keep your own voice input method, macOS dictation, SenseVoice on this Mac (the first use downloads about 240 MB of models), or a speech API (address, model and key), with a place to try a sentence |
+| Buttons | What each button of the current layout does, and where dictation and the command are bound |
+| Command mode | On or off; if on, the kernel VibeWand ships or the DeepSeek Harness you installed, then set up a model and test it |
+| All set | Where each of these stands now, with a way back to whatever is not ready |
+
+Someone who already uses VibeWand is not interrupted by it after an update. It can be opened again from **Settings → General → Setup guide**, and **Settings → Developer** can make it appear at the next launch the way it does the first time. 0.9.0 has no guide; follow the steps below.
+
 ## 2. Allow Accessibility
 
 Allow **VibeWand** in **System Settings → Privacy & Security → Accessibility**. Check the permission state in **Settings → General**. Without this permission, VibeWand starts in demo mode. Ad-hoc signed updates may need permission registered again.
@@ -27,6 +42,7 @@ Open **Settings…** from the menu bar, then **Devices & inputs**.
 | VibeKey / AU05 | Quit Ulanzi Studio, connect the receiver, and select VibeKey. VibeWand yields the device while Studio is running. |
 | Supported gamepad | Connect with USB or pair in macOS Bluetooth settings, then select Controller. Automatic discovery needs no HID import. |
 | Remote / unsupported HID device | Use a measured profile matching its actual interface. Follow [Hardware](device-templates.en.md) and [HID integration](hid-profiles.md) first. |
+| No device (next version, not released yet) | Select Keyboard: six key combinations stand in for the buttons, by default ⌃⌥⌘ with Space, the arrows, Return and Backspace, and each can be recorded as another key by pressing it. See [the keyboard layout](device-templates.en.md#keyboard). |
 
 Open **Connect device…** and check the live device name and connection status. Selecting a picture or template does not pair hardware. A saved profile is not evidence of a live connection.
 

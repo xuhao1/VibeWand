@@ -1,7 +1,7 @@
 import Foundation
 
 /// The local record of one instruction: what was asked, what the model thought
-/// and said, each tool call with what it answered, and how it ended.
+/// and said, each tool call with what it answered and showed, and how it ended.
 /// The overlay's "done" comes from here, not from what the model says last.
 /// Lines are appended as they happen, so a crash leaves the steps taken so far.
 public final class TaskJournal: @unchecked Sendable {
@@ -11,6 +11,11 @@ public final class TaskJournal: @unchecked Sendable {
     private let handle: FileHandle
     private let lock = NSLock()
     private var thought = "", message = ""
+    private var pictures = 0
+    /// Calls of the runtime's own tools that have started. VibeWand's own are recorded by the gateway, which ran them.
+    private var foreign: [String: String] = [:]
+    /// The name the runtime gives a tool VibeWand mounted.
+    public static let mounted = "mcp__vibewand__"
 
     public init(root: URL, now: Date = Date()) throws {
         let stamp = DateFormatter()
@@ -34,11 +39,25 @@ public final class TaskJournal: @unchecked Sendable {
         switch event {
         case .thought(let text): thought += text
         case .message(let text): message += text
-        case .toolStarted: flush()
-        case .toolEnded: break
+        case .toolStarted(let id, let name, let input):
+            flush()
+            guard !name.hasPrefix(Self.mounted) else { break }
+            foreign[id] = name
+            write("call", ["tool": .string(name), "arguments": input])
+        case .toolEnded(let id, let failed, let text):
+            guard let name = foreign.removeValue(forKey: id) else { break }
+            write("result", ["tool": .string(name), "ok": .bool(!failed), "verified": true, "text": .string(String(text.prefix(Self.resultLimit)))])
         case .usage(let used, let size): write("usage", ["used": .number(Double(used)), "size": .number(Double(size))])
         }
     }
+    /// Keeps a picture a tool showed the model beside the record and returns its file name.
+    public func keep(_ image: Data) -> String? {
+        lock.lock(); defer { lock.unlock() }
+        pictures += 1
+        let name = "picture-\(pictures).jpg"
+        return (try? image.write(to: directory.appendingPathComponent(name))) != nil ? name : nil
+    }
+
     /// Writes what the model thought and said since the last step. Called once more when the turn ends.
     public func settle() {
         lock.lock(); defer { lock.unlock() }
@@ -75,7 +94,7 @@ public final class TaskJournal: @unchecked Sendable {
         return names.prefix(limit).compactMap { name in
             guard let text = try? String(contentsOf: root.appendingPathComponent(name).appendingPathComponent("journal.jsonl"), encoding: .utf8) else { return nil }
             let lines = text.split(separator: "\n").compactMap { JSONValue(data: Data($0.utf8)) }
-            return lines.isEmpty ? nil : TaskRecord(id: name, lines: lines)
+            return lines.isEmpty ? nil : TaskRecord(id: name, lines: lines, directory: root.appendingPathComponent(name))
         }
     }
 }
@@ -84,6 +103,8 @@ public final class TaskJournal: @unchecked Sendable {
 public struct TaskRecord: Equatable, Identifiable, Sendable {
     public let id: String
     public let lines: [JSONValue]
+    /// Where the record and the pictures it names are kept.
+    public let directory: URL
 
     private func first(_ kind: String) -> JSONValue? { lines.first { $0["kind"]?.string == kind } }
     private func last(_ kind: String) -> JSONValue? { lines.last { $0["kind"]?.string == kind } }

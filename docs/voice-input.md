@@ -11,12 +11,59 @@ Settings → Voice input offers external and built-in modes. New installations k
 | macOS 系统听写 | Apple Speech SDK；填写 `zh-CN`、`en-US` 等语言。支持时优先本机识别，其他语言可能依赖 Apple 在线服务。首次使用请求麦克风与语音识别权限。 |
 | 阿里 Qwen 实时语音 | 配置 Realtime WebSocket 地址；PCM 16 kHz、16 bit、单声道。识别由配置的 Omni 模型（默认 `qwen3.8-omni-flash-realtime`）完成：录音时，会话内置的 `qwen3-asr-flash-realtime` 给出 `text + stash` 实时预览（不指定语种，词表经 `input_audio_transcription.corpus.text` 传入）；松开后，模型按带有词表和领域提示的系统提示词把这段录音写成文字，作为最终结果。模型没有回复、回复比识别结果长一倍以上，或识别器没有听到内容时，采用识别器的 `completed.transcript`。同一个模型也用于自动整理。 |
 | 兼容语音转文字 API | `POST /audio/transcriptions`，multipart WAV，字段 `model`、`language`、`response_format=json`，读取 JSON `text`。适用于实现该协议的云服务或本地 Whisper / SenseVoice 网关。 |
+| SenseVoice（本机；下一版，尚未发布） | 不填地址、模型名和密钥。识别在这台 Mac 上完成，用的是 DeepSeek Harness 的 SenseVoice 插件里的识别程序；第一次要下载约 241 MB 的模型。见[本机 SenseVoice](#下一版尚未发布本机-sensevoice--sensevoice-on-this-mac)。 |
 
 Qwen 通用地址为 `wss://dashscope.aliyuncs.com/api-ws/v1/realtime`。新版业务空间使用 `wss://<workspace>.cn-beijing.maas.aliyuncs.com/api-ws/v1/realtime`。填写该空间的 HTTPS `/compatible-mode/v1` 或 `/api/v1` 基础地址时，Qwen 适配器转换为对应 Realtime 地址。模型由客户端添加为查询参数，配置地址本身不附查询参数。
 
 兼容接口可以填写 HTTPS 基础地址，例如 `https://speech.example/v1`，也可填写完整 `/audio/transcriptions` 地址。本机 `http://localhost:8080/v1` 可不配置密钥。远端服务需要密钥；服务必须提供音频识别能力，纯文本聊天 API 无法代替语音转写。
 
 Apple recognition uses the Speech SDK and prefers on-device recognition when supported. Qwen recognition runs on the configured Omni model: while recording, the session's built-in `qwen3-asr-flash-realtime` streams previews (confirmed text + tentative stash, biased by the vocabulary as `corpus.text`); after release the model writes the recording down under a system prompt that carries the vocabulary and subject hint. The recogniser's completed transcript stands when the model does not reply, replies with more than twice as much text, or nothing was heard. The same model serves polishing. Compatible HTTP providers must implement multipart `/audio/transcriptions` and return JSON `text`.
+
+## 下一版（尚未发布）：本机 SenseVoice / SenseVoice on this Mac
+
+「听写服务」多了一项 **SenseVoice（本机）**：不用密钥，没有网络也能用，录音不出这台 Mac。它是 macOS 系统听写之外的另一个本地选项，中文、英语、粤语、日语、韩语自动识别，中英混着说也行，输出带标点。
+
+**它是什么。**VibeWand 没有自己接 SenseVoice，运行的是 DeepSeek Harness 的 SenseVoice 插件（`@deepseek-ai/dsh-experimental-speech-to-text-sensevoice` 0.2.0-rc.2）里的那个识别程序：同一个 `worker.js`，按插件自己启动它的方式启动（一份 JSON 配置和一个只给这个进程用的令牌），跑在 VibeWand 自带内核的 Node 上，加载插件清单里固定的模型文件。插件和它用的 sherpa-onnx 运行库随自带内核一起打包，约 34 MB。命令模式用哪种内核与它无关：选了插件模式，听写用的仍是 VibeWand 自带的这一份识别程序。
+
+**模型放在哪，和谁共用。**模型是 SenseVoiceSmall 的 INT8 量化权重（239 MB）、词表和 Silero VAD（1.8 MB），不随 VibeWand 分发。VibeWand 按 Harness 存放它们的方式存放，这样两边不会各下一遍：
+
+| 情况 | 用哪一份 |
+| --- | --- |
+| 你装了 DeepSeek Harness，并且在它的插件管理里准备过语音输入 | 直接用 `~/.dsh/speech-to-text/sensevoice/models/` 里它下好的那一份，不再下载 |
+| 你装了 DeepSeek Harness，但没有准备过语音输入 | 下载到 `~/.dsh/speech-to-text/sensevoice/models/`。以后在 Harness 里启用语音输入时，它会认出这一份，不用再下 |
+| 没有装 DeepSeek Harness | 下载到 `~/Library/Application Support/VibeWand/speech-to-text/sensevoice/models/`。以后装了 Harness 并在那里准备过，VibeWand 改用 Harness 的那一份 |
+
+设置页写着模型现在在哪。Harness 目录里要是已经有同名而大小不同的文件（别的版本的 Harness 留下的另一版模型），VibeWand 不会覆盖它，自己那份放进自己的目录。清除命令模式的记录不会删掉模型。
+
+**下载。**只在你点“下载并准备”时进行。文件的地址、大小和 SHA-256 取自插件的 `runtime/assets.json`，来源是 Hugging Face 上的 `csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17` 和 `csukuangfj/vad`，都固定在某一次提交；先问一下 `huggingface.co` 和镜像 `hf-mirror.com` 哪个答得快，从那个下，中途断了换另一个接着下。每个文件核对过 SHA-256 才改成正式的名字，核对不上的整个丢掉。下载在后台进行，可以取消，下次从断点接着下。
+
+**用起来是什么样。**按住听写键时识别程序启动，加载模型约两秒，在你说话的同时完成。说话时每秒把到目前为止的录音重新识别一遍作为预览；松开后识别整段。十秒的话识别用时不到半秒。空闲 5 分钟后识别程序退出，运行时占用约 650 MB 内存；VibeWand 退出或意外终止时它也跟着退出。录音只在内存里，经本机回环地址（`127.0.0.1`）交给识别程序，请求带着那个令牌，别的进程调不动它。
+
+**它做不到的。**词表和领域提示传不进去，专有名词靠“自动整理”纠正，自动整理仍然要用你配置的整理服务。预览是整段重识别，不是真正的流式。只用 CPU。单次最多两分钟。
+
+Voice input gains a fourth service, **SenseVoice (on this Mac)**: no key, no network, and the recording never leaves the Mac. Chinese, English, Cantonese, Japanese and Korean are detected, mixed speech included, and the text comes punctuated. VibeWand does not integrate SenseVoice by itself: it runs the recogniser of DeepSeek Harness's SenseVoice plug-in (`@deepseek-ai/dsh-experimental-speech-to-text-sensevoice` 0.2.0-rc.2), the same `worker.js` started the way the plug-in starts it, on the Node of VibeWand's built-in kernel. The plug-in and the sherpa-onnx runtime it uses ship with that kernel (about 34 MB), whichever kernel command mode is set to. The models (SenseVoiceSmall INT8 weights, 239 MB, with its tokens and Silero VAD) are not shipped. They are kept the way a harness keeps them, so that neither downloads what the other has: a copy that an installed DeepSeek Harness already prepared under `~/.dsh/speech-to-text/sensevoice/models/` is used as it is; with a harness installed and no copy yet, the download goes there, where the harness's own voice input will find it; with no harness, it goes to `~/Library/Application Support/VibeWand/speech-to-text/sensevoice/models/`. A file of the same name and another size in the harness's folder, as another harness version would leave, is not written over. The download starts only from the button, takes each file's address, size and SHA-256 from the plug-in's `runtime/assets.json`, asks `huggingface.co` and the mirror `hf-mirror.com` which answers sooner, resumes after a break from either, and gives a file its name only once its digest matches. The recogniser starts when the dictation button goes down (about two seconds, while you speak), re-recognises the recording so far every second for the preview, and recognises the whole on release; ten seconds of speech take under half a second. It exits after five idle minutes, uses about 650 MB while it runs, and goes when VibeWand goes. The recording stays in memory and reaches the recogniser over the loopback address with a token only that process was given. The vocabulary and subject hint do not reach it, the preview is a re-recognition rather than a stream, it runs on the CPU only, and a recording is limited to two minutes.
+
+验证（2026-10-06，开发版，Apple Silicon Mac）：用 macOS 合成语音（不是真人）生成两段录音，经 `SpeechAPICheck senseVoice` 走应用共用的 `SenseVoice` 服务，识别程序取自重新组装的自带内核，模型是按插件清单从 Hugging Face 下载并核对过 SHA-256 的那三个文件。
+
+| 录音 | 结果 |
+| --- | --- |
+| 3.8 秒英文，“Open the pull request and summarize what changed in the keyboard layout.” | 一字不差。连启动 0.6 秒，识别程序已加载时 0.09 秒 |
+| 10.6 秒中英混合，“把模型换成 GPT 六点一 Sol，然后把推理强度调到最低。VibeWand 的命令模式今天测试通过了。” | “模型换成GTT6.1so，然后把推理强度调到最低vi want的命令模式。今天测试通过了。”开头丢了一个字，两个产品名没有认对。连启动 0.8 至 1.8 秒，识别程序已加载时 0.25 秒 |
+| 启动它的进程消失 | 识别程序在输入关闭后自己退出 |
+| 不带令牌的请求 | 被拒绝（401） |
+
+单元测试覆盖：模型在两处目录之间怎么找、别的版本的同名文件不被覆盖、下载的断点续传和换源、SHA-256 不符时不留文件、启动识别程序的参数和环境。应用自己的下载代码另外对着真实的 Hugging Face 跑过一次（`VIBEWAND_SENSEVOICE_LIVE`）：词表和 VAD 两个小文件下载后摘要相符，其中一个从一半处续传成功。没有验证的：在运行中的应用里用麦克风听写的全过程（按住、预览、松开、写入输入框）；真人语音的准确率；设置页里“下载并准备”从按钮到完成，以及用应用自己的代码下载那个 239 MB 的权重文件（上面识别用的权重是在命令行里按同一份清单下载的）；与真实的 `~/.dsh` 共用模型，以及 Harness 自己是否把 VibeWand 下好的文件认作就绪；Intel Mac。
+
+Verified on 2026-10-06 with the development build on an Apple Silicon Mac, using synthetic macOS speech rather than a human voice, through `SpeechAPICheck senseVoice`, which runs the `SenseVoice` service the app uses, on the recogniser from the reassembled built-in kernel and the three model files fetched from Hugging Face as the plug-in pins them, each matching its SHA-256. A 3.8 s English sentence came back word for word (0.6 s with the start, 0.09 s once loaded). A 10.6 s mixed sentence lost its first syllable and two product names (“GPT 六点一 Sol” as “GTT6.1so”, “VibeWand” as “vi want”); it took 0.8 to 1.8 s with the start and 0.25 s once loaded. The recogniser exits when the process that started it is gone, and refuses a request without its token. Unit tests cover the lookup across the two folders, leaving another version's file alone, resuming and changing origin, discarding a file whose digest differs, and the recogniser's arguments and environment. The app's own download code was also run once against the real Hugging Face (`VIBEWAND_SENSEVOICE_LIVE`): the tokens and the voice detector arrived matching their digests, and one of them was resumed from half way. Not verified: dictation with a microphone in the running app from hold to insertion; accuracy on a human voice; the download from the settings button to completion, and the 239 MB weights fetched by the app's own code (the weights used above were fetched on the command line from the same list); sharing with a real `~/.dsh`, and whether the harness takes files VibeWand downloaded for ready; an Intel Mac.
+
+可重复的检查，不下载任何东西：
+
+```sh
+swift run SpeechAPICheck senseVoice \
+  output/kernel/node/bin/node \
+  output/kernel/node_modules/@deepseek-ai/dsh-experimental-speech-to-text-sensevoice \
+  "$HOME/Library/Application Support/VibeWand/speech-to-text/sensevoice" /path/to/test.wav
+```
 
 ## 0.8.2：麦克风与词表 / Microphone and vocabulary
 
@@ -76,7 +123,7 @@ Preferences, including the microphone source and vocabulary, have no credential 
 
 ## 工程边界 / Engineering boundaries
 
-`SpeechInput` 是独立 SwiftPM library，不导入 AppKit 或 SwiftUI。`DictationEngine` 定义开始、结束和取消，`DictationSession` 处理状态与并发取消；`SystemDictationEngine`、`APIDictationEngine`、`SpeechTranscribing`、`SpeechCredentialStore` 分离识别、协议和凭证。UI 只观察 `VoiceInputController` 并修改配置。
+`SpeechInput` 是独立 SwiftPM library，不导入 AppKit 或 SwiftUI。`DictationEngine` 定义开始、结束和取消，`DictationSession` 处理状态与并发取消；`SystemDictationEngine`、`APIDictationEngine`、`SpeechTranscribing`、`SpeechCredentialStore` 分离识别、协议和凭证。UI 只观察 `VoiceInputController` 并修改配置。下一版的 `SenseVoice` 也是一个 `SpeechTranscribing`：`APIDictationEngine` 把录好的 WAV 交给它，和交给一个转写 API 走的是同一条路；它只认文件路径，哪个路径属于哪份 Harness 由 `WandAgent` 的 `Harness` 和应用层决定。
 
 `BridgeRuntime` 将手势路由到外置 Fn 或内置会话，保留开始时的目标。`DictationDelivery` 验证应用、窗口、焦点及输入框状态，`AccessibilityAdapter` 负责 Unicode 文字输入。权限弹窗期间松开按键、设备断线、配置变化、切换应用或退出会取消会话；旧会话的迟到结果不传给新会话。
 
@@ -94,14 +141,14 @@ swift run SpeechAPICheck qwenRealtime \
 
 `--stream` 按实时节奏发送并打印预览，`--polish` 追加自动整理，`--no-vocabulary` 关闭默认词表，`--terms "词一,词二"` 加入自己的词汇，便于对比词表效果。
 
-DeepSeek Harness 官方可选 Voice Input bundle 默认使用本地 `sensevoice-local`，通过统一语音服务注册识别器。当前没有将其 ONNX 运行时打包进 VibeWand；可通过兼容 HTTP 网关接入本地识别。
+DeepSeek Harness 官方可选 Voice Input bundle 默认使用本地 `sensevoice-local`，通过统一语音服务注册识别器。0.9.0 及以前没有把它的 ONNX 运行时打包进 VibeWand，本地识别要经兼容 HTTP 网关接入；下一版直接运行这个插件的识别程序，见[本机 SenseVoice](#下一版尚未发布本机-sensevoice--sensevoice-on-this-mac)。
 
 参考：[Apple Speech](https://developer.apple.com/documentation/speech/recognizing-speech-in-live-audio)、[阿里 Realtime](https://www.alibabacloud.com/help/zh/model-studio/realtime)、[阿里客户端事件](https://www.alibabacloud.com/help/zh/model-studio/client-events)、[DeepSeek Harness 官方 Voice Input bundle](https://github.com/deepseek-ai/deepseek-harness/tree/master/packages/experimental/voice-input-bundle)。
 
 ## 实时输入、大小模式和自动整理 / Live input and polishing
 
 - 大小模式：完整设备面板或输入法式小条。小条闲置约 390 × 48 pt，听写中展开显示文字。两种模式都有原词／自动整理开关，模式切换不抢输入焦点。显示／隐藏仍独立于尺寸及内置听写开关。
-- 实时文字：Apple Speech SDK 开启 partial results；Qwen 边录边传并接收真实中间结果。文件上传式 API 每约 2.5 秒加一次请求耗时上传当前录音用于预览，松开后做最终转写，因此会产生额外请求。不会偷偷启用另一识别服务。
+- 实时文字：Apple Speech SDK 开启 partial results；Qwen 边录边传并接收真实中间结果。下一版的本机 SenseVoice 每秒把当前录音在本机重新识别一遍，不产生网络请求。文件上传式 API 每约 2.5 秒加一次请求耗时上传当前录音用于预览，松开后做最终转写，因此会产生额外请求。不会偷偷启用另一识别服务。
 - 原词：保留识别得到的文字，不加额外改写。自动整理：松开后去掉口头填充及重复，采用明确自我修正后的说法，修复标点、分段及列表，保留原意、事实和代码标识符。Qwen 默认复用语音模型及密钥；其他模式可单独设置 Qwen 或兼容 chat/completions 的整理服务。整理失败保留原词。
 - 范围保护：捕获初始选区，仅替换本次文字。每次修正前核对整个草稿及选区，用户手动修改或切走时停止替换。已有草稿只用于本机校验，不加入整理请求。不通过 Return 提交消息；安全换行优先通过可访问性文本属性处理。
 

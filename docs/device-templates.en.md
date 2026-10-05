@@ -4,7 +4,7 @@
 
 [中文](device-templates.md) · [Core experience](core-experience.en.md) · [HID integration](hid-profiles.md)
 
-VibeWand includes three switchable logical layouts: **VibeKey, Controller, and Remote**. Select a control in the diagram to edit its click, double-click, long-press, hold, or navigation action. Each template retains its own timing and context overrides.
+VibeWand includes three switchable logical layouts: **VibeKey, Controller, and Remote**. The next version, which is not released yet, adds a fourth, **[Keyboard](#keyboard)**, which needs no device. Select a control in the diagram to edit its click, double-click, long-press, hold, or navigation action. Each template retains its own timing and context overrides.
 
 ## Implementation status
 
@@ -52,6 +52,30 @@ The remote layout takes its direction ring, center, voice, menu, and back arrang
 Version 0.5.5 reverses default reading navigation: dial left, R1, stick up/left scroll down; dial right, R2, stick down/right scroll up. Caret movement and previous/next selection keep their directions. Explicit Scroll up/down actions retain their named meaning.
 
 Face buttons follow the user-requested convention: ○ confirms, □ deletes and × goes back. This differs from [Sony’s current PS5 system-menu defaults](https://www.playstation.com/en-us/support/hardware/ps5-button-functions/), where × selects and ○ cancels. In the chat picker, × confirms and ○ goes back. Model/effort pickers and app switching use ○ to confirm and × to cancel. Confirmation is immediate; □ does nothing in pickers. Existing baseline bindings migrate once while differing custom mappings and timings remain intact.
+
+## Keyboard
+
+**Added in the next version, which is not released yet.** With no device at hand the keyboard is the device: six key combinations each stand for one button, and gestures, contexts and application support are exactly those of VibeKey.
+
+| Control | Default combination | Default action |
+| --- | --- | --- |
+| Dictation | ⌃⌥⌘ Space | Hold to speak, release to finish |
+| Main | ⌃⌥⌘ ↑ | Press for chats / confirm, double press to switch apps, long press for models |
+| Left / Right | ⌃⌥⌘ ← / ⌃⌥⌘ → | Scroll, move the caret or change the candidate, by context; holding the key keeps going |
+| Confirm | ⌃⌥⌘ Return | Confirm / Enter |
+| Back | ⌃⌥⌘ Backspace | Delete / back; hold to keep deleting while editing |
+
+- **Selecting it.** Choose Keyboard under Settings → Devices & inputs, or at the device step of the first-run guide. Accessibility access is needed.
+- **In force only while selected.** With this layout selected VibeWand takes the combinations above and they no longer reach the app in front; every other key is untouched. Select another device layout and the combinations are the apps' again. With “Follow the device in use” on, other devices stand by and take over at a press, and the keyboard does not stand by like that: a press on VibeKey or a controller switches to that device, and going back to the keyboard means selecting it in Settings again.
+- **Changing them: record by pressing.** Select a control in the diagram or the list, click Record under Key combination, and press the key you want, with ⌃ ⌥ ⇧ ⌘ held if you like. Any key that sends a key press can be recorded, and you need not know what it is called: the extra keys of a custom keyboard or a macro pad, F13 to F20, the number pad, Home / End / Page Up / Page Down, and keys VibeWand has no name for, which are shown by number, as in “Key 105”. The press that is recorded reaches no app and does not fire the control it stood for until then. A key the system uses itself, such as F14 and F15 for brightness by default, is recorded too, and is VibeWand's while the keyboard layout is selected. Escape alone cancels. Once recorded, the modifiers can still be switched on and off one by one.
+- **Which keys may stand alone.** A key that text is typed or edited with needs one of ⌃, ⌥ and ⌘ beside it: letters, digits, punctuation, Space, Return, Tab, Backspace, Delete, Escape and the arrows. With ⇧ alone or with no modifier such a combination does not fire, because that key could then no longer be typed. Any other key may stand alone: F1 to F20, the number pad, the paging keys and extra keys. When two controls share a combination only the earlier one fires. Each control can be put back to its default, or set to None.
+- **A key that gets no answer while recording.** It does not send an ordinary key press: media keys such as volume, playback and brightness are of that kind, and so are functions a keyboard's firmware keeps to itself. Set it to F13 to F20 in the keyboard's own configuration tool (VIA, QMK and the like) and it can be recorded. A modifier pressed alone is not a key press either.
+- **If three modifiers at once are awkward,** a key-remapping tool can make a spare key press ⌃⌥⌘ together, or pick combinations that suit your hand.
+- **When dictation goes through an external input method,** all the dictation combination does is hold Fn for you. Your hand is on the keyboard already, and pressing the input method's own voice key is the surer way: with the combination's modifiers still down, the input method may not take that Fn for its voice key. The dictation combination is mainly for built-in dictation, that is, macOS dictation or a speech API.
+- **The command key is not one of the six.** Command mode uses the keyboard's own command key, by default right ⌘ held on its own; see [Command mode](command-mode.en.md#the-command-key). A combination that happens to use right ⌘ is not taken for a command.
+- **The overlay** draws key caps for this layout instead of a device photo, with what each key does right now beside its cap.
+
+Verified: in a TextEdit window the test opened for itself, synthetic keys confirmed that a combination was taken and did not reach the document, that holding the dictation combination put the dictated text into the document, and that other keys worked as usual; the number pad's 5 went into the document as usual before it was recorded, and once recorded by pressing it stood for its control and no longer reached the document. No physical keyboard was pressed and no custom keyboard with extra keys was attached; the recorder was looked at only in off-screen renders; and whether the actions VibeWand sends while the modifiers are held are unaffected by them in every app has not been tried app by app.
 
 ## Gestures and persistence
 

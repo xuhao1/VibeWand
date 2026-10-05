@@ -25,6 +25,8 @@ struct DeviceArtwork {
 
     static func forTemplate(_ id: DeviceTemplateID) -> DeviceArtwork {
         switch id {
+        // The keyboard has no photograph; its controls are drawn as key caps.
+        case .keyboard: return DeviceArtwork(imageName: "", aspectRatio: 1, hotspots: [:])
         case .vibeKey:
             return DeviceArtwork(imageName: "controller", aspectRatio: 1080.0 / 1440.0, hotspots: [
                 .dial: CGPoint(x: 0.500, y: 0.324),

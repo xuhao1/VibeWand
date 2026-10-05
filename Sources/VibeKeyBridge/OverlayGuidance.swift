@@ -107,6 +107,8 @@ enum HUDGuidance {
     }
 
     static func shortName(_ control: DeviceControl, template: DeviceTemplateID) -> String {
+        // On the keyboard a control is known by the combination that stands for it.
+        if template == .keyboard, !KeyboardLayout.current.label(control).isEmpty { return KeyboardLayout.current.label(control) }
         if template == .dualSense {
             switch control {
             case .dial: return "□"

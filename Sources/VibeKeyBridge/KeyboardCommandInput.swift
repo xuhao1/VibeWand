@@ -45,6 +45,14 @@ final class KeyboardCommandInput {
         tap = nil; source = nil; held = false; speaking = false
     }
 
+    /// Another key went down while the modifier was held: this is a shortcut, not a command. Also called for
+    /// a key the keyboard layout took before this listener could see it.
+    func abandon() {
+        guard held else { return }
+        held = false
+        if speaking { speaking = false; onAbandon?() }
+    }
+
     /// Returns true to swallow the event.
     private func handle(_ type: CGEventType, _ event: CGEvent) -> Bool {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
@@ -72,12 +80,7 @@ final class KeyboardCommandInput {
             }
             return false
         }
-        if held {
-            // Another key while the modifier is down: this is a shortcut, not a command.
-            held = false
-            if speaking { speaking = false; onAbandon?() }
-            return false
-        }
+        if held { abandon(); return false }
         switch code {
         case 126, 123: return answer?(.previous) ?? false
         case 125, 124: return answer?(.next) ?? false

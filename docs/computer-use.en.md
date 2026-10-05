@@ -7,14 +7,14 @@
 
 Every VibeWand feature comes down to operating an app on your Mac for you. This page covers how it looks at an interface, which actions it can take, which route each app uses, and what has been verified. For how to use it, see [Default controls](core-experience.en.md) and [Command mode](command-mode.en.md).
 
-**Both parts ship in 0.9.0 and need macOS 26. Command mode does nothing until a model is set up.**
+**Both parts ship in 0.9.0 and need macOS 26. Command mode does nothing until a model is set up.** This page already describes several things from the next version, which is not released yet: a picture of the window that can be turned on, the harness's own tools in plugin mode, and three changes to how command mode reads a window (a menu that just opened leads the list, what the app announces is read, and a key can be sent to one control).
 
 ## Two ways to drive it
 
 | | Driven by buttons | Driven by a sentence (command mode) |
 | --- | --- | --- |
 | Way in | Dial, buttons, sticks | Hold the command key and speak |
-| Who decides what happens | Fixed rules: a button plus the current context maps to one action; no model is involved | The model you configured, choosing step by step among 13 tools |
+| Who decides what happens | Fixed rules: a button plus the current context maps to one action; no model is involved | The model you configured, choosing step by step among 13 tools (not counting what you hand it yourself) |
 | Good for | Frequent, definite actions: scrolling, moving the caret, picking a chat, changing the model, dictating | Things that are easy to say and awkward to press: “switch to the chat about the microphone”, “open the Runtime.swift tab” |
 | Reach | The [supported apps](applications.en.md) and the rules you added | Any app whose controls can be read, one at a time |
 
@@ -22,7 +22,9 @@ Both use the same means: the control structure that macOS Accessibility provides
 
 ## How it looks at an interface
 
-Computer use commonly means a model that looks at screenshots and outputs coordinates. VibeWand takes the other route: it reads only controls that have a name, and it presses that control itself. What it reads is the control tree an app publishes through macOS Accessibility, the same one a screen reader is given. That is why it needs your approval under System Settings → Privacy & Security → Accessibility, needs no screen-recording permission, and never takes a screenshot.
+Computer use commonly means a model that looks at screenshots and outputs coordinates. VibeWand takes the other route: it reads only controls that have a name, and it presses that control itself. What it reads is the control tree an app publishes through macOS Accessibility, the same one a screen reader is given. That is why it needs your approval under System Settings → Privacy & Security → Accessibility. By default it needs no screen-recording permission and takes no screenshot.
+
+A picture is something command mode can be given in addition, and it is off by default; see [Let the model see the window](command-mode.en.md#let-the-model-see-the-window). With it on, the model may ask for a picture of the window being operated, with the controls' ids marked on it: it recognises things by eye and still presses controls, never coordinates. The button-driven part is not affected by this setting and never takes a screenshot.
 
 | What is read | What it is used for |
 | --- | --- |
@@ -33,9 +35,9 @@ Computer use commonly means a model that looks at screenshots and outputs coordi
 | Named buttons beside the composer, and the sidebar's chat list | Pressing the model, effort and search buttons directly; choosing chats row by row in DeepSeek Harness |
 | Whether an input method is composing, and whether an unknown dialog is open | In both cases only the native Return and Esc are sent |
 | In a terminal, the few rows of text next to the cursor | Telling whether the cursor is at a recognised prompt, whether the prompt holds a draft, and whether a list covers the prompt |
-| Command mode also reads: window titles, the kind, name and state of the controls in the front window, and the menu bar; a field's character count and caret before and after typing into it | Letting the model find the control to press; checking that typed text arrived |
+| Command mode also reads: window titles, the kind, name and state of the controls in the front window, and the menu bar; a field's character count and caret before and after typing into it; the status line an app announces to a screen reader, and the keys a web control says it is worked with (next version) | Letting the model find the control to press; checking that typed text arrived; knowing where a control that is set with keys stands, and which key sets it |
 
-What is not read: conversation text, document contents, selected text. A field's content is reduced to “empty” or “has text”. The clipboard is only saved while something is pasted and then put back. Command mode's list of controls skips static text and images and keeps buttons, tabs, menu items, fields, list rows and the like.
+What is not read: conversation text, document contents, selected text. A field's content is reduced to “empty” or “has text”. The clipboard is only saved while something is pasted and then put back. Command mode's list of controls skips static text and images and keeps buttons, tabs, menu items, fields, list rows and the like. From the next version there is one exception: the line an app marks as a status or an alert, which a screen reader would speak, is read too, such as Codex's “GPT-6 Astra Extra High, 4 of 5.” while its effort is being set. An announcement longer than 80 characters is not read.
 
 A terminal is the one place where text is read. It draws its whole interface as text and has no composer control, so VibeWand reads from at most 12 rows above the cursor to the end of the screen, never the scrollback. In memory that is reduced to one of a few states (empty prompt, draft, open list, some other screen) and dropped; it is not stored, logged or exported.
 
@@ -58,7 +60,7 @@ When driven by buttons, one press maps to one of these:
 
 ## Command mode's 13 tools
 
-This table is everything the model can do. There is no shell, no file access, no web access and no coordinate click.
+By default this table is everything the model can do. There is no shell, no file access, no web access and no coordinate click. Two more things can be handed to it, and each has to be turned on by you: a fourteenth tool, `ui_screenshot`, which shows it a picture of the window being operated; and, in plugin mode, the shell, file, web and other tools of your own DeepSeek Harness. See [What the model can use](command-mode.en.md#what-the-model-can-use).
 
 | Tool | What it does | Kind |
 | --- | --- | --- |
@@ -67,9 +69,9 @@ This table is everything the model can do. There is no shell, no file access, no
 | `open_session` | Opens one chat that was found and brings its app to the front | Navigate |
 | `search_in_app` | Brings an app to the front, opens its own search and types the keywords; you then pick with the dial | Navigate |
 | `activate_app` | Brings an app to the front, optionally opening a file or URL in it | Navigate |
-| `ui_snapshot` | Lists the controls in the front window: id, kind, name, state | Read |
+| `ui_snapshot` | Lists the controls in the front window: id, kind, name, state. From the next version, what is new or changed since the snapshot before comes first, so a menu that a press opened is not buried at the end of a long window; an app's model picker is marked as such | Read |
 | `ui_press` | Presses a control from the snapshot | Navigate |
-| `ui_key` | Sends one shortcut, such as `cmd+p`, `ctrl+tab` or `escape` | Navigate |
+| `ui_key` | Sends one shortcut, such as `cmd+p`, `ctrl+tab` or `escape`. From the next version it can be addressed to one control, which takes keyboard focus first; that is how a control set with the arrow keys is changed. One press for each call, and the answer carries what the app announced in reply | Navigate |
 | `ui_menu` | Chooses a menu bar item by its path of titles, such as File → Open Recent → notes.md | Navigate |
 | `ui_type` | Types into a field without pressing Return | Write |
 | `choose` | Lists up to six candidates on the overlay for you to pick with the dial | Asks you |
@@ -100,7 +102,7 @@ These are enforced in code, not left to the model.
 
 - **Nothing is sent for you.** Releasing the dictation key presses no Return, and text typed by command mode stays in the field as well, unless your command says in so many words to send it.
 - **An action is tied to the target that was there when you pressed.** The app, window and focus are recorded at the press and checked again before acting; if they changed, the action is dropped. Command mode operates one app: the one in front when you spoke, or the one it brought forward for you. Once you move elsewhere, what follows is dropped.
-- **Anything with consequences asks every time by default, and how much it asks is yours to set.** Command mode has three permission modes: confirm only what has consequences (the default), that is, buttons and menu items whose name contains delete, discard, don't save, send, submit, pay and the like, Return in a multi-line field, and `⌘Return`, `⌘⌫` and `⌘Q`; confirm every step on the device; or ask nothing. The gateway does the asking, so the model cannot go around it.
+- **Anything with consequences asks every time by default, and how much it asks is yours to set.** Command mode has three permission modes: confirm only what has consequences (the default), that is, buttons and menu items whose name contains delete, discard, don't save, send, submit, pay and the like (the next version adds those that hand out access: allow, grant, authorize, approve), Return in a multi-line field, and `⌘Return`, `⌘⌫` and `⌘Q`; confirm every step on the device; or ask nothing. The gateway does the asking, so the model cannot go around it. A harness's own tools, when the model has them, are held by the harness's sandbox at the same mode, and a step that would leave the sandbox is put to you through the gateway as well.
 - **Password fields are never typed into,** by dictation or by command mode.
 - **Input-method candidates and unknown dialogs get only the native Return and Esc,** never a “send” or “search” binding.
 - **Apps are recognised from a list.** The full bundle ID must match exactly; window titles and web addresses are not considered. Apps that are unsupported, or that you turned off, receive no app actions.
@@ -112,10 +114,10 @@ What command mode sends to the model service is listed under [What is sent](comm
 
 ## What it cannot do
 
-- Canvases, games and custom-drawn interfaces: there are no controls to read.
+- Canvases, games and custom-drawn interfaces: there are no controls to read. With the picture turned on the model can see them, and still cannot press anything in them.
 - In a terminal only the prompts of Codex, Claude Code and OpenCode are recognised, and iTerm2 is the reference. A prompt in a right-hand tmux pane, other terminals such as Terminal.app, and command-line tools without an adapter are not recognised; the remaining limits are in [Applications](applications.en.md#claude-code-codex-and-opencode-in-a-terminal).
 - WeChat's chat controls cannot be read; it has only the `⌘F` compatibility mapping.
-- Anything that needs looking at the picture to judge. VibeWand does not look at the screen.
+- Anything that needs looking at the picture to judge, unless you turned on command mode's picture of the window. The button-driven part does not look at the screen.
 - Handing selected content to another tool, and relays of the kind “run it in one tool, hand the result to another”, are not implemented yet.
 
 ## What has been verified
@@ -128,5 +130,6 @@ What command mode sends to the model service is listed under [What is sent](comm
 | WeChat | Search candidates and draft editing are unverified |
 | Command mode's kernel process, tool channel, cancellation, choosing, and command key | Covered by automated tests and by runs against the real model |
 | Command mode's results in real apps | Read back item by item between 2026-10-05 and 10-06 in TextEdit, VS Code, Codex, Claude and Feishu, and the three permission modes and plugin mode in TextEdit; see the [acceptance record](command-acceptance.md). Not run: a microphone and a human voice, physical keys, model services other than DeepSeek and local models, plugin mode on a real harness home, searches aimed at DeepSeek Harness, WorkBuddy and WeChat, and keys, menus and typing in VS Code |
+| The picture of the window, the harness's tools, and carrying a conversation on (unreleased) | Each read back once in a real TextEdit window on the development build, on DeepSeek's model; see the fourth round of the acceptance record. Not run: granting Screen Recording to the released app, and other models looking at a picture |
 
 By this repository's convention, a capability whose result has not been observed in the real app does not count as supported. Keep in mind what the last row lists as not run.

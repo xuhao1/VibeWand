@@ -39,6 +39,8 @@ struct GeneralSettings: View {
                         SettingsNavigationRow(symbol: "gamecontroller", title: tr("设备与按键", "Devices & inputs"), detail: tr("选择布局，配置按键与摇杆。", "Choose a layout and map buttons and sticks.")) { model.section = .devices }
                         Divider()
                         SettingsNavigationRow(symbol: "square.grid.2x2", title: tr("应用适配", "Applications"), detail: tr("管理浏览器、聊天工具与自定义应用。", "Configure browsers, chat tools and custom apps.")) { model.section = .applications }
+                        Divider()
+                        SettingsNavigationRow(symbol: "wand.and.stars", title: tr("首次引导", "Setup guide"), detail: tr("重新走一遍权限、设备、语音、按键和命令模式。", "Walk through permissions, your device, voice, the buttons and command mode again.")) { model.onGuide?() }
                     }
                 }.frame(maxWidth: .infinity, alignment: .topLeading)
                 VStack(spacing: 16) {
@@ -190,6 +192,13 @@ struct DeveloperSettings: View {
                         Divider()
                         Button { model.runtime.captureOnly = false; model.runtime.playDemo(); model.refresh() } label: {
                             Label(tr("播放自动演示", "Play automatic demo"), systemImage: "play.fill")
+                        }
+                    }
+                    SettingsCard(title: tr("首次引导", "Setup guide")) {
+                        SettingsNote(text: tr("新用户第一次打开 VibeWand 时看到的引导。可以随时打开；也可以让它在下次启动时像第一次那样自己出现。", "What someone new sees the first time VibeWand opens. Open it any time, or have it appear by itself at the next launch as it does the first time."))
+                        HStack(spacing: 10) {
+                            Button(tr("打开引导…", "Open the guide…")) { model.onGuide?() }
+                            Button(tr("下次启动时自动显示", "Show at next launch")) { Onboarding.showAtNextLaunch() }
                         }
                     }
                     SettingsCard(title: tr("兼容性", "Compatibility")) {

@@ -8,8 +8,11 @@ enum OverlayLayout {
         case .vibeKey: return NSSize(width: expanded ? 380 : 320, height: expanded ? 402 : 378)
         case .dualSense: return NSSize(width: expanded ? 520 : 460, height: expanded ? 480 : 448)
         case .xiaomiRemote: return NSSize(width: expanded ? 410 : 350, height: expanded ? 442 : 412)
+        case .keyboard: return NSSize(width: expanded ? 410 : 350, height: expanded ? 402 : 378)
         }
     }
+    /// The controls the keyboard layout lists, one key cap to a row, with the two directions sharing one.
+    static let keyboardRows: [[DeviceControl]] = [[.voice], [.dial], [.left, .right], [.ok], [.escape]]
 
     static func deviceRect(for template: DeviceTemplateID, expanded: Bool) -> NSRect {
         switch template {
@@ -20,7 +23,18 @@ enum OverlayLayout {
             return NSRect(x: expanded ? 26 : 24, y: 112, width: expanded ? 370 : 330, height: expanded ? 370 / 1.5 : 220)
         case .xiaomiRemote:
             return NSRect(x: 14, y: 68, width: 145.333333, height: 218)
+        case .keyboard:
+            // A column of key caps, one beside each caption.
+            return NSRect(x: 16, y: 67, width: 150, height: 208)
         }
+    }
+    /// Where a control's key cap is drawn on the keyboard layout.
+    static func keyCap(_ control: DeviceControl, expanded: Bool) -> NSRect? {
+        guard let row = keyboardRows.firstIndex(where: { $0.contains(control) }) else { return nil }
+        // The caps stop short of the column's edge, where each one's leader ends.
+        let column = deviceRect(for: .keyboard, expanded: expanded), pair = keyboardRows[row]
+        let width = pair.count == 1 ? column.width - 8 : (column.width - 14) / 2
+        return NSRect(x: column.minX + CGFloat(pair.firstIndex(of: control) ?? 0) * (width + 6), y: column.minY + CGFloat(row) * 44, width: width, height: 32)
     }
 
     static func controlCenter(_ control: DeviceControl, template: DeviceTemplateID, expanded: Bool) -> NSPoint? {
@@ -35,6 +49,11 @@ enum OverlayLayout {
             default: return nil
             }
             return NSPoint(x: rect.midX - rect.width * 0.015, y: rect.minY + rect.height * y)
+        }
+        // A row's leader ends beside its last cap, so that the two directions share one and none crosses a cap.
+        if template == .keyboard {
+            let row = keyboardRows.first { $0.contains(control) }?.last
+            return row.flatMap { keyCap($0, expanded: expanded) }.map { NSPoint(x: $0.maxX + 3, y: $0.midY) }
         }
         guard let point = DeviceArtwork.forTemplate(template).hotspots[control] else { return nil }
         return NSPoint(x: rect.minX + point.x * rect.width, y: rect.minY + point.y * rect.height)
@@ -439,7 +458,23 @@ private final class CompanionView: NSView {
         }
     }
 
+    /// The keyboard layout has no photograph: each control is a key cap carrying the combination that stands for it.
+    private func drawKeyCaps() {
+        let layout = KeyboardLayout.current
+        for control in KeyboardLayout.controls {
+            guard let rect = OverlayLayout.keyCap(control, expanded: expanded) else { continue }
+            let cap = NSBezierPath(roundedRect: rect, xRadius: 7, yRadius: 7)
+            (isActive(control) ? NSColor.systemGreen.withAlphaComponent(0.5) : NSColor.white.withAlphaComponent(darkAppearance ? 0.10 : 0.55)).setFill()
+            cap.fill()
+            NSColor.labelColor.withAlphaComponent(0.22).setStroke(); cap.lineWidth = 0.8; cap.stroke()
+            let label = layout.label(control)
+            text(label.isEmpty ? "—" : label, rect: NSRect(x: rect.minX + 4, y: rect.midY - 8, width: rect.width - 8, height: 17),
+                 size: label.count > 9 ? 10.5 : 12, weight: .semibold, color: .labelColor, alignment: .center)
+        }
+    }
+
     private func drawDevice() {
+        if deviceTemplate == .keyboard { drawKeyCaps(); return }
         if let image = deviceImage {
             NSGraphicsContext.saveGraphicsState()
             let shadow = NSShadow(); shadow.shadowColor = NSColor.black.withAlphaComponent(darkAppearance ? 0.28 : 0.17)
@@ -586,7 +621,8 @@ private final class CompanionView: NSView {
             }
             return result
         }
-        let controls: [DeviceControl] = deviceTemplate == .vibeKey ? [.dial, .left, .voice, .ok, .escape] : [.voice, .dial, .left, .escape, .ok]
+        let controls: [DeviceControl] = deviceTemplate == .vibeKey ? [.dial, .left, .voice, .ok, .escape]
+            : deviceTemplate == .keyboard ? OverlayLayout.keyboardRows.map { $0[0] } : [.voice, .dial, .left, .escape, .ok]
         let x: CGFloat = deviceTemplate == .vibeKey ? 117 : 181
         return controls.enumerated().map { index, control in
             let descriptor = deviceTemplate.template.controls.first { $0.control == control }!
@@ -657,6 +693,9 @@ private final class CompanionView: NSView {
         let path = NSBezierPath(); path.move(to: start)
         if start.y < deviceRect.minY {
             path.line(to: NSPoint(x: target.x, y: start.y)); path.line(to: target)
+        } else if deviceTemplate == .keyboard {
+            // A key cap sits right beside its caption.
+            path.line(to: target)
         } else if deviceTemplate == .dualSense && control == .dial {
             path.line(to: NSPoint(x: target.x + 14, y: target.y + 8)); path.line(to: target)
         } else {

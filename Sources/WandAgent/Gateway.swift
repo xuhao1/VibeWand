@@ -4,7 +4,7 @@ import Foundation
 public enum PermissionMode: String, CaseIterable, Sendable {
     /// Every action that changes something waits for the confirm key.
     case ask
-    /// Navigation and typing run; actions that send or destroy wait.
+    /// Navigation and typing run; actions that send, destroy or hand out access wait.
     case risky
     /// Nothing waits.
     case bypass
@@ -19,7 +19,7 @@ public protocol ToolHost: AnyObject {
 }
 
 /// The only path from the kernel to the desktop for one instruction. It admits
-/// catalogued tools, runs them one at a time, asks the user as their permission
+/// the tools it was given, runs them one at a time, asks the user as their permission
 /// mode requires and keeps the record. The kernel proposes; it cannot mark the task done.
 public actor Gateway {
     public enum Ending: Equatable, Sendable { case finished(String), needsUser(String) }
@@ -58,15 +58,31 @@ public actor Gateway {
         guard !stopped else { return .failure("The user stopped this task. Do nothing further.") }
         guard ending == nil else { return .failure("The task has already ended.") }
         guard let tool = tools[name] else { return .failure("Unknown tool: \(name).") }
-        steps += 1
-        guard steps <= stepLimit else { return .failure("Step limit reached. Call need_user and say how far you got.") }
+        // Saying how it ended is always allowed; everything before that counts.
+        if name != "finish", name != "need_user" {
+            steps += 1
+            guard steps <= stepLimit else { return .failure("Step limit reached. Call need_user and say how far you got.") }
+        }
         journal?.record("call", ["tool": .string(name), "arguments": arguments])
         let outcome = await perform(tool, arguments)
         if !outcome.verified { unverified.append(name) }
         // What the tool answered is what the model went on, so the record keeps it; a long listing is cut.
-        journal?.record("result", ["tool": .string(name), "ok": .bool(!outcome.isError), "verified": .bool(outcome.verified),
-                                   "text": .string(String(outcome.text.prefix(TaskJournal.resultLimit)))])
+        var result: [String: JSONValue] = ["tool": .string(name), "ok": .bool(!outcome.isError), "verified": .bool(outcome.verified),
+                                           "text": .string(String(outcome.text.prefix(TaskJournal.resultLimit)))]
+        if let image = outcome.image, let kept = journal?.keep(image) { result["image"] = .string(kept) }
+        journal?.record("result", result)
         return outcome
+    }
+
+    /// A tool of the runtime's own wants to go beyond its sandbox. The user is asked whatever the mode, since
+    /// the runtime only asks when its own rules say a step needs their word.
+    public func approve(_ name: String, _ arguments: JSONValue) async -> Bool {
+        guard !stopped, ending == nil, await host.confirm(name, arguments, every: true) == true, !stopped else {
+            journal?.record("declined", ["tool": .string(name)])
+            return false
+        }
+        journal?.record("confirmed", ["tool": .string(name)])
+        return true
     }
 
     private func perform(_ tool: ToolDefinition, _ arguments: JSONValue) async -> ToolOutcome {

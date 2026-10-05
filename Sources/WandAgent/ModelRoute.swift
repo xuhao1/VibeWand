@@ -22,13 +22,15 @@ public struct ModelRoute: Equatable, Sendable {
     /// Tokens the model's context holds. nil leaves the kernel's own assumption.
     public var contextWindow: Int?
     public var reasoning: Reasoning
+    /// The model takes pictures as well as text. It is the user's word for it: the service is not asked.
+    public var images: Bool
     /// Further provider settings in the kernel's own vocabulary. They win over the ones derived from the fields above.
     public var extra: [String: JSONValue]
 
     public init(wire: Wire, baseURL: String, model: String, key: String? = nil, contextWindow: Int? = nil,
-                reasoning: Reasoning = .automatic, extra: [String: JSONValue] = [:]) {
+                reasoning: Reasoning = .automatic, images: Bool = false, extra: [String: JSONValue] = [:]) {
         self.wire = wire; self.baseURL = baseURL; self.model = model; self.key = key
-        self.contextWindow = contextWindow; self.reasoning = reasoning; self.extra = extra
+        self.contextWindow = contextWindow; self.reasoning = reasoning; self.images = images; self.extra = extra
     }
 }
 

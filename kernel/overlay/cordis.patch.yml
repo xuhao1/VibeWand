@@ -1,0 +1,27 @@
+# VibeWand on a whole DeepSeek Harness the user installed. The profile VibeWand
+# writes for this scope names the harness's own base bundle and its ACP app
+# before this one, so the tree is the harness's standard agent with every tool
+# it ships: shell, files, web, skills, subagents. VibeWand's own tools are
+# mounted per session beside them.
+#
+# A patch replaces a row's whole config, so each row below restates what the
+# harness's ACP bundle set for it. Sandbox and approval are left as the harness
+# ships them: they follow DSH_PERMISSION_MODE, which VibeWand sets from its own
+# permission mode, and the harness asks VibeWand before a step goes beyond it.
+
+# VibeWand names the model: the one picked there, or the harness's default.
+- id: acp
+  config: !!js JSON.parse(process.env.VIBEWAND_MODEL ?? "{}")
+
+- id: system-prompt
+  config:
+    personaPrefix: !!js process.env.VIBEWAND_SYSTEM_PROMPT ?? ""
+    personaSuffix: Your working directory is {{cwd}}.
+
+# As in the coordinator: a conversation is titled from the opening words of
+# its first command, which VibeWand starts with its own name.
+- id: session-title
+  config:
+    fallbackMaxWords: 5
+    fallbackMaxBytes: 84
+    maxTitleBytes: 96

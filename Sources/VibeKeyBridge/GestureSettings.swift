@@ -98,6 +98,11 @@ final class SettingsController: NSWindowController {
         model.refresh(); showWindow(nil); NSApp.activate(ignoringOtherApps: true)
     }
     func refresh() { model.refresh() }
+    /// Opens the first-run guide, from the pages that offer it.
+    var onGuide: (() -> Void)? {
+        get { model.onGuide }
+        set { model.onGuide = newValue }
+    }
     func update(_ snapshot: HUDSnapshot) { if !renderingAudit { model.snapshot = snapshot } }
     @discardableResult func renderPNG(to url: URL) -> Bool {
         guard let view = window?.contentView,
@@ -158,6 +163,7 @@ final class SettingsModel: ObservableObject {
     @Published var snapshot: HUDSnapshot
     @Published var section = SettingsSection.devices { didSet { onSectionChange?() } }
     var onSectionChange: (() -> Void)?
+    var onGuide: (() -> Void)?
     @Published var selectedControl = "dial"
     @Published var scope = GestureScope.global
     @Published var error: String?
@@ -360,7 +366,7 @@ private enum InputGroup: String, CaseIterable {
     }
 }
 
-private struct DeviceSettings: View {
+struct DeviceSettings: View {
     @ObservedObject var model: SettingsModel
     @State private var group = InputGroup.all
     @State private var showTiming = false
@@ -373,7 +379,7 @@ private struct DeviceSettings: View {
                     ForEach(DeviceTemplateID.allCases, id: \.self) { id in
                         Text((model.snapshot.connectedTemplates.contains(id) ? "● " : "") + id.template.title).tag(id)
                     }
-                }.pickerStyle(.segmented).labelsHidden().frame(width: 330)
+                }.pickerStyle(.segmented).labelsHidden().frame(width: 420)
                     .help(tr("● 表示该设备已连接。按下任意已连接设备上的按键即可切换到它。", "● marks a connected device. Press any button on a connected device to switch to it."))
                 Toggle(tr("跟随正在使用的设备", "Follow the device in use"), isOn: Binding(get: { model.runtime.followsActiveDevice },
                     set: { model.runtime.setFollowsActiveDevice($0); model.refresh() })).toggleStyle(.switch).controlSize(.small)
@@ -411,7 +417,9 @@ private struct DeviceSettings: View {
                             }
                         }.frame(maxWidth: .infinity)
                     } else {
-                        DevicePhoto(model: model).frame(width: max(184, min(240, area.size.width * 0.25)))
+                        Group {
+                            if model.template.id == .keyboard { KeyboardCaps(model: model) } else { DevicePhoto(model: model) }
+                        }.frame(width: max(184, min(240, area.size.width * 0.25)))
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
                                 Text(tr("实体按键", "Physical inputs")).font(.system(size: 14, weight: .semibold))
@@ -531,6 +539,116 @@ private struct DevicePhoto: View {
     }
 }
 
+/// The keyboard layout in place of a photograph: one key cap for each control, carrying its combination.
+private struct KeyboardCaps: View {
+    @ObservedObject var model: SettingsModel
+    var body: some View {
+        let layout = KeyboardLayout.current, clashes = layout.clashes
+        VStack(spacing: 10) {
+            Spacer(minLength: 0)
+            ForEach(model.template.controls, id: \.id) { item in
+                let selected = model.selectedControl == item.id, down = model.snapshot.pressed.contains(item.control)
+                Button { model.selectedControl = item.id } label: {
+                    VStack(spacing: 3) {
+                        Text(layout.label(item.control).isEmpty ? "—" : layout.label(item.control)).font(.system(size: 15, weight: .semibold, design: .rounded))
+                        Text(item.control.label).font(.system(size: 11)).opacity(0.7).lineLimit(1)
+                    }
+                    .foregroundStyle(.white).frame(maxWidth: .infinity).padding(.vertical, 8)
+                    .background(down ? Color.green.opacity(0.6) : selected ? Color.accentColor.opacity(0.55) : Color.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 9))
+                    .overlay(RoundedRectangle(cornerRadius: 9).stroke(clashes.contains(item.control) ? Color.orange : selected ? Color.white : Color.white.opacity(0.3), lineWidth: selected ? 1.5 : 0.8))
+                }.buttonStyle(.plain).accessibilityLabel(tr("配置 ", "Configure ") + item.title).accessibilityAddTraits(selected ? .isSelected : [])
+            }
+            Spacer(minLength: 0)
+            Text(tr("点一个键帽修改它的组合键和动作", "Click a key cap to change its combination and actions"))
+                .font(.system(size: 13)).foregroundStyle(.white.opacity(0.75)).multilineTextAlignment(.center)
+        }
+        .padding(14).frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(LinearGradient(colors: [Color(red: 0.14, green: 0.18, blue: 0.24), Color(red: 0.07, green: 0.095, blue: 0.14)], startPoint: .topLeading, endPoint: .bottomTrailing))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+/// Changes the key combination that stands for one control of the keyboard layout. The combination is recorded
+/// by pressing it, so that a key need not have a name: the extra keys of a custom keyboard are chosen the same way.
+private struct KeyboardChordEditor: View {
+    @ObservedObject var model: SettingsModel
+    let control: DeviceControl
+    @State private var recording = false
+    var body: some View {
+        let layout = KeyboardLayout.current, chord = layout.chord(control), listening = model.snapshot.connected
+        VStack(alignment: .leading, spacing: 7) {
+            Text(tr("组合键", "Key combination")).font(.system(size: 13, weight: .semibold))
+            HStack(spacing: 8) {
+                Text(recording ? tr("按下要用的键…", "Press the key…") : chord?.label ?? tr("未设置", "Not set"))
+                    .font(.system(size: 15, weight: .semibold, design: .rounded)).lineLimit(1).minimumScaleFactor(0.7)
+                    .foregroundStyle(recording ? Color.accentColor : chord == nil ? Color.secondary : Color.primary)
+                    .padding(.horizontal, 10).frame(maxWidth: .infinity, minHeight: 30)
+                    .background(recording ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 7))
+                    .overlay(RoundedRectangle(cornerRadius: 7).stroke(recording ? Color.accentColor : Color.clear, lineWidth: 1.5))
+                    .animation(.easeInOut(duration: 0.15), value: recording)
+                    .accessibilityLabel(tr("当前组合键", "Current combination"))
+                Button { recording ? stop() : record() } label: {
+                    Label(recording ? tr("取消", "Cancel") : tr("录制", "Record"), systemImage: recording ? "xmark.circle" : "record.circle")
+                }.disabled(!listening).fixedSize()
+            }
+            if recording {
+                note(tr("直接按下那个键，可以同时按住 ⌃ ⌥ ⇧ ⌘。键盘上任何会发出按键的键都行，不用知道它叫什么。单按 Esc 取消。按了没有反应，说明这个键发的不是普通按键（比如音量、播放键）：在键盘自己的配置工具里把它改成 F13–F20 就能用。",
+                        "Press the key itself, with ⌃ ⌥ ⇧ ⌘ held if you like. Any key that sends a key press will do; you need not know what it is called. Escape alone cancels. A key that gets no answer does not send an ordinary key press (volume and playback keys are such): set it to F13–F20 in the keyboard's own configuration tool and it will."), .secondary)
+            } else if !listening {
+                note(tr("键盘还没有接上（需要辅助功能权限），接上后才能录制。", "The keyboard is not being listened to yet (Accessibility access is needed); recording works once it is."), .orange)
+            }
+            HStack(spacing: 4) {
+                modifier("⌃", "Control", \.control, chord); modifier("⌥", "Option", \.option, chord)
+                modifier("⇧", "Shift", \.shift, chord); modifier("⌘", "Command", \.command, chord)
+                Spacer(minLength: 0)
+                Button(tr("不使用", "None")) { stop(); set(nil) }.buttonStyle(.plain).font(.system(size: 12)).foregroundStyle(.secondary).disabled(chord == nil)
+            }
+            if let chord, !KeyboardLayout.usable(chord) {
+                note(tr("这个键平时要用来打字或编辑，单独用会让它再也打不出来：请同时按住 ⌃、⌥、⌘ 中的一个。F 键、数字小键盘和扩展键可以单独用。现在这个组合不会生效。",
+                        "This key is one text is typed or edited with, and alone it could no longer be typed: hold one of ⌃, ⌥ or ⌘ with it. Function keys, the number pad and extra keys may stand alone. As it stands this combination does nothing."), .orange)
+            } else if layout.clashes.contains(control) {
+                note(tr("和前面一个键位的组合相同，只有排在前面的那个会生效。", "Another control above uses the same combination; only the first of them fires."), .orange)
+            }
+            Button(tr("恢复默认组合键", "Restore the default combination")) { stop(); set(KeyboardLayout.standard.chord(control)) }
+                .buttonStyle(.plain).font(.system(size: 12)).foregroundStyle(.secondary)
+        }
+        .onChange(of: control) { stop() }
+        .onDisappear { stop() }
+    }
+    private func note(_ text: String, _ color: Color) -> some View {
+        Text(text).font(.system(size: 12)).foregroundStyle(color).fixedSize(horizontal: false, vertical: true)
+    }
+    private func modifier(_ symbol: String, _ name: String, _ keyPath: WritableKeyPath<KeyChord, Bool>, _ chord: KeyChord?) -> some View {
+        let selected = chord?[keyPath: keyPath] ?? false
+        return Button {
+            guard var value = chord else { return }
+            value[keyPath: keyPath].toggle(); set(value)
+        } label: {
+            Text(symbol).font(.system(size: 16, weight: .medium)).frame(width: 29, height: 26)
+                .foregroundStyle(selected ? Color.white : Color.secondary)
+                .background(selected ? Color.accentColor : Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 5))
+        }.buttonStyle(.plain).disabled(chord == nil).help(name)
+            .accessibilityLabel(name).accessibilityValue(selected ? tr("已选", "Selected") : tr("未选", "Not selected"))
+    }
+    /// The next key the keyboard sends becomes this control's combination. A lone Escape is the way out, never a combination.
+    private func record() {
+        recording = true
+        KeyboardInputSource.capture = { pressed in
+            stop()
+            if pressed != KeyChord(code: 53) { set(pressed) }
+        }
+    }
+    private func stop() {
+        guard recording else { return }
+        recording = false; KeyboardInputSource.capture = nil
+    }
+    private func set(_ chord: KeyChord?) {
+        var layout = KeyboardLayout.current
+        layout.chords[control.rawValue] = chord
+        layout.save(); model.refresh()
+    }
+}
+
 private struct InputInspector: View {
     @ObservedObject var model: SettingsModel
     var body: some View {
@@ -544,6 +662,7 @@ private struct InputInspector: View {
                 }
             }
             Text(tr("默认布局：", "Preset: ") + model.selected.detail).font(.system(size: 14)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            if model.template.id == .keyboard { KeyboardChordEditor(model: model, control: model.selected.control) }
             VStack(alignment: .leading, spacing: 7) {
                 Text(tr("作用场景", "Context")).font(.system(size: 13, weight: .semibold))
                 Picker(tr("作用场景", "Context"), selection: $model.scope) {

@@ -1,8 +1,9 @@
 #!/bin/bash
-# Assembles the command-mode kernel that ships inside the app: a pinned Node.js
-# runtime, DeepSeek Harness limited to what kernel/package.json names, and
-# VibeWand's profile. Everything fetched is checked against a pinned digest,
-# no package script is run, and the result must boot before it is published.
+# Assembles the DeepSeek Harness that ships inside the app for command mode: a
+# pinned Node.js runtime, VibeWand's coordinator bundle with the packages its
+# rows name (kernel/coordinator, through kernel/package.json), and the harness's
+# launcher. Everything fetched is checked against a pinned digest, no package
+# script is run, and the result must boot before it is published.
 set -euo pipefail
 task_root="$(cd "$(dirname "$0")/.." && pwd)"
 task_out="${VIBEWAND_KERNEL_PATH:-$task_root/output/kernel}"
@@ -19,11 +20,11 @@ if [ "$(uname -m)" != "arm64" ]; then
   exit 1
 fi
 
-# Reuse an earlier assembly unless what defines it has changed; the profile is always refreshed.
+# Reuse an earlier assembly unless what defines it has changed; the coordinator bundle is always refreshed.
 task_stamp="$(cat "$task_root/kernel/package-lock.json" "$task_root/kernel/smoke.mjs" "$0" | shasum -a 256 | cut -d' ' -f1)"
 if [ -f "$task_out/.stamp" ] && [ "$(cat "$task_out/.stamp")" = "$task_stamp" ]; then
-  rm -rf "$task_out/profile"
-  cp -R "$task_root/kernel/profile" "$task_out/profile"
+  rm -rf "$task_out/node_modules/vibewand-coordinator"
+  cp -R "$task_root/kernel/coordinator" "$task_out/node_modules/vibewand-coordinator"
   printf '%s\n' "$task_out"
   exit 0
 fi
@@ -43,10 +44,11 @@ cp "$task_stage/$task_node_name/LICENSE" "$task_kernel/node/LICENSE"
 
 # The runtime's own npm does the install, so the build needs no Node of its own.
 task_npm() { "$task_stage/$task_node_name/bin/node" "$task_stage/$task_node_name/lib/node_modules/npm/bin/npm-cli.js" "$@"; }
-cp "$task_root/kernel/package.json" "$task_root/kernel/package-lock.json" "$task_kernel/"
+cp "$task_root/kernel/package.json" "$task_root/kernel/package-lock.json" "$task_root/kernel/.npmrc" "$task_kernel/"
+cp -R "$task_root/kernel/coordinator" "$task_kernel/coordinator"
 (cd "$task_kernel" && task_npm ci --omit=dev --ignore-scripts --no-audit --no-fund >/dev/null)
-# Command shims are symbolic links nothing here calls.
-rm -rf "$task_kernel/node_modules/.bin"
+# The bundle is now in node_modules as its own files. Command shims are symbolic links nothing here calls.
+rm -rf "$task_kernel/coordinator" "$task_kernel/.npmrc" "$task_kernel/node_modules/.bin"
 
 (cd "$task_stage" && task_npm pack "$task_launcher" --silent >/dev/null)
 task_tarball="$(ls "$task_stage"/deepseek-ai-dsh-*.tgz)"
@@ -58,7 +60,6 @@ fi
 mkdir -p "$task_kernel/node_modules/@deepseek-ai/dsh"
 tar -xzf "$task_tarball" --strip-components=1 -C "$task_kernel/node_modules/@deepseek-ai/dsh"
 
-cp -R "$task_root/kernel/profile" "$task_kernel/profile"
 "$task_kernel/node/bin/node" "$task_root/kernel/smoke.mjs" "$task_kernel"
 
 printf '%s\n' "$task_stamp" > "$task_kernel/.stamp"

@@ -47,7 +47,11 @@ final class CommandTools: ToolHost {
            CFGetTypeID(window) == AXUIElementGetTypeID() {
             AXUIElementCopyAttributeValue(window as! AXUIElement, kAXTitleAttribute as CFString, &title)
         }
-        source = Source(pid: app.processIdentifier, name: Self.displayName(app), window: title as? String ?? "")
+        // An app the model knows by another name than its own is given both: Codex lives in an app called ChatGPT.
+        var name = Self.displayName(app)
+        if let known = Self.targets.first(where: { $0.bundleIDs.contains(app.bundleIdentifier ?? "") })?.profile.title,
+           !name.localizedCaseInsensitiveContains(known) { name += " (\(known))" }
+        source = Source(pid: app.processIdentifier, name: name, window: title as? String ?? "")
         target = app.processIdentifier
     }
     func shutdown() { codex?.stop(); codex = nil }
@@ -72,7 +76,10 @@ final class CommandTools: ToolHost {
             return L10n.tr("选择菜单「\(item.label)」？", "Choose “\(item.label)” from the menu?")
         case "ui_key":
             guard let pid = operated(), let keys = arguments["keys"]?.string, let stroke = KeyStroke.parse(keys) else { return nil }
-            if stroke.needsConfirmation(focusedRole: await interface.focusedRole(pid: pid)) {
+            // The keys go to the named control when there is one, and otherwise to whatever has the keyboard.
+            var role = await interface.control(arguments["id"]?.string ?? "")?.role
+            if role == nil { role = await interface.focusedRole(pid: pid) }
+            if stroke.needsConfirmation(focusedRole: role ?? "") {
                 return L10n.tr("发送按键 \(keys)？它可能提交或删除内容", "Send \(keys)? It may submit or delete something")
             }
             return every ? L10n.tr("发送按键 \(keys)？", "Send \(keys)?") : nil
@@ -92,7 +99,11 @@ final class CommandTools: ToolHost {
             guard every else { return nil }
             let name = Self.targets.first { $0.id == arguments["app"]?.string }?.profile.title ?? ""
             return L10n.tr("在 \(name) 里搜索「\(quoted(arguments["query"]?.string ?? ""))」？", "Search \(name) for “\(quoted(arguments["query"]?.string ?? ""))”?")
-        default: return every ? L10n.tr("执行 \(tool)？", "Run \(tool)?") : nil
+        default:
+            guard every else { return nil }
+            // A harness's own tool that wants to go beyond its sandbox: what it would run or touch says more than its name.
+            let subject = ["command", "path", "file_path", "url"].lazy.compactMap { arguments[$0]?.string }.first
+            return subject.map { L10n.tr("允许 \(tool)：\(quoted($0))？", "Allow \(tool): \(quoted($0))?") } ?? L10n.tr("执行 \(tool)？", "Run \(tool)?")
         }
     }
 
@@ -106,7 +117,14 @@ final class CommandTools: ToolHost {
         case "choose": return await choose(arguments)
         case "ui_snapshot":
             guard let pid = operated() else { return movedAway }
-            return await interface.snapshot(pid: pid, filter: arguments["filter"]?.string)
+            // What the app's adapter presses for the dial is named for the model too.
+            let profile = ApplicationProfile.resolve(bundleID: NSRunningApplication(processIdentifier: pid)?.bundleIdentifier)
+            return await interface.snapshot(pid: pid, filter: arguments["filter"]?.string) { role, label in
+                profile.isModelTrigger(role: role, hint: label) ? "model picker" : profile.isEffortTrigger(role: role, hint: label) ? "effort picker" : nil
+            }
+        case "ui_screenshot":
+            guard let pid = operated() else { return movedAway }
+            return await interface.picture(pid: pid)
         case "ui_press": return await press(arguments)
         case "ui_key": return await key(arguments)
         case "ui_menu": return await menu(arguments)
@@ -294,7 +312,16 @@ final class CommandTools: ToolHost {
         guard let control = await interface.control(arguments["id"]?.string ?? "") else {
             return .failure("No such control in the latest snapshot. Take a new snapshot.")
         }
-        return await interface.press(control)
+        return await said(after: await interface.press(control))
+    }
+
+    /// Adds what the app announced in answer to an action, as a screen reader would speak it.
+    private func said(after outcome: ToolOutcome) async -> ToolOutcome {
+        guard !outcome.isError else { return outcome }
+        let announced = await interface.announced()
+        guard !announced.isEmpty, var result = JSONValue(data: Data(outcome.text.utf8))?.object else { return outcome }
+        result["announced"] = .string(announced.joined(separator: " · "))
+        return .ok(.object(result), verified: outcome.verified)
     }
 
     private func key(_ arguments: JSONValue) async -> ToolOutcome {
@@ -302,8 +329,16 @@ final class CommandTools: ToolHost {
         guard let keys = arguments["keys"]?.string, let stroke = KeyStroke.parse(keys) else {
             return .failure("Unrecognised keys. Use forms like cmd+p, ctrl+tab, escape, down or return.")
         }
+        if let id = arguments["id"]?.string {
+            guard let control = await interface.control(id) else { return .failure("No such control in the latest snapshot. Take a new snapshot.") }
+            if let refusal = await interface.focus(pid: pid, control: control) { return .failure(refusal) }
+            // The app moves its own focus a moment after it is told to.
+            try? await Task.sleep(nanoseconds: 80_000_000)
+            guard operated() == pid else { return movedAway }
+        }
+        // One press for each call: what the app announces in reply is read before the next one.
         stroke.post(to: pid)
-        return .ok(["sent": .string(keys)])
+        return await said(after: .ok(["sent": .string(keys)]))
     }
 
     private func menu(_ arguments: JSONValue) async -> ToolOutcome {
@@ -322,7 +357,7 @@ final class CommandTools: ToolHost {
             control = await interface.control(id)
             guard control != nil else { return .failure("No such control in the latest snapshot. Take a new snapshot.") }
         }
-        if let refusal = await interface.focusForTyping(pid: pid, control: control) { return .failure(refusal) }
+        if let refusal = await interface.focus(pid: pid, control: control) { return .failure(refusal) }
         guard operated() == pid else { return movedAway }
         switch await paste(text, pid: pid) {
         case true?: return .ok(["typed_characters": .number(Double(text.count)), "note": "The text is in the field. It was not submitted."])

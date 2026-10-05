@@ -22,7 +22,12 @@ public struct SpeechAudio: Equatable {
 }
 
 public protocol SpeechTranscribing {
+    /// Called as a recording starts. What transcription will need has to be there, or the recording is refused.
+    func prepare() async throws
     func transcribe(_ audio: SpeechAudio, configuration: SpeechConfiguration, apiKey: String?) async throws -> String
+}
+public extension SpeechTranscribing {
+    func prepare() async throws {}
 }
 
 /// Qwen's Realtime event protocol and multipart /audio/transcriptions are
@@ -36,7 +41,7 @@ public final class SpeechAPIClient: SpeechTranscribing {
     }
     deinit { if ownsSession { session.invalidateAndCancel() } }
     public func transcribe(_ audio: SpeechAudio, configuration: SpeechConfiguration, apiKey: String?) async throws -> String {
-        guard configuration.provider != .system else { throw SpeechInputError.invalidConfiguration }
+        guard !configuration.provider.isLocal else { throw SpeechInputError.invalidConfiguration }
         try audio.validate(); try configuration.validate(); try Task.checkCancellation()
         if configuration.provider == .qwenRealtime {
             guard let apiKey, !apiKey.isEmpty else { throw SpeechInputError.missingAPIKey }

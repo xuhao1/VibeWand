@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import SpeechInput
+import WandAgent
 
 /// App-level orchestration. Views observe preferences and state, while Runtime
 /// owns the focus token and AccessibilityAdapter owns text delivery.
@@ -26,19 +27,27 @@ final class VoiceInputController: ObservableObject {
     private let preferences: SpeechPreferences
     private let credentials: any SpeechCredentialStore
     private let session: DictationSession
+    /// The recogniser that runs on this Mac, and the state of its models for the settings to show.
+    let senseVoice: SenseVoice
 
     init(preferences: SpeechPreferences = SpeechPreferences(), credentials: any SpeechCredentialStore = KeychainSpeechCredentials(),
-         engineFactory: ((SpeechConfiguration) throws -> any DictationEngine)? = nil) {
+         senseVoice: SenseVoice? = nil, engineFactory: ((SpeechConfiguration) throws -> any DictationEngine)? = nil) {
         self.preferences = preferences; self.credentials = credentials
         configuration = preferences.load()
+        let local = senseVoice ?? .shipped()
+        self.senseVoice = local
         session = DictationSession(credentials: credentials, factory: engineFactory ?? { configuration in
-            if configuration.provider == .system {
+            switch configuration.provider {
+            case .system:
                 // Apple recommends a short list; the speaker's own terms lead it.
                 return SystemDictationEngine(locale: configuration.locale,
                     vocabulary: Array(configuration.effectiveVocabulary.allTerms.prefix(100)))
+            // A recording is recognised here in a fraction of its length, so the preview keeps up with the speaker.
+            case .senseVoice: return APIDictationEngine(configuration: configuration, credentials: credentials, client: local, previewSeconds: 1)
+            case .qwenRealtime, .transcriptionAPI: return APIDictationEngine(configuration: configuration, credentials: credentials)
             }
-            return APIDictationEngine(configuration: configuration, credentials: credentials)
         })
+        local.onChange = { [weak self] in self?.objectWillChange.send() }
         session.onState = { [weak self] state in
             guard let self else { return }
             self.state = state; self.message = ""; self.onChange?()
@@ -106,6 +115,7 @@ extension SpeechProvider {
     var title: String {
         switch self {
         case .system: return L10n.tr("macOS 系统听写", "macOS dictation")
+        case .senseVoice: return L10n.tr("SenseVoice（本机）", "SenseVoice (on this Mac)")
         case .qwenRealtime: return L10n.tr("阿里 Qwen 实时语音", "Alibaba Qwen Realtime")
         case .transcriptionAPI: return L10n.tr("兼容语音转文字 API", "Compatible transcription API")
         }
@@ -141,6 +151,7 @@ extension SpeechInputError {
         case .timedOut: zh = "语音识别超时，请重试。"
         case .protocolRejected: zh = "语音服务未接受请求，请检查接口协议、模型和密钥。"
         case .polishingUnavailable: zh = "自动整理暂不可用，已保留原词；请配置整理服务和密钥。"
+        case .modelMissing: zh = "SenseVoice 的模型还没有下载，请到“语音输入”里下载。"
         case .http(let code): zh = "语音服务返回 HTTP \(code)，请检查地址、模型和密钥。"
         case .keychain(let code): zh = "钥匙串操作失败（\(code)）。"
         }
@@ -150,4 +161,20 @@ extension SpeechInputError {
 
 extension DictationTextStyle {
     var title: String { self == .verbatim ? L10n.tr("原词", "Verbatim") : L10n.tr("自动整理", "Polish") }
+}
+
+extension SenseVoice {
+    /// The recogniser VibeWand ships, with the models kept the way a harness keeps them: in the home of a DeepSeek
+    /// Harness the user installed, where that harness's own voice input finds them too, and otherwise in VibeWand's
+    /// own folder, beside the built-in harness's home rather than in it, so that clearing command mode's records
+    /// leaves them alone.
+    static func shipped() -> SenseVoice {
+        let own = Harness.speechData(in: CommandController.applicationSupport)
+        let installed = CommandSettings.locate(.harness)?.home.map(Harness.speechData(in:))
+        return SenseVoice(runtime: CommandSettings.locate(.builtIn)?.speech.map {
+            Runtime(node: $0.node, worker: $0.worker, assets: $0.assets, stores: [installed, own].compactMap { $0 })
+        })
+    }
+    /// Whether the models are kept in an installed harness's home rather than VibeWand's own.
+    var sharesHarnessHome: Bool { store.map { !$0.path.hasPrefix(CommandController.applicationSupport.path) } ?? false }
 }

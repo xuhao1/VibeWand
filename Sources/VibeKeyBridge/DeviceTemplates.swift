@@ -5,6 +5,8 @@ import AU05Device
 /// Selecting a layout must never invent a device identifier or claim a live connection.
 enum DeviceTemplateID: String, CaseIterable, Codable {
     case vibeKey, dualSense, xiaomiRemote
+    /// No device at all: key combinations on the keyboard stand for the controls.
+    case keyboard
 
     var template: DeviceTemplate { DeviceTemplate.catalog.first { $0.id == self }! }
 }
@@ -88,7 +90,8 @@ struct DeviceTemplate {
         case .vibeKey: return [GestureConfiguration.key(.global, .dial, .long): .command,
                                GestureConfiguration.key(.global, .ok, .long): .models]
         case .dualSense: return [GestureConfiguration.key(.global, .l2, .hold): .command]
-        case .xiaomiRemote: return [:]
+        // The keyboard has a command key of its own: a right-hand modifier held alone.
+        case .xiaomiRemote, .keyboard: return [:]
         }
     }
 
@@ -180,8 +183,25 @@ struct DeviceTemplate {
                 unassigned(.home, "house", 0.50, 0.57),
                 unassigned(.volumeUp, "plus", 0.35, 0.76),
                 unassigned(.volumeDown, "minus", 0.65, 0.76)
-            ])
+            ]),
+        keyboard
     ] }
+
+    /// Each control is named by the key combination that stands for it, as the user has set it.
+    private static var keyboard: DeviceTemplate {
+        let layout = KeyboardLayout.current
+        func name(_ control: DeviceControl, _ role: String) -> String { layout.label(control).isEmpty ? role : "\(layout.label(control))  \(role)" }
+        return DeviceTemplate(id: .keyboard, title: L10n.tr("键盘", "Keyboard"), subtitle: L10n.tr("不用设备，组合键当按键", "No device: key combinations as the buttons"),
+            connectionNote: L10n.tr("不需要连接任何设备。选中这个布局后，下面这些组合键由 VibeWand 接收，不再传给前台应用；需要辅助功能权限。每个键位都可以在设置里按一下来录制，自定义键盘的扩展键也行。", "Nothing to connect. While this layout is selected VibeWand takes the key combinations below and they no longer reach the app in front. Accessibility access is needed. Each one is recorded in Settings by pressing it, a custom keyboard's extra keys included."),
+            audioNote: L10n.tr("按住听写的组合键说话，松开结束；使用 Mac 或外接麦克风。听写交给外置输入法时，直接按输入法自己的语音键更可靠。", "Hold the dictation combination to speak and release to finish. The Mac's or an external microphone is used. When dictation is left to an external input method, pressing that input method's own voice key is the surer way."),
+            controls: [
+                button(.voice, name(.voice, L10n.tr("听写", "Dictation")), L10n.tr("按住听写，松开结束", "Hold to dictate; release to finish"), "mic.fill", 0.5, 0.1),
+                button(.dial, name(.dial, L10n.tr("主键", "Main")), L10n.tr("单击会话 / 确认 · 双击切应用 · 长按模型", "Press for chats / confirm · double press to switch apps · long press for models"), "circle.circle", 0.5, 0.3),
+                direction(.left, name(.left, L10n.tr("向左", "Left")), 0.25, 0.5), direction(.right, name(.right, L10n.tr("向右", "Right")), 0.75, 0.5),
+                button(.ok, name(.ok, L10n.tr("确认", "Confirm")), L10n.tr("确认 / Enter", "Confirm / Enter"), "return", 0.5, 0.7),
+                button(.escape, name(.escape, L10n.tr("返回", "Back")), L10n.tr("删除 / 返回 · 编辑时按住连续删除", "Delete / back · hold to keep deleting while editing"), "delete.left", 0.5, 0.9)
+            ])
+    }
 }
 
 enum DeviceTemplateReadiness: Equatable {

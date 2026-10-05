@@ -1,24 +1,30 @@
-# VibeWand's coordinator for a DeepSeek Harness the user installed themselves.
-# The profile VibeWand keeps in that harness's home names this bundle and
-# nothing else, so this file is the complete tree: the harness's own model
-# providers, credentials and session store, the Agent Client Protocol bridge,
-# and no shell, file, web, skill or subagent tools. The only tools the model
-# sees are the ones VibeWand mounts per session.
+# VibeWand's coordinator as a DeepSeek Harness bundle. The profile VibeWand
+# writes into a harness's home names this bundle and nothing else, so this file
+# is the complete tree: model providers, credentials, a session store and a
+# picture store, the Agent Client Protocol bridge, and no shell, file, web,
+# skill or subagent tools. The only tools the model sees are the ones VibeWand
+# mounts per session.
 #
-# Rows carry the ids the harness's base bundle gives them, so the model rows of
-# the user's own profile, which VibeWand copies into this profile's patch,
-# land on them. Sessions go to the harness's store, where its desktop and web
-# apps can open them.
+# The harness VibeWand ships and a harness the user installed both run this
+# tree. What differs is the profile's own patch, which VibeWand writes at each
+# start: for the shipped harness one row that reads the model the user set up
+# in VibeWand; for an installed one the model rows of the user's own profile,
+# copied as they stand. Rows carry the ids the harness's base bundle gives
+# them, so those rows land here. Sessions go to the home's store, where an
+# installed harness's desktop and web apps can open them.
 #
-# Left out on purpose, as in the kernel VibeWand ships: session-log-deepseek
-# and plugin-package-inventory-deepseek, which attach the session log and the
-# plugin list to each model request, and the telemetry exporters.
+# package.json lists the packages these rows name. The shipped harness is
+# assembled from that list; an installed one has them already.
+#
+# Left out on purpose: session-log-deepseek and plugin-package-inventory-deepseek,
+# which attach the session log and the plugin list to each model request, and
+# the telemetry exporters.
 - insert:
     - id: acp-app-startup
       name: '@deepseek-ai/dsh-acp-app'
 
-    # VibeWand names the model: the one the user picked there, or the default
-    # their harness is set to.
+    # VibeWand names the model: the one set up or picked there, or the default
+    # an installed harness is set to.
     - id: acp
       name: '@deepseek-ai/dsh-acp'
       inject: [acpAppStartup]
@@ -45,7 +51,7 @@
     - id: llm-deepseek
       name: '@deepseek-ai/dsh-llm-deepseek-api-key'
 
-    # Signing in with a DeepSeek account, as the harness's own apps offer it.
+    # Signing in with a DeepSeek account, as an installed harness's own apps offer it.
     - id: deepseek-account
       name: '@deepseek-ai/dsh-deepseek-account-platform'
       config:
@@ -60,19 +66,26 @@
     - id: session-projection
       name: '@deepseek-ai/dsh-session-projection'
 
+    # A conversation is titled from the opening words of its first command,
+    # which VibeWand starts with its own name.
     - id: session-title
       name: '@deepseek-ai/dsh-session-title'
       config:
         fallbackMaxWords: 5
-        fallbackMaxBytes: 40
-        maxTitleBytes: 80
+        fallbackMaxBytes: 84
+        maxTitleBytes: 96
 
     - id: session-persistence-jsonl
       name: '@deepseek-ai/dsh-session-persistence-jsonl'
       config:
         root: !!js dshHomePath('sessions')
 
-    # The cache of session summaries the harness's own apps list sessions from.
+    # A picture a tool shows the model is kept here, outside the session log. VibeWand
+    # mounts the one tool that takes pictures only when the user has let the model see.
+    - id: attachment-local
+      name: '@deepseek-ai/dsh-attachment-local'
+
+    # The cache of session summaries a harness's own apps list sessions from.
     - id: storage
       name: '@deepseek-ai/dsh-storage'
 
@@ -116,7 +129,7 @@
     - id: token-meter
       name: '@deepseek-ai/dsh-token-meter'
 
-    # VibeWand's gateway is the one place that asks the user; the kernel has
+    # VibeWand's gateway is the one place that asks the user; this tree has
     # nothing of its own to ask about.
     - id: approval
       name: '@deepseek-ai/dsh-user-approval'

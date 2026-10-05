@@ -40,16 +40,19 @@ for task_asset in controller gamepad gamepad-overlay remote; do
     cp "$task_root/assets/device/$task_asset.png" "$task_staged_app/Contents/Resources/$task_asset.png"
   fi
 done
-# Command mode's kernel: a pinned Node.js runtime and DeepSeek Harness limited to VibeWand's profile.
-# Both keep the signatures they were published with. VIBEWAND_SKIP_KERNEL=1 leaves it out;
-# command mode then reports that this build has no kernel.
+# Command mode's kernel: a pinned Node.js runtime and DeepSeek Harness limited to what VibeWand's coordinator bundle needs,
+# with the bundle among its packages. Both keep the signatures they were published with. VIBEWAND_SKIP_KERNEL=1 leaves
+# it out; command mode then reports that this build has no kernel.
 if [ "${VIBEWAND_SKIP_KERNEL:-0}" != "1" ]; then
   task_kernel="$(bash "$task_root/scripts/build-kernel.sh" | tail -1)"
   cp -R "$task_kernel" "$task_staged_app/Contents/Resources/kernel"
   rm -f "$task_staged_app/Contents/Resources/kernel/.stamp"
 fi
-# The coordinator as a bundle for a DeepSeek Harness the user installed themselves (plugin mode): a manifest and one patch file.
-cp -R "$task_root/kernel/plugin" "$task_staged_app/Contents/Resources/harness-plugin"
+# The same coordinator for a DeepSeek Harness the user installed themselves (plugin mode), and the overlay that sets
+# VibeWand on that harness's own agent. They sit apart from the kernel's packages: an installed harness must resolve
+# what a bundle names from its own installation, not from packages it finds beside the bundle.
+mkdir -p "$task_staged_app/Contents/Resources/harness"
+cp -R "$task_root/kernel/coordinator" "$task_root/kernel/overlay" "$task_staged_app/Contents/Resources/harness/"
 cp "$task_root/LICENSE" "$task_staged_app/Contents/Resources/LICENSE"
 cp -R "$task_root/third-party" "$task_staged_app/Contents/Resources/third-party"
 cat > "$task_staged_app/Contents/Info.plist" <<'PLIST'

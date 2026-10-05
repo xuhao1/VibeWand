@@ -21,7 +21,7 @@ struct SpeechSettings: View {
         _draft = State(initialValue: voice.configuration)
         _terms = State(initialValue: voice.configuration.effectiveVocabulary.terms.joined(separator: "\n"))
     }
-    private var usesAPI: Bool { draft.mode == .builtIn && draft.provider != .system }
+    private var usesAPI: Bool { draft.mode == .builtIn && !draft.provider.isLocal }
     var body: some View {
         StandardPage(title: tr("语音输入", "Voice input"), subtitle: tr("按住听写键说话，松开后检查文字，再自行发送。", "Hold your dictation button, release and review the text before sending.")) {
             SettingsCard(title: tr("输入方式", "Input method")) {
@@ -44,6 +44,8 @@ struct SpeechSettings: View {
                     }
                     SettingsNote(text: draft.provider == .system ?
                         tr("使用 Apple Speech SDK，支持时优先在本机识别；其他语言可能使用 Apple 在线服务。首次使用会请求麦克风和语音识别权限。", "Uses Apple Speech SDK with on-device recognition when supported. Other languages may use Apple's online service. First use requests microphone and speech recognition access.") :
+                        draft.provider == .senseVoice ?
+                        tr("在这台 Mac 上识别：录音不出本机，不用密钥，没有网络也能用。中文、英语、粤语、日语、韩语自动识别，中英混着说也行；说话时每秒更新一次预览，松开后很快出字。单次最多两分钟。", "Recognised on this Mac: the recording never leaves it, no key is needed, and it works without a network. Chinese, English, Cantonese, Japanese and Korean are detected, mixed speech included; a preview updates every second while you speak and the text follows the release at once. Each recording is limited to two minutes.") :
                         tr("录音保存在内存中，边录边转写。文件式 API 会定期上传当前录音生成预览。单次最多两分钟。", "Audio stays in memory and transcription appears while recording. File-upload APIs periodically upload the current recording for previews. Each recording is limited to two minutes."))
                     Divider()
                     Picker(tr("文字模式", "Text mode"), selection: Binding(get: { voice.configuration.effectiveTextStyle }, set: { style in
@@ -65,6 +67,12 @@ struct SpeechSettings: View {
                 vocabularySettings
                 HStack(alignment: .top, spacing: 16) {
                     VStack(spacing: 16) {
+                        if draft.provider == .senseVoice {
+                            SettingsCard(title: tr("SenseVoice 模型", "SenseVoice models")) {
+                                SenseVoiceModels(voice: voice)
+                                SettingsNote(text: tr("识别程序就是 DeepSeek Harness 的 SenseVoice 插件里的那一个，随 VibeWand 自带。按住说话时启动，大约两秒，在你说话的同时完成；空闲 5 分钟后退出，运行时占用约 650 MB 内存。词表对它不起作用，专有名词靠“自动整理”纠正。", "The recogniser is the one in DeepSeek Harness's SenseVoice plug-in, and comes with VibeWand. It starts when you hold to speak, taking about two seconds while you talk, and exits after five idle minutes; while running it uses about 650 MB of memory. The vocabulary does not reach it: names are put right by Polish."))
+                            }
+                        } else {
                         SettingsCard(title: usesAPI ? tr("服务配置", "Service settings") : tr("识别语言", "Recognition language")) {
                             if draft.provider != .qwenRealtime { field(tr("语言", "Language"), text: $draft.locale, placeholder: "zh-CN / en-US") }
                             if usesAPI {
@@ -75,6 +83,7 @@ struct SpeechSettings: View {
                                     tr("兼容 POST /audio/transcriptions，上传 WAV 并读取 JSON 的 text 字段。支持本机 HTTP 服务。", "Uses POST /audio/transcriptions with a WAV upload and the JSON text field. Local HTTP services are supported."))
                             }
                             HStack { Spacer(); Button(tr("保存配置", "Save settings"), action: commit).disabled(voice.state.active) }
+                        }
                         }
                         if usesAPI {
                             SettingsCard(title: "API Key") {
@@ -223,5 +232,54 @@ struct SpeechSettings: View {
         let panel = NSSavePanel(); panel.allowedContentTypes = [.json]; panel.nameFieldStringValue = "VibeWand-Voice.json"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         model.perform { try voice.export().write(to: url, options: .atomic) }
+    }
+}
+
+/// Where SenseVoice's models stand and the one thing to do about it. The settings show it in full; the guide,
+/// which has a step's worth of room, shows it `compact`.
+struct SenseVoiceModels: View {
+    @ObservedObject var voice: VoiceInputController
+    var compact = false
+    var body: some View {
+        let local = voice.senseVoice
+        let size = ByteCountFormatter.string(fromByteCount: local.downloadSize, countStyle: .file)
+        let place = local.store.map { ($0.path as NSString).abbreviatingWithTildeInPath } ?? ""
+        let shared = local.sharesHarnessHome
+            ? tr("这是 DeepSeek Harness 的目录，它自己的语音输入用的也是这一份。", "This is DeepSeek Harness's folder; its own voice input uses the same copy.")
+            : tr("DeepSeek Harness 自己也准备过语音输入的话，VibeWand 会改用它那一份。", "Once DeepSeek Harness has prepared its own voice input, VibeWand uses that copy instead.")
+        VStack(alignment: .leading, spacing: 9) {
+            switch local.state {
+            case .ready:
+                Label(tr("模型已就绪", "The models are ready"), systemImage: "checkmark.seal.fill").font(.system(size: 14, weight: .medium)).foregroundStyle(.green)
+                if !compact { SettingsNote(text: tr("模型在 \(place)。", "The models are in \(place). ") + shared) }
+            case .missing, .failed:
+                let failed = local.state == .failed
+                let fetch = Button(failed ? tr("继续下载", "Resume the download") : tr("下载并准备（\(size)）", "Download and prepare (\(size))")) { local.startDownload() }
+                    .buttonStyle(.borderedProminent)
+                HStack(spacing: 12) {
+                    Label(failed ? tr("下载没有完成，已经下到的部分会接着用", "The download did not finish; what arrived is kept") : tr("需要先下载模型", "The models have to be downloaded first"),
+                          systemImage: failed ? "exclamationmark.triangle" : "arrow.down.circle")
+                        .font(.system(size: 14, weight: .medium)).foregroundStyle(failed ? Color.orange : Color.primary)
+                    if compact { Spacer(minLength: 0); fetch }
+                }
+                if !compact { fetch }
+                SettingsNote(text: compact
+                    ? tr("来自 Hugging Face，连不上时改用镜像 hf-mirror.com。下载在后台进行，可以先继续后面的步骤，下完再回来试。", "From Hugging Face, or the mirror hf-mirror.com when that cannot be reached. It downloads in the background: go on with the next steps and come back to try it.")
+                    : tr("从 Hugging Face 下载插件指定的那几个文件，连不上时改用镜像 hf-mirror.com，下完逐个核对 SHA-256。保存到 \(place)。",
+                         "The files the plug-in pins are fetched from Hugging Face, or from the mirror hf-mirror.com when that cannot be reached, and each is checked against its SHA-256. They are kept in \(place). ") + shared)
+            case .downloading(let fraction):
+                HStack(spacing: 12) {
+                    ProgressView(value: fraction) {
+                        Text(tr("正在下载模型 \(Int(fraction * 100))%", "Downloading the models, \(Int(fraction * 100))%")).font(.system(size: 14, weight: .medium)).monospacedDigit()
+                    }
+                    Button(tr("取消", "Cancel")) { local.cancelDownload() }
+                }
+            case .unavailable:
+                Label(tr("这个构建不带 SenseVoice 的识别程序", "This build carries no SenseVoice recogniser"), systemImage: "xmark.octagon")
+                    .font(.system(size: 14, weight: .medium)).foregroundStyle(.secondary)
+                SettingsNote(text: tr("识别程序随自带内核一起打包；跳过内核的构建里没有它。", "The recogniser is packaged with the built-in kernel; a build that skipped the kernel has none."))
+            }
+        }
+        .onAppear { local.refresh() }
     }
 }

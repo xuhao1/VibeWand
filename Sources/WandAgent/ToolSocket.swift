@@ -80,7 +80,9 @@ public final class ToolSocket {
             let call = self.call
             Task {
                 let outcome = await call(name, params["arguments"] ?? [:])
-                reply(.success(["content": [["type": "text", "text": .string(outcome.text)]], "isError": .bool(outcome.isError)]))
+                var content: [JSONValue] = [["type": "text", "text": .string(outcome.text)]]
+                if let image = outcome.image { content.append(["type": "image", "data": .string(image.base64EncodedString()), "mimeType": "image/jpeg"]) }
+                reply(.success(["content": .array(content), "isError": .bool(outcome.isError)]))
             }
         case "ping": reply(.success([:]))
         // Newer discovery methods are declined; clients fall back to `initialize`.

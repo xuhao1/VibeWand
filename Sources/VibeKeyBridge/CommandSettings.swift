@@ -103,10 +103,23 @@ struct CommandModel: Codable, Equatable {
 
 /// Which DeepSeek Harness runs the coordinator.
 enum CommandKernelMode: String, CaseIterable {
-    /// The one VibeWand ships, set up on the page below.
+    /// The one VibeWand ships, with the model set up on its page.
     case builtIn
     /// One the user installed, running VibeWand's coordinator as a plugin: its models, its sign-ins, its session list.
     case harness
+    /// VibeWand's own folder for the harness of this mode. For the shipped one it is the harness's home.
+    var folder: String { self == .harness ? "harness" : "kernel" }
+}
+
+/// The conversation the next command may carry on: the runtime's name for it and how far it has got.
+struct CommandConversation: Codable, Equatable {
+    var session: String
+    /// When its latest command ended.
+    var last: Date
+    var turns: Int
+    var used: Int?
+    var size: Int?
+    var usage: (used: Int, size: Int)? { if let used, let size, size > 0 { return (used, size) } else { return nil } }
 }
 
 enum CommandSettingsError: LocalizedError {
@@ -137,6 +150,17 @@ extension PermissionMode {
                                      "Nothing is asked, deleting, sending and submitting included. When the model picks the wrong control or mishears you, those happen too.")
         }
     }
+    /// What the mode means for a harness's own tools, which run inside the harness's sandbox.
+    var harnessSummary: String {
+        switch self {
+        case .ask: return L10n.tr("Harness 自己的工具按“只读”运行：读文件、查资料直接做，写文件或改动系统的每一步都先问你。",
+                                  "The harness's own tools run read-only: reading and looking things up go ahead; every step that writes a file or changes the system asks you first.")
+        case .risky: return L10n.tr("Harness 自己的工具按“工作区可写”运行：只能写 VibeWand 的临时目录，写到别处或需要更大权限的命令先问你。",
+                                    "The harness's own tools run workspace-write: they may write only to VibeWand's scratch folder; writing elsewhere, or a command that needs more, asks you first.")
+        case .bypass: return L10n.tr("Harness 自己的工具按“完全访问”运行：命令和文件改动都直接执行，不问。",
+                                     "The harness's own tools run with full access: commands and file changes go ahead unasked.")
+        }
+    }
 }
 
 /// Command mode preferences. The switch is on from the start and the mode is live
@@ -152,7 +176,8 @@ final class CommandSettings: ObservableObject {
     @Published private(set) var hotkey: CommandHotkey
     @Published private(set) var model: CommandModel
     @Published private(set) var permission: PermissionMode
-    /// Minutes without a command after which the next one starts a new conversation. 0 starts every command afresh.
+    /// Minutes without a command after which the next one starts a new conversation. 0 starts every command afresh;
+    /// a negative value keeps a conversation until it is nearly full or the user ends it.
     @Published private(set) var historyMinutes: Int
     /// Seconds one command may act for, questions included.
     @Published private(set) var timeLimit: Int
@@ -162,22 +187,29 @@ final class CommandSettings: ObservableObject {
     @Published private(set) var instructions: String
     @Published private(set) var kernelMode: CommandKernelMode
     /// The model picked for plugin mode. nil follows the default the user's harness is set to.
-    @Published private(set) var harnessModel: HarnessPlugin.Model?
+    @Published private(set) var harnessModel: Harness.Model?
     @Published private(set) var harnessReasoning: ModelRoute.Reasoning
     /// The user chose to run on a harness version the plugin has not been verified with.
     @Published private(set) var harnessUnverified: Bool
+    /// How much the model may reach for on an installed harness: VibeWand's tools, or the harness's own as well.
+    @Published private(set) var harnessTools: Harness.Tools
+    /// The model may ask for a picture of the window it is operating. Off until the user turns it on:
+    /// what the window shows then leaves this Mac.
+    @Published private(set) var sight: Bool
     private var remembered: [String: CommandModel]
-    private let locateHarness: () -> HarnessPlugin?
+    private let locate: (CommandKernelMode) -> Harness?
     var onChange: (() -> Void)?
 
     init(defaults: UserDefaults = .standard,
          credentials: any SpeechCredentialStore = KeychainSpeechCredentials(service: CommandSettings.service),
-         harness: @escaping () -> HarnessPlugin? = CommandSettings.installedHarness) {
-        self.defaults = defaults; self.credentials = credentials; locateHarness = harness
+         harness: @escaping (CommandKernelMode) -> Harness? = CommandSettings.locate) {
+        self.defaults = defaults; self.credentials = credentials; locate = harness
         kernelMode = defaults.string(forKey: "commandKernelMode").flatMap(CommandKernelMode.init(rawValue:)) ?? .builtIn
-        harnessModel = defaults.data(forKey: "commandHarnessModel").flatMap { try? JSONDecoder().decode(HarnessPlugin.Model.self, from: $0) }
+        harnessModel = defaults.data(forKey: "commandHarnessModel").flatMap { try? JSONDecoder().decode(Harness.Model.self, from: $0) }
         harnessReasoning = defaults.string(forKey: "commandHarnessReasoning").flatMap(ModelRoute.Reasoning.init(rawValue:)) ?? .automatic
         harnessUnverified = defaults.bool(forKey: "commandHarnessUnverified")
+        harnessTools = defaults.string(forKey: "commandHarnessTools").flatMap(Harness.Tools.init(rawValue:)) ?? .own
+        sight = defaults.bool(forKey: "commandSight")
         enabled = defaults.object(forKey: "commandModeEnabled") as? Bool ?? true
         // Right Option is the voice key of some input methods, which take it before any other listener sees it.
         hotkey = defaults.string(forKey: "commandHotkey").flatMap(CommandHotkey.init(rawValue:)) ?? .rightCommand
@@ -202,17 +234,27 @@ final class CommandSettings: ObservableObject {
     }
     func keySaved(for model: CommandModel) -> Bool { account(model).map(credentials.contains(account:)) ?? false }
     var keySaved: Bool { keySaved(for: model) }
-    /// The user's own DeepSeek Harness, when one is installed and this build carries the plugin for it.
-    var harness: HarnessPlugin? { locateHarness() }
-    nonisolated static func installedHarness() -> HarnessPlugin? {
-        // A direct SwiftPM run has no bundle: the plugin is then the one in the checkout.
+    /// The harness of a mode, when this Mac and this build have it: the one inside the app, or one the user installed.
+    func harness(_ mode: CommandKernelMode) -> Harness? { locate(mode) }
+    /// The harness of the mode in force.
+    var harness: Harness? { locate(kernelMode) }
+    nonisolated static func locate(_ mode: CommandKernelMode) -> Harness? {
+        // A direct SwiftPM run has no bundle: the bundles are then the ones in the checkout, and an assembled kernel is named.
         let checkout = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        let bundles = [Bundle.main.resourceURL?.appendingPathComponent("harness-plugin"), checkout.appendingPathComponent("kernel/plugin")]
-        let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.deepseek.dsh")
-        return bundles.lazy.compactMap { $0 }.compactMap { HarnessPlugin.locate(desktopApp: app, bundle: $0) }.first
+        switch mode {
+        case .builtIn:
+            let named = ProcessInfo.processInfo.environment["VIBEWAND_KERNEL_RESOURCES"].map(URL.init(fileURLWithPath:))
+            return [Bundle.main.resourceURL, named].lazy.compactMap { $0 }.compactMap { Harness.shipped(resources: $0) }.first
+        case .harness:
+            let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.deepseek.dsh")
+            return [Bundle.main.resourceURL?.appendingPathComponent("harness"), checkout.appendingPathComponent("kernel")].lazy.compactMap { $0 }
+                .compactMap { Harness.installed(desktopApp: app, bundles: $0) }.first
+        }
     }
-    /// Enough is set to run a command. On the built-in kernel: an address, a model, and a key where one is needed.
-    /// In plugin mode the models and keys are the harness's, so it is enough that one is installed.
+    /// The tools the model is given on the harness in force. The shipped harness has none of its own to add.
+    var tools: Harness.Tools { kernelMode == .harness ? harnessTools : .own }
+    /// Enough is set to run a command. On the shipped harness: an address, a model, and a key where one is needed.
+    /// On an installed one the models and keys are its own, so it is enough that it is there.
     var usable: Bool {
         kernelMode == .harness ? harness != nil : model.origin != nil && !model.model.isEmpty && (model.keyOptional || keySaved)
     }
@@ -220,6 +262,12 @@ final class CommandSettings: ObservableObject {
     var modelName: String { kernelMode == .harness ? (harnessModel ?? harness?.defaultModel)?.model ?? "" : model.model }
     /// The command key is live. Until then the device's keys keep what they did without command mode.
     var active: Bool { enabled && usable }
+    /// The conversation the next command may carry on, kept across restarts. It is state, not a preference:
+    /// writing it notifies nobody.
+    var conversation: CommandConversation? {
+        get { defaults.data(forKey: "commandConversation").flatMap { try? JSONDecoder().decode(CommandConversation.self, from: $0) } }
+        set { defaults.set(newValue.flatMap { try? JSONEncoder().encode($0) }, forKey: "commandConversation") }
+    }
 
     func setEnabled(_ value: Bool) { enabled = value; defaults.set(value, forKey: "commandModeEnabled"); onChange?() }
     func setHotkey(_ value: CommandHotkey) { hotkey = value; defaults.set(value.rawValue, forKey: "commandHotkey"); onChange?() }
@@ -236,13 +284,15 @@ final class CommandSettings: ObservableObject {
         onChange?()
     }
     func setKernelMode(_ value: CommandKernelMode) { kernelMode = value; defaults.set(value.rawValue, forKey: "commandKernelMode"); onChange?() }
-    func setHarnessModel(_ value: HarnessPlugin.Model?) {
+    func setHarnessModel(_ value: Harness.Model?) {
         harnessModel = value; defaults.set(value.flatMap { try? JSONEncoder().encode($0) }, forKey: "commandHarnessModel"); onChange?()
     }
+    func setHarnessTools(_ value: Harness.Tools) { harnessTools = value; defaults.set(value.rawValue, forKey: "commandHarnessTools"); onChange?() }
+    func setSight(_ value: Bool) { sight = value; defaults.set(value, forKey: "commandSight"); onChange?() }
     func setHarnessReasoning(_ value: ModelRoute.Reasoning) { harnessReasoning = value; defaults.set(value.rawValue, forKey: "commandHarnessReasoning"); onChange?() }
     func setHarnessUnverified(_ value: Bool) { harnessUnverified = value; defaults.set(value, forKey: "commandHarnessUnverified"); onChange?() }
     func setPermission(_ value: PermissionMode) { permission = value; defaults.set(value.rawValue, forKey: "commandPermission"); onChange?() }
-    func setHistoryMinutes(_ value: Int) { historyMinutes = max(0, value); defaults.set(historyMinutes, forKey: "commandHistoryMinutes"); onChange?() }
+    func setHistoryMinutes(_ value: Int) { historyMinutes = max(-1, value); defaults.set(historyMinutes, forKey: "commandHistoryMinutes"); onChange?() }
     func setTimeLimit(_ value: Int) { timeLimit = max(30, value); defaults.set(timeLimit, forKey: "commandTimeLimit"); onChange?() }
     func setStepLimit(_ value: Int) { stepLimit = max(4, value); defaults.set(stepLimit, forKey: "commandStepLimit"); onChange?() }
     func setInstructions(_ value: String) {
@@ -261,11 +311,13 @@ final class CommandSettings: ObservableObject {
         guard let account = account(model) else { return nil }
         return (try? await credentials.readAsync(account: account)) ?? nil
     }
-    /// The model as the built-in kernel is told about it, with its key. nil until enough is set.
-    func route() async -> ModelRoute? {
-        guard kernelMode == .builtIn, usable else { return nil }
-        return ModelRoute(wire: model.wire, baseURL: model.baseURL, model: model.model, key: await readKey(for: model),
-                          contextWindow: model.contextWindow > 0 ? model.contextWindow : nil, reasoning: model.reasoning,
-                          extra: model.extraSettings ?? [:])
+    /// Where the model of the mode in force comes from: the route set up here, with its key, or the harness's own
+    /// settings with the model picked from them. nil until enough is set.
+    func models() async -> Harness.Models? {
+        guard usable else { return nil }
+        if kernelMode == .harness { return .harness(harnessModel, reasoning: harnessReasoning) }
+        return .route(ModelRoute(wire: model.wire, baseURL: model.baseURL, model: model.model, key: await readKey(for: model),
+                                 contextWindow: model.contextWindow > 0 ? model.contextWindow : nil, reasoning: model.reasoning,
+                                 images: sight, extra: model.extraSettings ?? [:]))
     }
 }
