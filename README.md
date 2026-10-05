@@ -47,11 +47,11 @@ Per-model details are in the [hardware guide](docs/device-templates.en.md).
 | Browsers | Next tab | Address bar | ✓ |
 | WeChat, Feishu | Search / switch chats | — | ✓ |
 
-The first four AI tools were exercised on a real machine; the terminal row has so far only had its commands and keys checked in a background terminal, not the full path through iTerm2. WorkBuddy 5.6.2 passed native UI readback checks for task search and opening, model switching, draft editing and dictation delivery with transcript replay. Dictation is not tied to an app: native fields fill in as you speak, and everything else gets a single paste when you release, after which your clipboard is put back. You can add a shortcut rule for other apps in Settings; see [Applications](docs/applications.en.md).
+All five AI rows were exercised on a real machine. The terminal row was accepted in iTerm2 3.7.3 against Codex CLI 0.160.0, Claude Code 2.1.289 and OpenCode 1.18.34 with the screen read back after every step: with a draft at the prompt turning moves the cursor and ESC deletes, a command is typed only at an empty prompt, and buttons keep answering while the agent works; see the [acceptance record](docs/terminal-acceptance.md). WorkBuddy 5.6.2 passed native UI readback checks for task search and opening, model switching, draft editing and dictation delivery with transcript replay. Dictation is not tied to an app: native fields fill in as you speak, and everything else gets a single paste when you release, after which your clipboard is put back. You can add a shortcut rule for other apps in Settings; see [Applications](docs/applications.en.md).
 
 ## Install
 
-**[Download VibeWand 0.8.3 (Apple Silicon)](https://github.com/xuhao1/VibeWand/releases/download/v0.8.3/VibeWand-0.8.3-macOS-arm64.zip)** · [Release notes](https://github.com/xuhao1/VibeWand/releases/latest)
+**[Download VibeWand 0.8.4 (Apple Silicon)](https://github.com/xuhao1/VibeWand/releases/download/v0.8.4/VibeWand-0.8.4-macOS-arm64.zip)** · [Release notes](https://github.com/xuhao1/VibeWand/releases/latest)
 
 Requires macOS 13 or later on an M-series Mac. Unzip, drag **VibeWand.app** into Applications, open it, then:
 
@@ -78,7 +78,7 @@ The result is `dist/VibeWand.app`. More in the [development guide](docs/developm
 
 ## Privacy
 
-Device input and configuration stay on your Mac. VibeWand has no server and needs no account. With an external input method it only holds Fn for you. With built-in recognition, audio stays in memory; macOS dictation runs on device when it can, and API mode sends audio to the endpoint you entered. Keys live in the macOS Keychain and are never part of an exported configuration. Dictated text goes into the field and no further; sending it is up to you.
+Device input and configuration stay on your Mac. VibeWand has no server and needs no account. With an external input method it only holds Fn for you. With built-in recognition, audio stays in memory; macOS dictation runs on device when it can, and API mode sends audio to the endpoint you entered. Keys live in the macOS Keychain and are never part of an exported configuration. Dictated text goes into the field and no further; sending it is up to you. A terminal has no composer control, so VibeWand reads the few rows next to the cursor to find the prompt; they are reduced to a state in memory and dropped, never stored or sent anywhere.
 
 ## License
 

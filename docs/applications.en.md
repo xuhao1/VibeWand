@@ -48,28 +48,45 @@ The run fixed an unrecognised `AXComboBox` model trigger and an empty composer w
 
 ## Claude Code, Codex and OpenCode in a terminal
 
-Built for iTerm2 (`com.googlecode.iterm2`); it can be turned off under Settings → Applications. A terminal draws its interface as text, so VibeWand cannot see whether a list is open. Nothing is recognised here; fixed keys are sent instead:
+Built for iTerm2 (`com.googlecode.iterm2`); it can be turned off under Settings → Applications. A terminal draws its whole interface as text and has no composer control to read, so VibeWand reads the few rows around the cursor and works out three things: whether the cursor sits on a prompt it knows, whether that prompt holds a draft, and whether a list is covering it. The prompts it knows are Codex's `›` and Claude Code's `❯`, both in the first column, and the `┃` to the left of OpenCode's input box.
 
-| Action | What is sent | Afterwards |
-| --- | --- | --- |
-| Chats (press the dial) | Clear the current input line (`⌃U`), type `/resume`, Return | Turning sends ↑ / ↓, confirm sends Return, back sends Esc |
-| Models (long-press the dial) | Clear the current input line, type `/model`, Return | Same |
-| Turn (otherwise) | Scroll wheel | Claude Code and OpenCode scroll their own transcript; Codex scrolls the terminal's scrollback |
-| ESC | Escape | Hold to keep sending Backspace |
-| OK | Return | — |
-| Dictation | Pasted at the prompt on release | Nothing is sent for you |
+| On screen | Turning | ESC | Dial press / long press | OK |
+| --- | --- | --- | --- | --- |
+| An empty prompt | Scrolls | Escape; while the agent is working this interrupts it | Types `/resume` / `/model` and Return | Return |
+| A prompt with a draft | Moves the cursor left and right | Deletes the character before the cursor; hold to keep deleting | Leaves the draft alone and says to send or clear it first | Return, which sends |
+| A list VibeWand opened | ↑ / ↓ | Esc: back or cancel | Return to confirm | Return |
+| Anything else: a shell, a list opened from the keyboard, an approval question | Scrolls | Escape; hold for Backspace | Types nothing | Return |
 
-Both commands work in all three tools: OpenCode completes `/resume` to `/sessions` and `/model` to `/models`. The command is pasted, so an active Chinese input method cannot swallow it, and your clipboard is put back afterwards.
+Dictation is pasted at the prompt on release and nothing is sent for you. On the controller layout □ deletes, ○ confirms and × is Escape, following the same states.
+
+<p><img src="images/terminal-v084-codex.jpg" width="560" alt="Codex CLI 0.160.0 in iTerm2 with its model list open and the third row selected"></p>
+
+The image above is an actual window screenshot from the 0.8.4 acceptance run: after a long press typed `/model` and two steps of turning, Codex's model list rests on its third row.
 
 Things to know:
 
-- Opening a list first clears whatever is on the current input line, so a draft is never submitted together with the command. A multi-line draft is not fully cleared (Claude Code clears only its last line), so deal with those yourself first.
-- A list counts as open until you confirm, go back, or leave it alone for 20 seconds. For 4 seconds after choosing a model you can keep turning, which covers the effort list Codex shows next.
-- The draft at the prompt cannot be read, so turning always scrolls and never moves a caret.
-- In Claude Code's model list Return means "set as default"; "this session only" is `s` on the keyboard.
-- Pressing the dial at a plain shell prompt only produces a "no such file: /resume" error.
+- **How a command is typed.** Only at an empty prompt. The command is pasted, so an active Chinese input method cannot swallow its letters, and your clipboard is put back afterwards. Return is pressed once the prompt row holds that command and nothing else. If there is other text on the row, Return is not pressed and the command stays where it is; it is never sent together with a draft. The `⌃U` that 0.8.3 and earlier used to clear the input line is gone, so a draft is no longer wiped.
+- **When a list counts as open.** VibeWand typed the command and a list really appeared: the prompt is gone and the screen shows a key hint for Esc. It ends the moment the prompt is back, instead of on a timer. The effort list Codex shows after a model is chosen, and the model list that Esc in the effort list returns to, are both followed. It also ends after 20 seconds without input; press ESC and open it again.
+- **What counts as a draft.** Text before the cursor, or a draft that wraps or runs over several rows. Moving the cursor all the way to the start leaves it a draft: VibeWand remembers a fingerprint of the text, not the text.
+- **Scrolling.** Codex, OpenCode and Claude Code's fullscreen renderer take over the mouse wheel and scroll their own transcript; Claude Code's classic renderer scrolls iTerm2's scrollback. With a draft at the prompt, turning moves the cursor instead, as in every other app.
+- **While the agent is working.** Codex and Claude Code spin a mark in the window title while they work, Codex about ten times a second. 0.8.3 and earlier treated the title as part of "has the target changed", so once an agent was working, ESC, delete and OK were all dropped as aimed at a changed target. A terminal's title no longer takes part in that check.
+- **What is read.** Only the text from at most 12 rows above the cursor to the end of the screen, never the scrollback. It is reduced in memory to the states above and dropped: not kept, logged or exported.
 
-Commands and keys were checked in a background terminal against Claude Code 2.1.234, Codex CLI 0.156.1 and OpenCode 1.2.5: opening the chat and model lists, moving up and down, cancelling, clearing the line with `⌃U`, pasting and Backspace. The full path through iTerm2 3.7.3 and a physical device has not been exercised yet.
+What each tool does on its own:
+
+- In Claude Code's model list Return means "set as default"; "this session only" is `s` on the keyboard, and effort is `←` / `→` on the keyboard. Its fullscreen renderer shows an argument hint after a command (`/model [model]`), which VibeWand recognises.
+- In Codex's effort list Return also sets the default. While a task is running Codex refuses `/resume` and `/model` itself; VibeWand does not take a list to be open.
+- OpenCode completes `/resume` to `/sessions` and `/model` to `/models`. It folds a paste longer than 150 characters or 3 lines into `[Pasted ~1 lines]`, so a longer dictation is not readable in the box; add `"experimental": { "disable_paste_summary": true }` to `opencode.json` to see the text.
+
+Known limits:
+
+- In a tmux split, a prompt in a right-hand pane does not start its row and is not recognised.
+- Codex's `!` shell mode and Claude Code's `!` and `#` modes change the mark at the start of the row and do not count as a prompt: ESC is Escape, and holding it sends Backspace.
+- With the cursor at the very start of a draft VibeWand has not seen before, the draft looks like a placeholder. Pressing the dial then types the command, but Return is not pressed because the row holds other text.
+- Lists opened from the keyboard and approval questions are not taken over by turning; OK confirms the current choice and ESC declines or cancels.
+- Command-line tools without an adapter get scrolling, Escape, Return and pasted dictation only. Other terminals such as Terminal.app are not adapted.
+
+0.8.4 passed live acceptance in the installed iTerm2 **3.7.3** against Codex CLI **0.160.0**, Claude Code **2.1.289** (classic and fullscreen renderers) and OpenCode **1.18.34**: pasted dictation, deleting by press and by hold, cursor movement, refusing to open a list over a draft, opening, moving in and cancelling the chat and model lists, and deleting and interrupting with Escape while Codex was working. Keys were sent by the production runtime and each step was checked by reading the terminal text back; physical device buttons were not pressed in this run. See the [acceptance record](terminal-acceptance.md).
 
 ## Browsers
 

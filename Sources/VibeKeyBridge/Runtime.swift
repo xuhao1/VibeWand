@@ -627,7 +627,7 @@ final class BridgeRuntime {
         case .contextConfirm: effect = reduce(state: &interaction, control: .ok, context: observation.context)
         case .contextEscape:
             let reduced = reduce(state: &interaction, control: .escape, context: observation.context)
-            // A terminal's prompt cannot be read: the press is Escape, the hold is Backspace.
+            // Where a terminal shows no draft the press stays Escape; the hold is still Backspace.
             let holdsInTerminal = signal.kind == .long && observation.context.applicationProfile == .terminal
             effect = reduced == .sendEscape && holdsInTerminal ? .deleteBackward : reduced
         case .sessions: effect = .openSessions

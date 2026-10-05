@@ -69,14 +69,19 @@ private struct PendingPicker {
     var expired: Bool { Date().timeIntervalSince(requestedAt) > 1.2 }
 }
 
-/// A terminal draws its pickers as text, so there is nothing to observe. Once
-/// a picker command has been typed, the picker is taken to be open in that
-/// terminal session until it is confirmed, cancelled or left alone.
+/// A list opened in a terminal by typing its command. It counts as open only
+/// while that terminal session shows a list instead of its prompt.
 private struct TypedPicker {
     var pid: pid_t
     var focus: CFHashCode
     var mode: InteractionMode
-    var expires: Date
+    /// False until the list has been seen; it may take a moment to draw.
+    var seen = false
+    var expires = Date() + TypedPicker.drawTime
+    static let drawTime: TimeInterval = 1.5
+    static let idleTime: TimeInterval = 20
+    /// A choice or Esc may lead to another list (Codex asks for the effort next).
+    mutating func awaitNext() { seen = false; expires = Date() + Self.drawTime }
 }
 
 private struct PickerBinding {
@@ -99,12 +104,20 @@ private struct AXSampleRequest {
     /// content to accessibility clients. Other apps ignore the attribute.
     var enableWebAccessibility = false
     var typedPicker: TypedPicker?
+    var terminalDraft: TerminalDraft?
     var sessionList: AXUIElement?
+}
+
+/// Fingerprints of a terminal prompt's text while it holds a draft.
+private struct TerminalDraft {
+    var focus: CFHashCode
+    var fingerprints: Set<Int>
 }
 
 private struct AXSampleResult {
     var observation: TargetObservation
     var binding: PickerBinding?
+    var terminalDraft: TerminalDraft?
 }
 
 @MainActor
@@ -122,6 +135,7 @@ final class AccessibilityAdapter {
     private struct SidebarPicker { var pid: pid_t; var list: AXUIElement; var touched: Date }
     private var sidebarPicker: SidebarPicker?
     private var typedPicker: TypedPicker?
+    private var terminalDraft: TerminalDraft?
     /// Title of the highlighted candidate, for the HUD only.
     private(set) var selectionTitle = ""
     private var completions: [(TargetObservation) -> Void] = []
@@ -192,6 +206,7 @@ final class AccessibilityAdapter {
         boundPicker = nil
         sidebarPicker = nil
         typedPicker = nil
+        terminalDraft = nil
         selectionTitle = ""
         cached = TargetObservation()
         restorePointer()
@@ -256,6 +271,7 @@ final class AccessibilityAdapter {
         if let typed = typedPicker {
             if typed.pid == app.processIdentifier, Date() < typed.expires { request.typedPicker = typed } else { typedPicker = nil }
         }
+        request.terminalDraft = terminalDraft
         worker.async { [weak self] in
             let result = AXSampler.sample(request)
             DispatchQueue.main.async {
@@ -269,8 +285,12 @@ final class AccessibilityAdapter {
                         if self.candidateNavigation.root != nil && self.candidateNavigation.root != result.observation.pickerRoot { self.restorePointer() }
                         self.cached = result.observation
                         self.boundPicker = result.binding
-                        // Another tab or pane took focus: the list belonged to the one before.
-                        if request.typedPicker != nil, result.observation.context.picker == nil { self.typedPicker = nil }
+                        self.terminalDraft = result.terminalDraft
+                        if let typed = request.typedPicker {
+                            if result.observation.context.picker != nil {
+                                if !typed.seen { self.typedPicker?.seen = true; self.typedPicker?.expires = Date() + TypedPicker.idleTime }
+                            } else if typed.seen { self.typedPicker = nil }
+                        }
                         // An observed menu owns its binding; the shortcut request
                         // cannot be reused to classify a later unrelated modal.
                         if result.binding != nil || self.pendingPicker?.expired == true { self.pendingPicker = nil }
@@ -306,8 +326,7 @@ final class AccessibilityAdapter {
                 return profile.title(for: effect)
             }
             if let command = profile.typedCommand(for: effect), observation.customProfile == nil {
-                typeCommand(command, mode: .sessions, identity: identity)
-                return profile.title(for: effect)
+                return typeCommand(command, mode: .sessions, observation: observation) ?? profile.title(for: effect)
             }
             if profile.opensSessionsWithButton, observation.customProfile == nil {
                 pressLabelledControl(pid: pid, mode: .sessions, identity: identity, menus: observation.menuHashes,
@@ -338,8 +357,7 @@ final class AccessibilityAdapter {
             guard !observation.context.compositionActive, !observation.context.modalOpen else { return L10n.tr("输入法或弹窗正在处理输入，操作已暂停", "Input method or dialog is active; action paused") }
             let profile = observation.context.applicationProfile
             if let command = profile.typedCommand(for: effect), observation.customProfile == nil {
-                typeCommand(command, mode: .models, identity: identity)
-                return profile.title(for: effect)
+                return typeCommand(command, mode: .models, observation: observation) ?? profile.title(for: effect)
             }
             if profile.opensModelsWithButton, observation.customProfile == nil {
                 // Codex also has a shortcut in some versions; it is the fallback when no button is found.
@@ -359,7 +377,7 @@ final class AccessibilityAdapter {
             guard let shortcut = observation.shortcut(for: effect, fallback: KeyStroke(code: direction < 0 ? 123 : 124)) else { return unassignedAction }
             post(shortcut, pid: pid)
         case .deleteBackward:
-            // A terminal's prompt cannot be read; Backspace is harmless on an empty one.
+            // Away from a recognised prompt a terminal still takes Backspace: a shell's command line, a list's search field.
             guard observation.context.canEditDraft || observation.context.applicationProfile == .terminal else { return L10n.tr("当前界面保留原生 Escape", "Native Escape is preserved on this screen") }
             guard let shortcut = observation.shortcut(for: effect, fallback: KeyStroke(code: 51)) else { return unassignedAction }
             post(shortcut, pid: pid)
@@ -400,7 +418,7 @@ final class AccessibilityAdapter {
             guard !observation.sidebarPicker else { return L10n.tr("没有可选的会话", "No chats to choose from") }
             guard let shortcut = observation.shortcut(for: effect, fallback: KeyStroke(code: direction < 0 ? 126 : 125)) else { return unassignedAction }
             post(shortcut, pid: pid, systemMenu: observation.customProfile == nil || observation.nativeMenu)
-            typedPicker?.expires = Date() + 20
+            typedPicker?.expires = Date() + TypedPicker.idleTime
         case .confirmCandidate:
             guard observation.context.picker != nil, !observation.context.compositionActive else { return L10n.tr("未确认选择器，操作已取消", "Picker not confirmed; action canceled") }
             if candidateNavigation.root == observation.pickerRoot, let index = candidateNavigation.index,
@@ -423,8 +441,7 @@ final class AccessibilityAdapter {
             pendingPicker = nil; boundPicker = nil
             sidebarPicker = nil; selectionTitle = ""
             cached.sampledAt = nil
-            // A typed model list may be followed by another (Codex asks for the effort next).
-            if typedPicker?.mode == .sessions { typedPicker = nil } else { typedPicker?.expires = Date() + 4 }
+            typedPicker?.awaitNext()
             let profile = observation.context.applicationProfile
             // Choosing a row may open a nested menu (model → variants); keep following it.
             if let mode = observation.context.picker, mode != .sessions, profile.supportsAssistantPickers, !observation.sidebarPicker {
@@ -453,7 +470,8 @@ final class AccessibilityAdapter {
             post(shortcut, pid: pid, systemMenu: observation.context.picker != nil && (observation.customProfile == nil || observation.nativeMenu))
             restorePointer()
             generation += 1
-            pendingPicker = nil; boundPicker = nil; typedPicker = nil
+            pendingPicker = nil; boundPicker = nil
+            typedPicker?.awaitNext()
             cached.sampledAt = nil
         case .sendReturn:
             guard let shortcut = observation.shortcut(for: effect, fallback: KeyStroke(code: 36)) else { return unassignedAction }
@@ -473,23 +491,50 @@ final class AccessibilityAdapter {
         return effect.title
     }
 
-    /// Empties the prompt line, pastes the command and presses Return. Pasting
-    /// keeps an active input method from swallowing the letters.
-    private func typeCommand(_ command: String, mode: InteractionMode, identity: TargetIdentity) {
-        let pid = identity.pid
-        post(KeyStroke(code: 32, flags: .maskControl), pid: pid, systemMenu: true) // Ctrl+U
+    /// Pastes a command into an empty prompt and presses Return only once the
+    /// prompt shows that command and nothing else, so a draft is never sent.
+    /// Pasting keeps an active input method from swallowing the letters.
+    /// Returns why nothing was typed, or nil.
+    private func typeCommand(_ command: String, mode: InteractionMode, observation: TargetObservation) -> String? {
+        guard let pid = observation.pid, let area = observation.focused,
+              observation.context.editorFocused, observation.context.hasDraftText == false else {
+            return observation.context.editingDraft
+                ? L10n.tr("提示符里有草稿；先发送或清空再打开列表", "The prompt holds a draft; send or clear it before opening a list")
+                : L10n.tr("没有看到空的命令行提示符", "No empty agent prompt in this terminal")
+        }
         let delivery = ClipboardTextDelivery()
         delivery.post(command, pid: pid)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
-            MainActor.assumeIsolated {
-                delivery.restore(confirmed: true)
-                guard let self, NSWorkspace.shared.frontmostApplication?.processIdentifier == pid else { return }
-                self.post(KeyStroke(code: 36), pid: pid, systemMenu: true)
+        generation += 1
+        typedPicker = nil
+        cached.sampledAt = nil
+        worker.async { [weak self] in
+            let application = AXUIElementCreateApplication(pid)
+            AXUIElementSetMessagingTimeout(application, 0.05)
+            let deadline = ProcessInfo.processInfo.systemUptime + 0.8
+            var landed = false
+            repeat {
+                usleep(40_000)
+                var focused: CFTypeRef?
+                // The same session must still hold the keyboard when Return is pressed.
+                guard AXUIElementCopyAttributeValue(application, kAXFocusedUIElementAttribute as CFString, &focused) == .success,
+                      let focused, CFEqual(focused, area) else { break }
+                landed = TerminalScreen(area: area)?.promptHolds(command) == true
+            } while !landed && ProcessInfo.processInfo.systemUptime < deadline
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    delivery.restore(confirmed: true)
+                    guard let self, NSWorkspace.shared.frontmostApplication?.processIdentifier == pid else { return }
+                    guard landed else {
+                        self.onStatus?(L10n.tr("命令没有单独落在提示符里，未发送", "The command did not land alone on the prompt; nothing was sent")); return
+                    }
+                    self.post(KeyStroke(code: 36), pid: pid, systemMenu: true)
+                    self.generation += 1
+                    self.typedPicker = TypedPicker(pid: pid, focus: CFHash(area), mode: mode)
+                    self.cached.sampledAt = nil
+                }
             }
         }
-        generation += 1
-        typedPicker = TypedPicker(pid: pid, focus: identity.focusedHash, mode: mode, expires: Date() + 20)
-        cached.sampledAt = nil
+        return nil
     }
 
     private func openSidebarSessions(pid: pid_t) {
@@ -672,7 +717,9 @@ enum LabelledControlFinder {
 
 /// The sampler never touches app windows on the main run loop, screenshots,
 /// conversation contents. Composer value, when needed, is reduced to an empty
-/// flag and never logged or exported. All AX calls share a wall-time budget.
+/// flag and never logged or exported. A terminal has no composer element, so
+/// the rows next to its cursor are read and reduced the same way. All AX calls
+/// share a wall-time budget.
 private final class AXSampler {
     private let deadline = ProcessInfo.processInfo.systemUptime + 0.06
     private var exhausted = false
@@ -700,7 +747,9 @@ private final class AXSampler {
         result.focused = focused; result.window = window
         let focusRole = focused.map { string($0, kAXRoleAttribute) } ?? ""
         let focusHint = focused.map(hints)?.lowercased() ?? ""
-        let windowTitle = window.map { string($0, kAXTitleAttribute) } ?? ""
+        // A terminal's title belongs to the program running in it: Codex and
+        // Claude Code spin a mark in it while they work, many times a second.
+        let windowTitle = profile == .terminal ? "" : window.map { string($0, kAXTitleAttribute) } ?? ""
         let focusIdentifier = focused.map { string($0, kAXIdentifierAttribute) } ?? ""
         result.identity = TargetIdentity(pid: request.pid, windowHash: window.map(CFHash) ?? 0, windowTitle: windowTitle,
                                         focusedHash: focused.map(CFHash) ?? 0, focusedIdentifier: focusIdentifier)
@@ -864,8 +913,19 @@ private final class AXSampler {
         if result.context.editorFocused { result.editor = textOwner }
         // Browser fields never redirect the wheel into caret navigation. This
         // also keeps the runtime's editing gesture scope from bypassing reduce.
-        if profile.alwaysScrolls || profile == .terminal { result.context.editorFocused = false }
-        if result.context.editorFocused, let textOwner {
+        if profile.alwaysScrolls { result.context.editorFocused = false }
+        var terminalPrompt = TerminalPrompt.unknown, terminalDraft = request.terminalDraft
+        if profile == .terminal {
+            // The prompt is what the agent drew at the cursor, not the text area holding the whole screen.
+            if focusRole == "AXTextArea", let focused, !overBudget, let screen = TerminalScreen(area: focused) {
+                terminalPrompt = screen.prompt(draft: terminalDraft.flatMap { $0.focus == CFHash(focused) ? $0.fingerprints : nil } ?? [])
+                // A list over the prompt or a screen caught mid-redraw says nothing about the draft.
+                if terminalPrompt == .draft { terminalDraft = TerminalDraft(focus: CFHash(focused), fingerprints: screen.fingerprints) }
+                else if terminalPrompt == .empty { terminalDraft = nil }
+            }
+            result.context.editorFocused = terminalPrompt == .empty || terminalPrompt == .draft
+            result.context.hasDraftText = terminalPrompt == .draft
+        } else if result.context.editorFocused, let textOwner {
             result.editor = textOwner
             // Prefer length metadata. Only the confirmed composer may fall back
             // to its value; immediately reduce it to presence, never persist text.
@@ -881,12 +941,13 @@ private final class AXSampler {
             }
         }
         let windowFrame = window.flatMap(frame)
-        let composerFrame = result.context.editorFocused ? textOwner.flatMap(frame) : nil
+        // A terminal's text area is the whole view, not a composer to scroll above.
+        let composerFrame = result.context.editorFocused && profile != .terminal ? textOwner.flatMap(frame) : nil
         let scrollArea = focusElements.first { string($0, kAXRoleAttribute) == "AXScrollArea" }.flatMap(frame)
         let viewport = profile.alwaysScrolls ? focusElements.first { string($0, kAXRoleAttribute) == "AXWebArea" }.flatMap(frame) : nil
         result.scrollPoint = ScrollTarget.point(window: windowFrame, composer: composerFrame,
                                                scrollArea: profile.alwaysScrolls ? nil : scrollArea, popup: result.pickerFrame, viewport: viewport)
-        if picker == nil, let typed = request.typedPicker, typed.focus == focused.map(CFHash) { picker = typed.mode }
+        if picker == nil, terminalPrompt == .list, let typed = request.typedPicker, typed.focus == focused.map(CFHash) { picker = typed.mode }
         result.context.modalOpen = modal
         result.context.picker = picker
         if let compositionOwner = textOwner ?? focused,
@@ -904,11 +965,14 @@ private final class AXSampler {
         else if picker != nil { result.status = L10n.tr("选择器就绪", "Picker ready") }
         else if result.context.editingDraft { result.status = L10n.tr("旋转移动光标 · ESC 删除", "Turn to move cursor · ESC to delete") }
         else if profile.alwaysScrolls { result.status = L10n.tr("旋转滚动网页 · 单按切换标签页", "Turn to scroll · press to switch tabs") }
-        else if profile == .terminal { result.status = L10n.tr("旋转滚屏 · 按旋钮输入 /resume 选会话", "Turn to scroll · press to type /resume for chats") }
+        else if profile == .terminal {
+            result.status = result.context.editorFocused ? L10n.tr("旋转滚屏 · 按旋钮输入 /resume 选会话", "Turn to scroll · press to type /resume for chats")
+                : L10n.tr("旋转滚屏 · 没有看到命令行提示符", "Turn to scroll · no agent prompt seen")
+        }
         else if profile.isMessaging { result.status = L10n.tr("旋转滚动聊天 · 单按搜索聊天", "Turn to scroll chats · press to search") }
         else if profile == .custom { result.status = L10n.tr("自定义应用配置已就绪", "Custom app profile ready") }
         else { result.status = L10n.tr("旋转上下滚屏 · 按旋钮选择会话", "Turn to scroll · press the dial for chats") }
-        return AXSampleResult(observation: result, binding: binding)
+        return AXSampleResult(observation: result, binding: binding, terminalDraft: terminalDraft)
     }
 
     private var overBudget: Bool {

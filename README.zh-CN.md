@@ -47,11 +47,11 @@ Vibe coding 的大部分时间其实不在打字：读回复、翻会话、换�
 | 浏览器 | 切换标签页 | 地址栏 | ✓ |
 | 微信、飞书 | 搜索 / 切换聊天 | — | ✓ |
 
-前四款 AI 工具均在本机实测过；终端这一行目前只在后台终端里核对过命令和按键，经 iTerm2 的整条链路还没有实测。WorkBuddy 5.6.2 已通过原生界面回读验收：搜索并打开任务、切换模型、编辑草稿，以及用转录回放验证听写写入。听写不挑应用：原生输入框边说边写，其他应用在松开后粘贴一次，剪贴板随后恢复原样。别的应用可以在设置里加一条快捷键规则，见[应用适配](docs/applications.md)。
+这五行 AI 工具均在本机实测过。终端一行在 iTerm2 3.7.3 里对 Codex CLI 0.160.0、Claude Code 2.1.289、OpenCode 1.18.34 逐步读回屏幕验收：提示符里有草稿时转动移动光标、ESC 删除，空提示符下才输入命令，工具正在工作时按键照常响应，见[验收记录](docs/terminal-acceptance.md)。WorkBuddy 5.6.2 已通过原生界面回读验收：搜索并打开任务、切换模型、编辑草稿，以及用转录回放验证听写写入。听写不挑应用：原生输入框边说边写，其他应用在松开后粘贴一次，剪贴板随后恢复原样。别的应用可以在设置里加一条快捷键规则，见[应用适配](docs/applications.md)。
 
 ## 安装
 
-**[下载 VibeWand 0.8.3（Apple Silicon）](https://github.com/xuhao1/VibeWand/releases/download/v0.8.3/VibeWand-0.8.3-macOS-arm64.zip)** · [版本说明](https://github.com/xuhao1/VibeWand/releases/latest)
+**[下载 VibeWand 0.8.4（Apple Silicon）](https://github.com/xuhao1/VibeWand/releases/download/v0.8.4/VibeWand-0.8.4-macOS-arm64.zip)** · [版本说明](https://github.com/xuhao1/VibeWand/releases/latest)
 
 需要 macOS 13 以上和 M 系列芯片。解压后把 **VibeWand.app** 拖进“应用程序”，打开它，然后：
 
@@ -78,7 +78,7 @@ bash scripts/build-app.sh
 
 ## 隐私
 
-设备输入和配置都在本机处理，VibeWand 没有自己的服务器，也不需要账号。听写用外置输入法时，它只替你按住 Fn；用内置识别时，录音只留在内存里，系统听写能离线就离线，语音 API 模式会把录音发到你自己填的地址。密钥存在 macOS 钥匙串里，导出配置不会带上。听写的文字只写进输入框，发不发由你决定。
+设备输入和配置都在本机处理，VibeWand 没有自己的服务器，也不需要账号。听写用外置输入法时，它只替你按住 Fn；用内置识别时，录音只留在内存里，系统听写能离线就离线，语音 API 模式会把录音发到你自己填的地址。密钥存在 macOS 钥匙串里，导出配置不会带上。听写的文字只写进输入框，发不发由你决定。终端没有输入框控件，VibeWand 会读光标旁边的几行来找提示符，在内存里归约成状态后就丢弃，不保存也不外传。
 
 ## 许可
 

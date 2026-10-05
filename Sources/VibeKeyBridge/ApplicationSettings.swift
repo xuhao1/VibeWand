@@ -175,7 +175,7 @@ struct ApplicationSettings: View {
         case .claude: return tr("⌘K 会话搜索、模型菜单与强度滑块；听写直接写入输入框。", "⌘K chat search, the model menu and effort slider; dictation goes straight into the composer.")
         case .deepSeekHarness: return tr("侧边栏会话列表、模型与推理等级菜单。", "Sidebar chat list, model and reasoning menus.")
         case .workBuddy: return tr("搜索任务、模型菜单；松开后粘贴听写。", "Task search, the model menu and dictation pasted on release.")
-        case .terminal: return tr("iTerm2 里的 Claude Code、Codex、OpenCode：/resume 选会话，/model 选模型。", "Claude Code, Codex and OpenCode in iTerm2: /resume for chats, /model for models.")
+        case .terminal: return tr("iTerm2 里的 Claude Code、Codex、OpenCode：会话与模型列表、草稿编辑和滚屏。", "Claude Code, Codex and OpenCode in iTerm2: chat and model lists, draft editing and scrolling.")
         case .browser: return tr("滚动网页、切换标签页、定位地址栏。", "Page scrolling, tab switching and address bar focus.")
         case .weChat: return tr("⌘F 搜索聊天；浏览结果与编辑草稿。", "⌘F chat search, result navigation and draft editing.")
         case .feishu: return tr("⌘K 快速搜索；浏览结果与编辑草稿。", "⌘K quick search, result navigation and draft editing.")

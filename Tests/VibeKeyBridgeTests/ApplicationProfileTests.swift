@@ -15,22 +15,32 @@ final class ApplicationProfileTests: XCTestCase {
         }
     }
 
-    func testTerminalAgentsTakeTypedCommandsAndAnAssumedPicker() {
+    func testTerminalAgentsTakeTypedCommandsAndFollowTheirPrompt() {
         XCTAssertEqual(ApplicationProfile.resolve(bundleID: "com.googlecode.iterm2"), .terminal)
         XCTAssertEqual(ApplicationProfile.terminal.typedCommand(for: .openSessions), "/resume")
         XCTAssertEqual(ApplicationProfile.terminal.typedCommand(for: .openModels), "/model")
         XCTAssertNil(ApplicationProfile.terminal.typedCommand(for: .sendReturn))
         XCTAssertNil(ApplicationProfile.codex.typedCommand(for: .openSessions))
 
-        // The prompt is never treated as a readable draft: turning scrolls, ESC stays Escape.
+        // An empty prompt, or no prompt at all: turning scrolls and ESC stays Escape.
         var state = InteractionState()
-        var context = InteractionContext(targetAvailable: true, editorFocused: false,
-            modalOpen: false, compositionActive: false, picker: nil, applicationProfile: .terminal)
-        XCTAssertEqual(reduce(state: &state, control: .right, context: context), .scroll(-1))
-        XCTAssertEqual(reduce(state: &state, control: .escape, context: context), .sendEscape)
-        XCTAssertEqual(reduce(state: &state, control: .dial, context: context), .openSessions)
-        // After the command was typed the list is navigated with the same controls as any picker.
-        context.picker = .sessions
+        for recognised in [true, false] {
+            let context = InteractionContext(targetAvailable: true, editorFocused: recognised, modalOpen: false,
+                compositionActive: false, picker: nil, hasDraftText: false, applicationProfile: .terminal)
+            XCTAssertFalse(context.canEditDraft)
+            XCTAssertEqual(reduce(state: &state, control: .right, context: context), .scroll(-1))
+            XCTAssertEqual(reduce(state: &state, control: .escape, context: context), .sendEscape)
+            XCTAssertEqual(reduce(state: &state, control: .dial, context: context), .openSessions)
+        }
+        // A draft at the prompt is edited like any other composer.
+        var context = InteractionContext(targetAvailable: true, editorFocused: true, modalOpen: false,
+            compositionActive: false, picker: nil, hasDraftText: true, applicationProfile: .terminal)
+        XCTAssertEqual(reduce(state: &state, control: .left, context: context), .moveCursor(-1))
+        XCTAssertEqual(reduce(state: &state, control: .escape, context: context), .deleteBackward)
+        XCTAssertEqual(state.mode, .editing)
+        // A list the typed command opened is navigated with the same controls as any picker.
+        context = InteractionContext(targetAvailable: true, editorFocused: false, modalOpen: false,
+            compositionActive: false, picker: .sessions, hasDraftText: false, applicationProfile: .terminal)
         XCTAssertEqual(reduce(state: &state, control: .right, context: context), .moveCandidate(1))
         XCTAssertEqual(reduce(state: &state, control: .dial, context: context), .confirmCandidate)
         XCTAssertEqual(reduce(state: &state, control: .escape, context: context), .cancelPicker)

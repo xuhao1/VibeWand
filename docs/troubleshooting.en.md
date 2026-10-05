@@ -11,6 +11,7 @@
 | Controller not found | Check USB or macOS Bluetooth pairing, select Controller, and inspect live connection status. Remove an imported HID override to restore native detection. |
 | Remote has no events | The preset alone cannot connect it. Import a profile captured from the intended device; verify press and release reports. |
 | Events show, actions do not | Check live mode, foreground app identity, adapter enablement, Accessibility, and actual app shortcuts. |
+| Buttons do nothing in a terminal, or ESC does not delete | 0.8.3 and earlier dropped button presses while Codex or Claude Code was working; update to 0.8.4. Then check that iTerm2 is in front and the cursor is at the tool's own prompt. When the status reads "no agent prompt seen", only scrolling, Escape and Return are available; see [Applications](applications.en.md). |
 | Wrong action after an update | Inspect the current template and context overrides. Export your layout before using Reset. |
 | Fn produces no dictation | Focus an editable field and test the same held Fn trigger with your keyboard. Check your speech service and microphone independently. |
 | Settings/overlay disappeared | Reopen settings or show the overlay from the menu bar. Closing settings does not stop device input. |
