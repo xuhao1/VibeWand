@@ -26,6 +26,8 @@ public enum KernelEvent: Equatable {
     case message(String)
     case toolStarted(id: String, name: String)
     case toolEnded(id: String, failed: Bool)
+    /// Tokens the conversation occupies after the latest reply, out of what the model's context holds.
+    case usage(used: Int, size: Int)
 
     /// Reads one `session/update` payload. Kinds VibeWand has no use for are dropped.
     static func parse(_ update: JSONValue) -> KernelEvent? {
@@ -39,6 +41,9 @@ public enum KernelEvent: Equatable {
             guard let id = update["toolCallId"]?.string, let status = update["status"]?.string,
                   status == "completed" || status == "failed" else { return nil }
             return .toolEnded(id: id, failed: status == "failed")
+        case "usage_update":
+            guard let used = update["used"]?.int, let size = update["size"]?.int, size > 0 else { return nil }
+            return .usage(used: used, size: size)
         default: return nil
         }
     }

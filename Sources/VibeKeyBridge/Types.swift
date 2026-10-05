@@ -19,6 +19,8 @@ struct CommandHUDSnapshot: Equatable {
     var text = ""
     var options: [String] = []
     var selection = 0
+    /// One small line under the rest: the model acting, how full its context is, the step it is on, how much it asks.
+    var detail = ""
     var active: Bool { phase != .idle }
     /// Rows the overlay needs: the text, wrapped to at most three, then one per option.
     var lines: Int { max(1, min(3, (text.count + 21) / 22)) + options.count }

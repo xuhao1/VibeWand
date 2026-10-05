@@ -6,6 +6,8 @@ final class FakeHost: ToolHost {
     var performed: [String] = []
     var confirmations: [String] = []
     var allow = true
+    /// Tools whose call the host itself holds to be risky.
+    var risky: Set<String> = []
     var result: (String, JSONValue) -> ToolOutcome = { _, _ in .ok("ok") }
     var delay: UInt64 = 0
     private(set) var running = 0, overlap = false
@@ -15,7 +17,10 @@ final class FakeHost: ToolHost {
         performed.append(tool); running -= 1
         return result(tool, arguments)
     }
-    func confirm(_ tool: String, _ arguments: JSONValue) async -> Bool { confirmations.append(tool); return allow }
+    func confirm(_ tool: String, _ arguments: JSONValue, every: Bool) async -> Bool? {
+        guard every || risky.contains(tool) else { return nil }
+        confirmations.append(tool); return allow
+    }
 }
 
 final class GatewayTests: XCTestCase {
@@ -95,12 +100,54 @@ final class GatewayTests: XCTestCase {
         XCTAssertFalse(accepted.isError)
         XCTAssertEqual(host.confirmations, ["delegate", "delegate"])
         XCTAssertEqual(host.performed, ["delegate"])
-        // Navigation is never held up by a question.
+        // Navigation is not held up by a question unless the user asked to confirm every step.
         _ = await gateway.call("open_session", ["app": "codex", "id": "t"])
         XCTAssertEqual(host.confirmations.count, 2)
     }
 
-    func testUnverifiedActionsAreRememberedAndTheJournalKeepsNoResultText() async throws {
+    func testPermissionModeDecidesWhatWaitsForTheUser() async throws {
+        let journal = try TaskJournal(root: journalRoot())
+        defer { TaskJournal.clear(root: journal.directory.deletingLastPathComponent()) }
+        let host = FakeHost(); host.risky = ["ui_press"]
+        // Every step: whatever changes something asks first; reading never does.
+        let asking = Gateway(host: host, permission: .ask, journal: journal)
+        _ = await asking.call("ui_snapshot", [:])
+        _ = await asking.call("activate_app", ["app": "Calculator"])
+        _ = await asking.call("ui_type", ["text": "hello"])
+        XCTAssertEqual(host.confirmations, ["activate_app", "ui_type"])
+        XCTAssertEqual(host.performed, ["ui_snapshot", "activate_app", "ui_type"])
+        host.allow = false
+        let refused = await asking.call("ui_key", ["keys": "cmd+p"])
+        XCTAssertTrue(refused.isError)
+        XCTAssertEqual(host.performed.count, 3)
+        XCTAssertEqual(try lines(journal).compactMap { $0["kind"]?.string }.filter { $0 == "confirmed" || $0 == "declined" }, ["confirmed", "confirmed", "declined"])
+
+        // Risky only: the host's own judgement of the call decides.
+        host.confirmations = []; host.performed = []; host.allow = true
+        let guarded = Gateway(host: host, permission: .risky)
+        _ = await guarded.call("activate_app", ["app": "Calculator"])
+        _ = await guarded.call("ui_press", ["id": "e1"])
+        XCTAssertEqual(host.confirmations, ["ui_press"])
+
+        // Bypass: nothing asks, not even what the host holds to be risky, and a submission goes straight through.
+        host.confirmations = []; host.performed = []
+        let submit = ToolDefinition(name: "delegate", summary: "", schema: [:], effect: .submit)
+        let open = Gateway(tools: [submit] + ToolCatalog.all, host: host, permission: .bypass)
+        _ = await open.call("ui_press", ["id": "e1"])
+        _ = await open.call("delegate", [:])
+        XCTAssertEqual(host.confirmations, [])
+        XCTAssertEqual(host.performed, ["ui_press", "delegate"])
+    }
+
+    func testTheStepLimitCanBeSetPerInstruction() async {
+        let host = FakeHost(), gateway = Gateway(host: host, stepLimit: 2)
+        _ = await gateway.call("ui_snapshot", [:]); _ = await gateway.call("ui_snapshot", [:])
+        let extra = await gateway.call("ui_snapshot", [:])
+        XCTAssertTrue(extra.isError)
+        XCTAssertEqual(host.performed.count, 2)
+    }
+
+    func testUnverifiedActionsAreRememberedAndTheJournalKeepsWhatEachToolAnswered() async throws {
         let journal = try TaskJournal(root: journalRoot())
         defer { TaskJournal.clear(root: journal.directory.deletingLastPathComponent()) }
         let host = FakeHost(), gateway = Gateway(host: host, journal: journal)
@@ -117,8 +164,51 @@ final class GatewayTests: XCTestCase {
         XCTAssertEqual(recorded.compactMap { $0["kind"]?.string }, ["call", "result", "call", "result", "call", "result"])
         XCTAssertEqual(recorded[2]["arguments"]?["id"]?.string, "t-9")
         XCTAssertEqual(recorded[3]["verified"], false)
-        XCTAssertEqual(recorded[5]["error"]?.string, "No control e9.")
-        XCTAssertFalse(recorded.map(\.text).joined().contains("私有标题"))
+        XCTAssertEqual(recorded[5]["ok"], false)
+        XCTAssertEqual(recorded[5]["text"]?.string, "No control e9.")
+        // The history shows what the model was given, cut where a listing runs long.
+        XCTAssertEqual(recorded[1]["text"]?.string, "window \"私有标题\"")
+        host.result = { _, _ in .ok(.string(String(repeating: "x", count: TaskJournal.resultLimit + 500))) }
+        _ = await gateway.call("ui_snapshot", [:])
+        XCTAssertEqual(try lines(journal).last?["text"]?.string?.count, TaskJournal.resultLimit)
+    }
+
+    func testTheJournalWritesThinkingWholeBeforeTheStepItLedToAndReadsBackAsARecord() throws {
+        let root = journalRoot()
+        defer { TaskJournal.clear(root: root) }
+        let journal = try TaskJournal(root: root)
+        journal.record("instruction", ["text": "切到 Codex", "app": "Finder", "model": "deepseek-flash", "turn": 2])
+        journal.note(.thought("用户想去")); journal.note(.thought(" Codex。"))
+        journal.note(.toolStarted(id: "1", name: "activate_app"))
+        journal.record("call", ["tool": "activate_app", "arguments": ["app": "codex"]])
+        journal.record("result", ["tool": "activate_app", "ok": true, "verified": true, "text": "{}"])
+        journal.note(.toolEnded(id: "1", failed: false))
+        journal.note(.usage(used: 1200, size: 8000))
+        journal.note(.message("好了"))
+        journal.settle()
+        journal.record("end", ["reason": "end_turn", "finished": true, "said": "已切到 Codex"])
+        XCTAssertEqual(try lines(journal).compactMap { $0["kind"]?.string },
+                       ["instruction", "thought", "call", "result", "usage", "message", "end"])
+        XCTAssertEqual(try lines(journal)[1]["text"]?.string, "用户想去 Codex。")
+
+        let record = try XCTUnwrap(TaskJournal.recent(root: root).first)
+        XCTAssertEqual(record.instruction, "切到 Codex")
+        XCTAssertEqual(record.app, "Finder")
+        XCTAssertEqual(record.model, "deepseek-flash")
+        XCTAssertEqual(record.turn, 2)
+        XCTAssertEqual(record.steps, 1)
+        XCTAssertEqual(record.usage?.used, 1200)
+        XCTAssertEqual(record.usage?.size, 8000)
+        XCTAssertEqual(record.outcome?.text, "已切到 Codex")
+        XCTAssertEqual(record.outcome?.finished, true)
+        XCTAssertNotNil(record.started)
+        // Newest first, and an instruction that was interrupted has no outcome.
+        let later = try TaskJournal(root: root, now: Date().addingTimeInterval(5))
+        later.record("instruction", ["text": "第二条"])
+        let recent = TaskJournal.recent(root: root)
+        XCTAssertEqual(recent.map(\.instruction), ["第二条", "切到 Codex"])
+        XCTAssertNil(recent[0].outcome)
+        XCTAssertEqual(TaskJournal.recent(root: root, limit: 1).count, 1)
     }
 
     func testJournalsAreClearedByAge() throws {

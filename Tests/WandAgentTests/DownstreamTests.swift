@@ -51,26 +51,102 @@ final class DownstreamTests: XCTestCase {
         try Data("[]\n".utf8).write(to: profile.appendingPathComponent("cordis.yml"))
         defer { try? FileManager.default.removeItem(at: root) }
         let install = KernelInstall(command: ["/opt/node", "/opt/dsh/bin.js"], profile: profile)
-        let launch = try install.launch(home: home, apiKey: "test-key", model: "deepseek-v4-pro")
+        let route = ModelRoute(wire: .openAIChat, baseURL: "https://models.example/v1", model: "wand-large", key: "test-key")
+        let launch = try install.launch(home: home, route: route)
         XCTAssertEqual(launch.executable.path, "/opt/node")
         XCTAssertEqual(launch.arguments, ["/opt/dsh/bin.js", "--profile", "vibewand"])
         XCTAssertEqual(launch.directory.path, home.appendingPathComponent("workspace").path)
         XCTAssertTrue(FileManager.default.fileExists(atPath: home.appendingPathComponent("profiles/vibewand/cordis.yml").path))
-        XCTAssertEqual(Set(launch.environment.keys), ["PATH", "HOME", "TMPDIR", "LANG", "DSH_HOME", "DEEPSEEK_API_KEY", "VIBEWAND_SYSTEM_PROMPT", "VIBEWAND_MODEL"])
+        XCTAssertEqual(Set(launch.environment.keys), ["PATH", "HOME", "TMPDIR", "LANG", "DSH_HOME", "VIBEWAND_SYSTEM_PROMPT",
+                                                      "VIBEWAND_MODEL", "VIBEWAND_ROUTE", "VIBEWAND_MODEL_KEY"])
         XCTAssertEqual(launch.environment["DSH_HOME"], home.path)
         XCTAssertEqual(launch.environment["VIBEWAND_SYSTEM_PROMPT"], CoordinatorPrompt.system)
+        XCTAssertEqual(launch.environment["VIBEWAND_MODEL"], "wand-large")
+        XCTAssertEqual(launch.environment["VIBEWAND_MODEL_KEY"], "test-key")
+        // The key travels in the environment only; the route names the variable, never the value.
+        XCTAssertFalse(launch.environment["VIBEWAND_ROUTE"]!.contains("test-key"))
         // A newer app replaces the installed profile rather than keeping a stale one.
         try Data("[1]\n".utf8).write(to: profile.appendingPathComponent("cordis.yml"))
-        _ = try install.launch(home: home, apiKey: "test-key")
+        _ = try install.launch(home: home, route: route)
         XCTAssertEqual(try String(contentsOf: home.appendingPathComponent("profiles/vibewand/cordis.yml"), encoding: .utf8), "[1]\n")
         XCTAssertNil(KernelInstall(resources: root))
 
         // A bundled kernel's packages are linked beside the installed profile, where the runtime looks for them.
         let modules = root.appendingPathComponent("node_modules")
         try FileManager.default.createDirectory(at: modules, withIntermediateDirectories: true)
-        _ = try KernelInstall(command: ["/opt/node"], profile: profile, packages: modules).launch(home: home, apiKey: "test-key")
+        let notes = try KernelInstall(command: ["/opt/node"], profile: profile, packages: modules).launch(home: home, route: route, instructions: " 那个项目指 VibeWand \n")
         let link = home.appendingPathComponent("profiles/vibewand/node_modules")
         XCTAssertEqual(try FileManager.default.destinationOfSymbolicLink(atPath: link.path), modules.path)
+        // The user's notes follow the rules and are said not to override them.
+        let prompt = try XCTUnwrap(notes.environment["VIBEWAND_SYSTEM_PROMPT"])
+        XCTAssertTrue(prompt.hasPrefix(CoordinatorPrompt.system) && prompt.hasSuffix("never override the rules above.\n那个项目指 VibeWand"))
+    }
+
+    func testAModelRouteBecomesOneProviderInTheKernelsVocabulary() throws {
+        func provider(_ route: ModelRoute) -> JSONValue { KernelInstall.provider(route)["vibewand"]! }
+        // The least a route says: where, how, and which model. A server without a key is still sent a placeholder.
+        let plain = provider(ModelRoute(wire: .openAIChat, baseURL: "http://127.0.0.1:8000/v1", model: "qwen"))
+        XCTAssertEqual(plain, ["api": "openai-completions", "baseURL": "http://127.0.0.1:8000/v1", "apiKeyEnv": "VIBEWAND_MODEL_KEY", "models": [["id": "qwen"]]])
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("vw-route-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root.appendingPathComponent("profile"), withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let keyless = try KernelInstall(command: ["/opt/node"], profile: root.appendingPathComponent("profile"))
+            .launch(home: root.appendingPathComponent("home"), route: ModelRoute(wire: .openAIChat, baseURL: "http://127.0.0.1:8000/v1", model: "qwen"))
+        XCTAssertEqual(keyless.environment["VIBEWAND_MODEL_KEY"], "none")
+
+        // A context length sizes the model and leaves room for the reply; a reasoning level is declared so that it is sent.
+        let tuned = provider(ModelRoute(wire: .anthropic, baseURL: "https://api.anthropic.com", model: "claude", key: "k",
+                                        contextWindow: 32_000, reasoning: .off))
+        XCTAssertEqual(tuned["api"], "anthropic-messages")
+        XCTAssertEqual(tuned["defaultMaxTokens"], 8_000)
+        XCTAssertEqual(tuned["reasoning"], "off")
+        XCTAssertEqual(tuned["models"], [["id": "claude", "contextWindow": 32_000,
+                                          "reasoningEfforts": ["off": nil, "low": "low", "medium": "medium", "high": "high"]]])
+        XCTAssertEqual(provider(ModelRoute(wire: .openAIResponses, baseURL: "https://api.openai.com/v1", model: "gpt", contextWindow: 2_000_000))["defaultMaxTokens"], 32_768)
+        XCTAssertEqual(provider(ModelRoute(wire: .openAIResponses, baseURL: "https://api.openai.com/v1", model: "gpt"))["api"], "openai-responses")
+
+        // The user's own settings win over the derived ones, except where the key comes from.
+        let extra = provider(ModelRoute(wire: .openAIChat, baseURL: "http://127.0.0.1:8000/v1", model: "qwen", reasoning: .low,
+                                        extra: ["compat": ["thinkingFormat": "qwen-chat-template"], "reasoning": "high", "apiKeyEnv": "HOME"]))
+        XCTAssertEqual(extra["compat"], ["thinkingFormat": "qwen-chat-template"])
+        XCTAssertEqual(extra["reasoning"], "high")
+        XCTAssertEqual(extra["apiKeyEnv"], "VIBEWAND_MODEL_KEY")
+    }
+
+    func testModelListingAsksEachProtocolItsOwnWayAndReadsWhatServersAnswer() throws {
+        let chat = try XCTUnwrap(ModelListing.request(wire: .openAIChat, baseURL: " https://api.deepseek.com/ ", key: " sk-test "))
+        XCTAssertEqual(chat.url?.absoluteString, "https://api.deepseek.com/models")
+        XCTAssertEqual(chat.value(forHTTPHeaderField: "Authorization"), "Bearer sk-test")
+        // A gateway's path is kept; a server that needs no key is asked without one.
+        let local = try XCTUnwrap(ModelListing.request(wire: .openAIResponses, baseURL: "http://127.0.0.1:8000/v1", key: nil))
+        XCTAssertEqual(local.url?.absoluteString, "http://127.0.0.1:8000/v1/models")
+        XCTAssertNil(local.value(forHTTPHeaderField: "Authorization"))
+        for base in ["https://api.anthropic.com", "https://api.anthropic.com/v1/"] {
+            let anthropic = try XCTUnwrap(ModelListing.request(wire: .anthropic, baseURL: base, key: "sk-ant"))
+            XCTAssertEqual(anthropic.url?.absoluteString, "https://api.anthropic.com/v1/models?limit=1000")
+            XCTAssertEqual(anthropic.value(forHTTPHeaderField: "x-api-key"), "sk-ant")
+            XCTAssertEqual(anthropic.value(forHTTPHeaderField: "anthropic-version"), "2023-06-01")
+            XCTAssertNil(anthropic.value(forHTTPHeaderField: "Authorization"))
+        }
+        XCTAssertNil(ModelListing.request(wire: .openAIChat, baseURL: "api.deepseek.com", key: nil))
+        XCTAssertNil(ModelListing.request(wire: .openAIChat, baseURL: "file:///etc", key: nil))
+
+        let deepseek = #"{"object":"list","data":[{"id":"deepseek-flash","name":"DeepSeek-V4.1-Flash","context_window":1048576},{"id":"deepseek-v4-pro","name":"deepseek-v4-pro"},{"object":"model"}]}"#
+        XCTAssertEqual(ModelListing.parse(Data(deepseek.utf8)), [
+            ListedModel(id: "deepseek-flash", name: "DeepSeek-V4.1-Flash", contextWindow: 1_048_576), ListedModel(id: "deepseek-v4-pro")])
+        let anthropic = #"{"data":[{"type":"model","id":"claude-x","display_name":"Claude X"}],"has_more":false}"#
+        XCTAssertEqual(ModelListing.parse(Data(anthropic.utf8)), [ListedModel(id: "claude-x", name: "Claude X")])
+        let router = #"{"data":[{"id":"vendor/model","name":"Vendor: Model","context_length":200000}]}"#
+        XCTAssertEqual(ModelListing.parse(Data(router.utf8))?.first?.contextWindow, 200_000)
+        XCTAssertEqual(ModelListing.parse(Data(#"{"models":["a","b"]}"#.utf8))?.map(\.id), ["a", "b"])
+        XCTAssertNil(ModelListing.parse(Data(#"{"error":"unauthorized"}"#.utf8)))
+        XCTAssertNil(ModelListing.parse(Data("<html>".utf8)))
+    }
+
+    func testKernelEventsCarryContextUse() {
+        XCTAssertEqual(KernelEvent.parse(["sessionUpdate": "usage_update", "used": 128, "size": 262_144]), .usage(used: 128, size: 262_144))
+        XCTAssertNil(KernelEvent.parse(["sessionUpdate": "usage_update", "used": 128, "size": 0]))
+        XCTAssertNil(KernelEvent.parse(["sessionUpdate": "config_option_update"]))
     }
 
     /// The shipped profile is an allowlist by construction. Nothing that runs
@@ -84,7 +160,7 @@ final class DownstreamTests: XCTestCase {
             return String(text.dropFirst("name: '@deepseek-ai/".count).dropLast())
         }
         XCTAssertEqual(Set(packages), [
-            "dsh-acp-app", "dsh-acp", "dsh-llm-deepseek-api-key", "dsh-llm", "dsh-llm-retry", "cordis-plugin-timer", "dsh-session",
+            "dsh-acp-app", "dsh-acp", "dsh-llm-pi-ai", "dsh-llm", "dsh-llm-retry", "cordis-plugin-timer", "dsh-session",
             "dsh-session-projection", "dsh-session-title", "dsh-session-persistence-jsonl", "dsh-system-prompt", "dsh-tools",
             "dsh-agent", "dsh-agent-loop", "dsh-jobs-local", "dsh-token-meter", "dsh-user-approval"
         ])

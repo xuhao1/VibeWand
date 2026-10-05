@@ -79,7 +79,9 @@ public final class LineRPC: @unchecked Sendable {
             if let onRequest { onRequest(method, params, reply) } else { reply(.failure(.methodNotFound)) }
         } else if let key = id?.int, let continuation = pending.removeValue(forKey: key) {
             if let error = message["error"] {
-                continuation.resume(throwing: RPCError(code: error["code"]?.int ?? 0, message: error["message"]?.string ?? ""))
+                // Some peers put the reason beside a generic message.
+                let said = [error["message"]?.string, error["data"]?["details"]?.string].compactMap { $0 }.joined(separator: ": ")
+                continuation.resume(throwing: RPCError(code: error["code"]?.int ?? 0, message: said))
             } else { continuation.resume(returning: message["result"] ?? .null) }
         }
     }

@@ -114,7 +114,7 @@ struct GestureConfiguration: Codable {
     var longPressInterval = 0.55
     // Only overrides are stored. Missing entries inherit the built-in preset.
     var overrides: [String: GestureAction] = [:]
-    /// The template's bindings for command mode, present only while it is on.
+    /// The template's bindings for command mode, present only while it is on and has a model to run on.
     /// They sit under the user's own choices and are never saved.
     var commandLayer: [String: GestureAction] = [:]
     private enum CodingKeys: String, CodingKey { case schemaVersion, doubleClickInterval, longPressInterval, overrides }

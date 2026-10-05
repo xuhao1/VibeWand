@@ -268,7 +268,7 @@ private struct ConnectionDetail: View {
     }
 }
 
-private struct SheetHeading: View {
+struct SheetHeading: View {
     let title: String
     let subtitle: String
     var body: some View {

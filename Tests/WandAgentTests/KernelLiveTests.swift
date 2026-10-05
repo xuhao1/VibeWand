@@ -5,9 +5,12 @@ import XCTest
 /// Set DEEPSEEK_VIBEWAND_DEV to a key, and either VIBEWAND_KERNEL_RESOURCES to a
 /// folder holding the assembled `kernel` (as the app bundle does) or
 /// VIBEWAND_KERNEL to a `dsh` launcher. The ordinary suite skips these.
+/// The model is DeepSeek's, reached over each protocol its service speaks.
 final class KernelLiveTests: XCTestCase {
     private var home: URL!
-    private func session() async throws -> KernelSession {
+    private static let openAI = ModelRoute(wire: .openAIChat, baseURL: "https://api.deepseek.com", model: "deepseek-flash")
+    private static let anthropic = ModelRoute(wire: .anthropic, baseURL: "https://api.deepseek.com/anthropic", model: "deepseek-flash")
+    private func session(_ route: ModelRoute = KernelLiveTests.openAI, key wrong: String? = nil) async throws -> KernelSession {
         let environment = ProcessInfo.processInfo.environment
         let repository = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         let bundled = environment["VIBEWAND_KERNEL_RESOURCES"].flatMap { KernelInstall(resources: URL(fileURLWithPath: $0)) }
@@ -16,7 +19,9 @@ final class KernelLiveTests: XCTestCase {
             throw XCTSkip("Set DEEPSEEK_VIBEWAND_DEV and a kernel location to run against a real kernel")
         }
         home = FileManager.default.temporaryDirectory.appendingPathComponent("vw-live-\(UUID().uuidString)")
-        return try await KernelSession.open(try install.launch(home: home, apiKey: key))
+        var route = route
+        route.key = wrong ?? key
+        return try await KernelSession.open(try install.launch(home: home, route: route))
     }
     override func tearDown() { if let home { try? FileManager.default.removeItem(at: home) } }
 
@@ -61,6 +66,53 @@ final class KernelLiveTests: XCTestCase {
         XCTAssertEqual(host.performed.last, "open_session", "\(host.performed)")
         let secondEnding = await second.ending
         XCTAssertNotNil(secondEnding)
+    }
+
+    /// The other protocol, with thinking turned off and a context length of the user's choosing.
+    func testTheSameServiceIsReachedOverTheAnthropicProtocolWithTheChosenSettings() async throws {
+        var route = Self.anthropic
+        route.reasoning = .off; route.contextWindow = 64_000
+        let kernel = try await session(route)
+        defer { kernel.shutdown() }
+        let host = desktop(), gateway = Gateway(host: host)
+        var thoughts = "", usage: [KernelEvent] = []
+        let reason = try await kernel.run(CoordinatorPrompt.task("列出可以操作的应用，然后结束", frontApp: "", window: ""), tools: { await gateway.call($0, $1) }) {
+            if case .thought(let text) = $0 { thoughts += text }
+            if case .usage = $0 { usage.append($0) }
+        }
+        XCTAssertEqual(reason, "end_turn")
+        XCTAssertTrue(host.performed.contains("list_targets"), "\(host.performed)")
+        XCTAssertEqual(thoughts, "", "thinking was asked to be off")
+        guard case .usage(let used, let size)? = usage.last else { return XCTFail("the kernel reported no context use") }
+        XCTAssertEqual(size, 64_000)
+        XCTAssertGreaterThan(used, 100)
+    }
+
+    /// What Settings does when asked to fetch the models an address serves.
+    func testTheServiceListsItsModels() async throws {
+        guard let key = ProcessInfo.processInfo.environment["DEEPSEEK_VIBEWAND_DEV"], !key.isEmpty else { throw XCTSkip("Set DEEPSEEK_VIBEWAND_DEV") }
+        let listed = try await ModelListing.fetch(wire: .openAIChat, baseURL: Self.openAI.baseURL, key: key)
+        let flash = try XCTUnwrap(listed.first { $0.id == Self.openAI.model }, "\(listed.map(\.id))")
+        XCTAssertGreaterThan(flash.contextWindow ?? 0, 100_000)
+        do {
+            _ = try await ModelListing.fetch(wire: .openAIChat, baseURL: Self.openAI.baseURL, key: "sk-not-a-key")
+            XCTFail("a wrong key listed models")
+        } catch { XCTAssertEqual(error as? ModelListing.Failure, .status(401)) }
+        do {
+            _ = try await ModelListing.fetch(wire: .openAIChat, baseURL: "http://127.0.0.1:9/v1", key: nil)
+            XCTFail("nothing listens there")
+        } catch { XCTAssertEqual(error as? ModelListing.Failure, .unreachable) }
+    }
+
+    func testAWrongKeyIsReportedInTheServicesOwnWords() async throws {
+        let kernel = try await session(key: "sk-not-a-key")
+        defer { kernel.shutdown() }
+        do {
+            _ = try await kernel.run("Reply with the single word: ok", tools: { _, _ in .failure("none") }) { _ in }
+            XCTFail("a wrong key was accepted")
+        } catch let error as RPCError {
+            XCTAssertTrue(error.message.contains("401"), error.message)
+        }
     }
 
     func testStopInterruptsATurnThatIsWaitingOnATool() async throws {

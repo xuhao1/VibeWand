@@ -52,8 +52,48 @@ final class CommandTools: ToolHost {
     }
     func shutdown() { codex?.stop(); codex = nil }
 
-    func confirm(_ tool: String, _ arguments: JSONValue) async -> Bool {
-        await ask?(.confirm(L10n.tr("执行 \(tool)？", "Run \(tool)?"))) != nil
+    func confirm(_ tool: String, _ arguments: JSONValue, every: Bool) async -> Bool? {
+        guard let question = await question(tool, arguments, every: every) else { return nil }
+        return await ask?(.confirm(question)) != nil
+    }
+
+    /// What to ask before a call, in words that say what it will do. nil when it needs no word from the user:
+    /// with `every` unset, that is anything but a control, menu item or shortcut that sends or destroys.
+    private func question(_ tool: String, _ arguments: JSONValue, every: Bool) async -> String? {
+        func quoted(_ text: String) -> String { text.count > 40 ? text.prefix(40) + "…" : text }
+        switch tool {
+        case "ui_press":
+            guard operated() != nil, let control = await interface.control(arguments["id"]?.string ?? ""),
+                  every || ControlRisk.needsConfirmation(control.label) else { return nil }
+            return L10n.tr("按下「\(control.label)」？", "Press “\(control.label)”?")
+        case "ui_menu":
+            guard let pid = operated(), let item = await interface.menuItem(pid: pid, path: arguments["path"]?.array?.compactMap(\.string) ?? []).control,
+                  every || ControlRisk.needsConfirmation(item.label) else { return nil }
+            return L10n.tr("选择菜单「\(item.label)」？", "Choose “\(item.label)” from the menu?")
+        case "ui_key":
+            guard let pid = operated(), let keys = arguments["keys"]?.string, let stroke = KeyStroke.parse(keys) else { return nil }
+            if stroke.needsConfirmation(focusedRole: await interface.focusedRole(pid: pid)) {
+                return L10n.tr("发送按键 \(keys)？它可能提交或删除内容", "Send \(keys)? It may submit or delete something")
+            }
+            return every ? L10n.tr("发送按键 \(keys)？", "Send \(keys)?") : nil
+        case "ui_type":
+            return every ? L10n.tr("输入「\(quoted(arguments["text"]?.string ?? ""))」？", "Type “\(quoted(arguments["text"]?.string ?? ""))”?") : nil
+        case "activate_app":
+            guard every else { return nil }
+            let app = arguments["app"]?.string ?? ""
+            let name = Self.targets.first { $0.id == app }?.profile.title ?? app
+            if let open = arguments["open"]?.string, !open.isEmpty { return L10n.tr("用 \(name) 打开 \(quoted(open))？", "Open \(quoted(open)) in \(name)?") }
+            return L10n.tr("切换到 \(name)？", "Switch to \(name)?")
+        case "open_session":
+            guard every else { return nil }
+            let title = known[arguments["id"]?.string ?? ""]?.title ?? ""
+            return L10n.tr("打开会话「\(quoted(title))」？", "Open the chat “\(quoted(title))”?")
+        case "search_in_app":
+            guard every else { return nil }
+            let name = Self.targets.first { $0.id == arguments["app"]?.string }?.profile.title ?? ""
+            return L10n.tr("在 \(name) 里搜索「\(quoted(arguments["query"]?.string ?? ""))」？", "Search \(name) for “\(quoted(arguments["query"]?.string ?? ""))”?")
+        default: return every ? L10n.tr("执行 \(tool)？", "Run \(tool)?") : nil
+        }
     }
 
     func perform(_ tool: String, _ arguments: JSONValue) async -> ToolOutcome {
@@ -246,19 +286,13 @@ final class CommandTools: ToolHost {
         guard let target, NSWorkspace.shared.frontmostApplication?.processIdentifier == target else { return nil }
         return target
     }
-    private func approved(_ question: String, for pid: pid_t) async -> Bool {
-        guard await ask?(.confirm(question)) != nil else { return false }
-        // The user may have moved on while the question was showing.
-        return operated() == pid
-    }
+    // Whether the user is asked first was settled before these run, by the gateway and `question`.
+    // Each still checks that its app is in front: the user may have moved on while a question was showing.
 
     private func press(_ arguments: JSONValue) async -> ToolOutcome {
-        guard let pid = operated() else { return movedAway }
+        guard operated() != nil else { return movedAway }
         guard let control = await interface.control(arguments["id"]?.string ?? "") else {
             return .failure("No such control in the latest snapshot. Take a new snapshot.")
-        }
-        if ControlRisk.needsConfirmation(control.label) {
-            guard await approved(L10n.tr("按下「\(control.label)」？", "Press “\(control.label)”?"), for: pid) else { return declined }
         }
         return await interface.press(control)
     }
@@ -267,9 +301,6 @@ final class CommandTools: ToolHost {
         guard let pid = operated() else { return movedAway }
         guard let keys = arguments["keys"]?.string, let stroke = KeyStroke.parse(keys) else {
             return .failure("Unrecognised keys. Use forms like cmd+p, ctrl+tab, escape, down or return.")
-        }
-        if stroke.needsConfirmation(focusedRole: await interface.focusedRole(pid: pid)) {
-            guard await approved(L10n.tr("发送按键 \(keys)？它可能提交或删除内容", "Send \(keys)? It may submit or delete something"), for: pid) else { return declined }
         }
         stroke.post(to: pid)
         return .ok(["sent": .string(keys)])
@@ -280,9 +311,6 @@ final class CommandTools: ToolHost {
         let path = arguments["path"]?.array?.compactMap(\.string) ?? []
         let found = await interface.menuItem(pid: pid, path: path)
         guard let item = found.control else { return .failure(found.error) }
-        if ControlRisk.needsConfirmation(item.label) {
-            guard await approved(L10n.tr("选择菜单「\(item.label)」？", "Choose “\(item.label)” from the menu?"), for: pid) else { return declined }
-        }
         return await interface.press(item)
     }
 
@@ -303,7 +331,6 @@ final class CommandTools: ToolHost {
         case false?: return .failure("The text did not go in: the field did not change. Take a snapshot to see what has the keyboard.")
         }
     }
-    private var declined: ToolOutcome { .failure("The user declined. Do not retry; call need_user or finish.") }
 
     // MARK: Helpers
 

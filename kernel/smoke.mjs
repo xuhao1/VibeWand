@@ -1,5 +1,6 @@
 // Proves an assembled kernel starts with VibeWand's profile and opens a session
-// over the Agent Client Protocol. No model is called and no key is needed.
+// over the Agent Client Protocol. The model route is a placeholder: no model is
+// called and no key is needed.
 import { spawn } from 'node:child_process';
 import { cpSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -12,7 +13,9 @@ cpSync(join(root, 'profile'), join(home, 'profiles', 'vibewand'), { recursive: t
 symlinkSync(join(root, 'node_modules'), join(home, 'profiles', 'vibewand', 'node_modules'));
 const kernel = spawn(join(root, 'node', 'bin', 'node'),
   [join(root, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js'), '--profile', 'vibewand'],
-  { cwd: home, env: { PATH: '/usr/bin:/bin', HOME: home, DSH_HOME: home, DEEPSEEK_API_KEY: 'unused' }, stdio: ['pipe', 'pipe', 'inherit'] });
+  { cwd: home, env: { PATH: '/usr/bin:/bin', HOME: home, DSH_HOME: home, VIBEWAND_MODEL: 'none', VIBEWAND_MODEL_KEY: 'unused',
+      VIBEWAND_ROUTE: JSON.stringify({ vibewand: { api: 'openai-completions', baseURL: 'http://127.0.0.1:9/v1', apiKeyEnv: 'VIBEWAND_MODEL_KEY', models: [{ id: 'none' }] } }) },
+    stdio: ['pipe', 'pipe', 'inherit'] });
 
 const finish = (code, message) => {
   if (message) console.error(`kernel smoke test: ${message}`);

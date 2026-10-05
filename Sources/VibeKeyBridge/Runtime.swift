@@ -62,7 +62,7 @@ final class BridgeRuntime {
     private var lastDictationFailure = ""
     private(set) var configuration = GestureConfiguration() { didSet { configuration.commandLayer = commandBindings } }
     private var commandBindings: [String: GestureAction] {
-        command.settings.enabled ? templates.selectedTemplate.commandBindings : [:]
+        command.settings.active ? templates.selectedTemplate.commandBindings : [:]
     }
     private var gestureEngine = GestureEngine()
     private var gestureTimer: Timer?
@@ -249,7 +249,7 @@ final class BridgeRuntime {
 
     // MARK: Command mode
 
-    /// The switch, the key or the model changed: bindings follow, and the next command starts a fresh kernel.
+    /// A command setting changed: bindings follow, and the next command starts a fresh kernel and conversation.
     private func applyCommandSettings() {
         configuration.commandLayer = commandBindings
         command.shutdownKernel()
@@ -257,7 +257,7 @@ final class BridgeRuntime {
     }
     /// The keyboard listener needs the Accessibility grant, which may arrive after launch.
     private func applyKeyboard() {
-        keyboard.key = command.settings.enabled && inputStarted ? command.settings.hotkey : .none
+        keyboard.key = command.settings.active && inputStarted ? command.settings.hotkey : .none
         if keyboard.key == .none { keyboard.stop() } else if adapter.trusted { keyboard.start() }
     }
 

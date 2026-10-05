@@ -4,7 +4,7 @@
 
 ## 1. Download and open
 
-Download **[VibeWand-0.8.4-macOS-arm64.zip](https://github.com/xuhao1/VibeWand/releases/download/v0.8.4/VibeWand-0.8.4-macOS-arm64.zip)** from [GitHub Releases](https://github.com/xuhao1/VibeWand/releases/latest). This package requires **macOS 13+** and an **Apple Silicon Mac**; it does not include an Intel binary.
+Download **[VibeWand-0.8.5-macOS-arm64.zip](https://github.com/xuhao1/VibeWand/releases/download/v0.8.5/VibeWand-0.8.5-macOS-arm64.zip)** from [GitHub Releases](https://github.com/xuhao1/VibeWand/releases/latest). This package requires **macOS 26+** and an **Apple Silicon Mac**; it does not include an Intel binary. The download is about 84 MB, as it carries the kernel for command mode. On macOS 13 to 15, use [0.8.4](https://github.com/xuhao1/VibeWand/releases/tag/v0.8.4).
 
 1. Double-click the ZIP in Finder to extract **VibeWand.app**.
 2. Drag it into **Applications**.

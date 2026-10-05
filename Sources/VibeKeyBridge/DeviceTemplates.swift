@@ -80,7 +80,7 @@ struct DeviceTemplate {
         return configuration
     }
 
-    /// Where the command key sits while command mode is on. A binding the user
+    /// Where the command key sits while command mode is live. A binding the user
     /// made themselves always wins; the remote has no spare hold-capable key by default.
     var commandBindings: [String: GestureAction] {
         switch id {

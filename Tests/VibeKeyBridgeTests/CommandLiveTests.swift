@@ -26,7 +26,11 @@ final class CommandLiveTests: XCTestCase {
               let key = environment["DEEPSEEK_VIBEWAND_DEV"], !key.isEmpty else {
             throw stopped("Set DEEPSEEK_VIBEWAND_DEV to a key and VIBEWAND_KERNEL_RESOURCES to the folder holding the assembled kernel")
         }
-        return try await KernelSession.open(try install.launch(home: home, apiKey: key))
+        // DeepSeek's service over the protocol most endpoints speak; thinking can be set for a run.
+        let reasoning = environment["VIBEWAND_COMMAND_LIVE_REASONING"].flatMap(ModelRoute.Reasoning.init(rawValue:)) ?? .automatic
+        let route = ModelRoute(wire: .openAIChat, baseURL: "https://api.deepseek.com", model: environment["VIBEWAND_COMMAND_LIVE_MODEL"] ?? "deepseek-flash",
+                               key: key, reasoning: reasoning)
+        return try await KernelSession.open(try install.launch(home: home, route: route))
     }
 
     // MARK: Reading the desktop
@@ -95,11 +99,12 @@ final class CommandLiveTests: XCTestCase {
     // MARK: The bench
 
     private final class Words: @unchecked Sendable { var text = "" }
-    private struct NoCredentials: SpeechCredentialStore {
+    /// Says a key is there, so the settings count as usable; the key itself goes to the kernel from the environment.
+    private struct KeyOnFile: SpeechCredentialStore {
         func read(account: String) throws -> String? { nil }
         func save(_ key: String, account: String) throws {}
         func remove(account: String) throws {}
-        func contains(account: String) -> Bool { false }
+        func contains(account: String) -> Bool { true }
     }
     private struct Spoken {
         var hud: CommandHUDSnapshot
@@ -117,15 +122,15 @@ final class CommandLiveTests: XCTestCase {
         private let suite: String
         private var previous: NSRunningApplication?
 
-        init(scripted: ScriptedKernel? = nil) throws {
+        init(scripted: ScriptedKernel? = nil, permission: PermissionMode = .risky) throws {
             let words = Words(), suite = "VibeWand.CommandLive.\(UUID().uuidString)"
             let support = FileManager.default.temporaryDirectory.appendingPathComponent("vw-command-live-\(UUID().uuidString)")
             try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
             guard let defaults = UserDefaults(suiteName: suite) else { throw stopped("No preferences for the test") }
             let voice = VoiceInputController(preferences: SpeechPreferences(defaults: defaults),
                                              engineFactory: { _ in TranscriptReplayEngine(previews: [words.text]) })
-            let settings = CommandSettings(defaults: defaults, credentials: NoCredentials())
-            settings.setEnabled(true)
+            let settings = CommandSettings(defaults: defaults, credentials: KeyOnFile())
+            settings.setPermission(permission)
             let templates = DeviceTemplateStore(defaults: defaults)
             runtime = BridgeRuntime(source: UnconfiguredHIDSource(template: templates.selectedTemplate), templates: templates,
                                     sourceFactory: { _, id in UnconfiguredHIDSource(template: id.template) }, voiceInput: voice) {
@@ -292,12 +297,68 @@ final class CommandLiveTests: XCTestCase {
         try await bench.hold()
     }
 
+    /// Settings' “save and test”: a real kernel answers one word and reports the context it works with. No app is touched.
+    @MainActor
+    func testLiveModelCheck() async throws {
+        let listed = (Self.environment["VIBEWAND_COMMAND_LIVE"] ?? "").split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+        guard listed.contains("probe") else { throw XCTSkip("Requires explicitly enabled live command acceptance: probe") }
+        let bench = try Bench()
+        defer { bench.leave() }
+        let checked = await bench.runtime.command.probe()
+        Self.report("model check → \(checked.ok): \(checked.detail)")
+        XCTAssertTrue(checked.ok, checked.detail)
+        XCTAssertTrue(checked.detail.contains("262.1k"), checked.detail)
+        XCTAssertEqual(bench.runtime.command.turns, 0)
+    }
+
+    /// The permission modes with a real model: every step put to the user, then nothing asked at all.
+    /// The overlay's line under the command names the model and how full its context is.
+    @MainActor
+    func testLivePermissionModes() async throws {
+        try Self.enabled("permission")
+        let bench = try Bench(permission: .ask)
+        defer { bench.leave() }
+        let (window, _) = try await document(bench)
+        defer { window.close() }
+
+        var spoken = try await bench.say("输入 asked first") { _ in 0 }
+        XCTAssertEqual(spoken.hud.phase, .done)
+        XCTAssertFalse(spoken.questions.isEmpty, "typing was not put to the user")
+        try await bench.wait("the confirmed words in the document") { window.text.contains("asked first") }
+        Self.report("overlay detail: \(spoken.hud.detail)")
+        XCTAssertTrue(spoken.hud.detail.contains("deepseek") && spoken.hud.detail.contains("%"), spoken.hud.detail)
+
+        spoken = try await bench.say("输入 never typed")
+        XCTAssertFalse(spoken.questions.isEmpty, "typing was not put to the user")
+        try await bench.pause(1)
+        XCTAssertFalse(window.text.contains("never typed"), "A refused step was carried out")
+
+        // Switching apps is navigation, and under this mode navigation is asked about too.
+        let calculator = "com.apple.calculator"
+        let launched = NSRunningApplication.runningApplications(withBundleIdentifier: calculator).isEmpty
+        defer { if launched { NSRunningApplication.runningApplications(withBundleIdentifier: calculator).first?.terminate() } }
+        spoken = try await bench.say("打开计算器") { _ in 0 }
+        XCTAssertEqual(spoken.questions.count, 1, "switching apps was not put to the user: \(spoken.questions)")
+        try await bench.wait("Calculator in front after the confirmation") { Self.frontBundle() == calculator }
+        spoken = try await bench.say("切回文本编辑") { _ in 0 }
+        try await bench.wait("the document back in front") { window.owned }
+
+        // Bypass: Return in a multi-line field, which waits for the user in the other modes, goes straight through.
+        bench.runtime.command.settings.setPermission(.bypass)
+        let lines = window.text.components(separatedBy: "\n").count
+        spoken = try await bench.say("按一下回车键")
+        XCTAssertEqual(spoken.questions, [], "bypass asked a question")
+        try await bench.wait("Return typed without a question") { window.text.components(separatedBy: "\n").count == lines + 1 }
+        try await bench.hold()
+    }
+
     /// Reads and presses, and nothing else: an editor takes no keys from a test.
     @MainActor private final class PressOnly: ToolHost {
         let tools: CommandTools
         private(set) var performed: [String] = []
         init(_ tools: CommandTools) { self.tools = tools }
-        func confirm(_ tool: String, _ arguments: JSONValue) async -> Bool { false }
+        // The tools' own judgement stands: with nobody to ask, a press that would send or delete is declined.
+        func confirm(_ tool: String, _ arguments: JSONValue, every: Bool) async -> Bool? { await tools.confirm(tool, arguments, every: every) }
         func perform(_ tool: String, _ arguments: JSONValue) async -> ToolOutcome {
             performed.append(tool)
             guard ["list_targets", "ui_snapshot", "ui_press"].contains(tool) else {

@@ -67,8 +67,11 @@ private final class CallBox: @unchecked Sendable {
 /// app's command flow with it; no model and no process is involved.
 public final class ScriptedKernel: CommandKernel {
     public var script: [(tool: String, arguments: JSONValue)]
+    /// Reported once the script has run, as a real kernel says how full its context is after a reply.
+    public var usage: (used: Int, size: Int)?
     public private(set) var prompts: [String] = []
     public private(set) var outcomes: [ToolOutcome] = []
+    public private(set) var shutdowns = 0
     private var cancelled = false
 
     public init(_ script: [(tool: String, arguments: JSONValue)] = []) { self.script = script }
@@ -81,8 +84,9 @@ public final class ScriptedKernel: CommandKernel {
             outcomes.append(outcome)
             events(.toolEnded(id: "\(index)", failed: outcome.isError))
         }
+        if let usage, !cancelled { events(.usage(used: usage.used, size: usage.size)) }
         return cancelled ? "cancelled" : "end_turn"
     }
     public func cancel() { cancelled = true }
-    public func shutdown() {}
+    public func shutdown() { shutdowns += 1 }
 }

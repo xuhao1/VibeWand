@@ -120,7 +120,7 @@ final class SettingsController: NSWindowController {
             L10n.shared.language = oldLanguage; model.section = oldSection
             window.appearance = oldAppearance; window.setFrame(oldFrame, display: true)
         }
-        let names = ["general", "devices", "applications", "overlay", "developer", "about", "speech"]
+        let names = ["general", "devices", "applications", "overlay", "developer", "about", "speech", "command"]
         let variants: [(String, AppLanguage, NSAppearance.Name, NSSize)] = [
             ("zh", .zhHans, .aqua, NSSize(width: 1220, height: 790)),
             ("en-compact", .english, .aqua, NSSize(width: 1100, height: 750)),

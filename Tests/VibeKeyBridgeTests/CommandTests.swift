@@ -1,4 +1,5 @@
 import XCTest
+import SwiftUI
 import ApplicationServices
 import SpeechInput
 import WandAgent
@@ -13,13 +14,22 @@ final class CommandTests: XCTestCase {
         func remove(account: String) throws {}
         func contains(account: String) -> Bool { true }
     }
+    /// Remembers which account each key was saved under.
+    private final class KeyRing: SpeechCredentialStore, @unchecked Sendable {
+        var keys: [String: String] = [:]
+        func read(account: String) throws -> String? { keys[account] }
+        func save(_ key: String, account: String) throws { keys[account] = key }
+        func remove(account: String) throws { keys[account] = nil }
+        func contains(account: String) -> Bool { keys[account] != nil }
+    }
     private func isolatedDefaults() -> UserDefaults {
         let name = "VibeWand.CommandTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!
         addTeardownBlock { defaults.removePersistentDomain(forName: name) }
         return defaults
     }
-    @MainActor private func makeRuntime(enabled: Bool = true, template: DeviceTemplateID = .vibeKey, previews: [String] = ["切到 Codex"],
+    @MainActor private func makeRuntime(enabled: Bool = true, permission: PermissionMode = .risky, template: DeviceTemplateID = .vibeKey,
+                                        previews: [String] = ["切到 Codex"],
                                         script: [(tool: String, arguments: JSONValue)] = []) throws -> (BridgeRuntime, ScriptedKernel, URL) {
         let defaults = isolatedDefaults()
         let support = FileManager.default.temporaryDirectory.appendingPathComponent("vw-command-\(UUID().uuidString)")
@@ -27,6 +37,7 @@ final class CommandTests: XCTestCase {
         let voice = VoiceInputController(preferences: SpeechPreferences(defaults: defaults),
                                          engineFactory: { _ in TranscriptReplayEngine(previews: previews) })
         let settings = CommandSettings(defaults: defaults, credentials: MemoryCredentials())
+        settings.setPermission(permission)
         let kernel = ScriptedKernel(script)
         let templates = DeviceTemplateStore(defaults: defaults)
         try templates.select(template)
@@ -35,7 +46,7 @@ final class CommandTests: XCTestCase {
             command.openKernel = { kernel }
             return command
         }
-        if enabled { settings.setEnabled(true) }
+        if !enabled { settings.setEnabled(false) }
         return (runtime, kernel, support)
     }
     @MainActor private func wait(_ what: String, _ condition: @MainActor () -> Bool) async {
@@ -73,6 +84,80 @@ final class CommandTests: XCTestCase {
             CommandSettings(defaults: defaults, credentials: MemoryCredentials()).setHotkey(.rightOption)
             XCTAssertEqual(CommandSettings(defaults: defaults, credentials: MemoryCredentials()).hotkey, .rightOption)
         }
+    }
+
+    func testCommandModeIsOnFromTheStartButLiveOnlyOnceAModelIsSetUp() async throws {
+        try await MainActor.run {
+            let ring = KeyRing(), defaults = isolatedDefaults()
+            let settings = CommandSettings(defaults: defaults, credentials: ring)
+            XCTAssertTrue(settings.enabled)
+            XCTAssertEqual(settings.permission, .ask)
+            XCTAssertEqual(settings.model.endpoint, "deepseek")
+            XCTAssertEqual(settings.model.model, "deepseek-flash")
+            // No key yet: the switch is on, but nothing is live and the device's keys are left as they were.
+            XCTAssertFalse(settings.usable)
+            XCTAssertFalse(settings.active)
+            try settings.saveKey(" sk-one ")
+            XCTAssertTrue(settings.active)
+            // DeepSeek's key stays under the account it had before endpoints could be chosen.
+            XCTAssertEqual(ring.keys, ["deepseek-official": "sk-one"])
+            settings.setEnabled(false)
+            XCTAssertFalse(settings.active)
+            XCTAssertFalse(CommandSettings(defaults: defaults, credentials: ring).enabled)
+        }
+    }
+
+    @MainActor
+    func testAKeyBelongsToItsAddressAndEachEndpointRemembersItsModel() async throws {
+        let ring = KeyRing(), defaults = isolatedDefaults()
+        let settings = CommandSettings(defaults: defaults, credentials: ring)
+        try settings.saveKey("sk-deepseek")
+
+        // A local server needs no key; a remote one does.
+        var local = settings.configuration(for: "omlx")
+        XCTAssertEqual(local.baseURL, "http://127.0.0.1:8000/v1")
+        XCTAssertTrue(local.keyOptional)
+        local.model = "Qwen-Local"; local.contextWindow = 32_000; local.reasoning = .off
+        local.extra = #"{"compat": {"thinkingFormat": "qwen-chat-template"}}"#
+        try settings.setModel(local)
+        XCTAssertTrue(settings.usable)
+        XCTAssertFalse(settings.keySaved)
+        // The route the kernel is given carries the settings as chosen, and no key where none was saved.
+        let route = await settings.route()
+        XCTAssertEqual(route, ModelRoute(wire: .openAIChat, baseURL: "http://127.0.0.1:8000/v1", model: "Qwen-Local", key: nil, contextWindow: 32_000,
+                                         reasoning: .off, extra: ["compat": ["thinkingFormat": "qwen-chat-template"]]))
+
+        var custom = settings.configuration(for: CommandEndpoint.custom)
+        custom.baseURL = " https://gateway.example/openai/v1 "; custom.wire = .anthropic; custom.model = "wand-large"
+        try settings.setModel(custom)
+        XCTAssertEqual(settings.model.baseURL, "https://gateway.example/openai/v1")
+        XCTAssertTrue(settings.usable, "an address the user described may need no key")
+        try settings.saveKey("sk-gateway")
+        XCTAssertEqual(ring.keys["https://gateway.example"], "sk-gateway")
+        let keyed = await settings.route()
+        XCTAssertEqual(keyed?.key, "sk-gateway")
+        XCTAssertEqual(keyed?.wire, .anthropic)
+        // Pointing the same endpoint at another host does not take the key along.
+        custom.baseURL = "https://elsewhere.example/v1"
+        try settings.setModel(custom)
+        XCTAssertFalse(settings.keySaved)
+        let moved = await settings.route()
+        XCTAssertNil(moved?.key)
+
+        // What was set is validated, and each endpoint comes back as it was left.
+        custom.baseURL = "gateway.example/v1"
+        XCTAssertThrowsError(try settings.setModel(custom))
+        custom.baseURL = "https://gateway.example/v1"; custom.extra = "[1, 2]"
+        XCTAssertThrowsError(try settings.setModel(custom))
+        let reopened = CommandSettings(defaults: defaults, credentials: ring)
+        XCTAssertEqual(reopened.model.baseURL, "https://elsewhere.example/v1")
+        XCTAssertEqual(reopened.configuration(for: "omlx"), local)
+        XCTAssertEqual(reopened.configuration(for: "deepseek").model, "deepseek-flash")
+        // A remote service without its key is not usable, so nothing is handed to the kernel.
+        try reopened.setModel(reopened.configuration(for: "openai"))
+        XCTAssertFalse(reopened.usable)
+        let none = await reopened.route()
+        XCTAssertNil(none)
     }
 
     func testCommandBindingsAreNeverSavedWithTheConfiguration() throws {
@@ -113,6 +198,113 @@ final class CommandTests: XCTestCase {
         let journal = try String(contentsOf: task.appendingPathComponent("journal.jsonl"), encoding: .utf8)
         XCTAssertTrue(journal.contains(#""kind":"instruction""#) && journal.contains("切到 Codex"))
         XCTAssertTrue(journal.contains(#""kind":"end""#) && journal.contains(#""finished":true"#))
+        await MainActor.run { runtime.stop() }
+    }
+
+    func testEveryStepWaitsForTheConfirmKeyUnlessTheUserChoseOtherwise() async throws {
+        // Typing with no app captured reaches nothing: the tool refuses once it is allowed to run.
+        let typing: [(tool: String, arguments: JSONValue)] = [("ui_type", ["text": "hello from vibewand, typed where the keyboard is"]), ("finish", ["summary": "好"])]
+        let (runtime, kernel, support) = try await MainActor.run { try makeRuntime(permission: .ask, script: typing) }
+        await MainActor.run { runtime.command.run("输入一句话") }
+        await wait("the question") { runtime.snapshot.command.phase == .confirming }
+        await MainActor.run {
+            XCTAssertEqual(runtime.snapshot.command.text, L10n.tr("输入「hello from vibewand, typed where the key…」？", "Type “hello from vibewand, typed where the key…”?"))
+            XCTAssertTrue(runtime.snapshot.command.detail.contains(PermissionMode.ask.title))
+            runtime.handle(.ok, phase: .down); runtime.handle(.ok, phase: .up)
+        }
+        await wait("the task ends") { runtime.snapshot.command.phase == .done }
+        let task = try XCTUnwrap(try FileManager.default.contentsOfDirectory(at: support.appendingPathComponent("tasks"), includingPropertiesForKeys: nil).first)
+        XCTAssertTrue(try String(contentsOf: task.appendingPathComponent("journal.jsonl"), encoding: .utf8).contains(#""kind":"confirmed""#))
+        // Declining ends the step without running it.
+        await MainActor.run { runtime.command.run("再输入一句") }
+        await wait("the question again") { runtime.snapshot.command.phase == .confirming }
+        await MainActor.run { runtime.handle(.escape, phase: .down); runtime.handle(.escape, phase: .up) }
+        await wait("stopped") { runtime.snapshot.command.text == L10n.tr("已停止", "Stopped") }
+        await wait("the step is answered as declined") { kernel.outcomes.contains { $0.text.contains("declined") } }
+        await MainActor.run { runtime.stop() }
+
+        for mode in [PermissionMode.risky, .bypass] {
+            let (runtime, kernel, _) = try await MainActor.run { try makeRuntime(permission: mode, script: typing) }
+            await MainActor.run { runtime.command.run("输入一句话") }
+            await wait("the task ends without a question") { runtime.snapshot.command.phase == .done }
+            await MainActor.run {
+                XCTAssertTrue(kernel.outcomes[0].text.contains("no longer in front"), "\(mode): \(kernel.outcomes[0].text)")
+                runtime.stop()
+            }
+        }
+    }
+
+    func testTheOverlayNamesTheModelAndItsContextAndAFullOneIsNotCarriedOn() async throws {
+        let (runtime, kernel, _) = try await MainActor.run { try makeRuntime(script: [("list_targets", [:]), ("finish", ["summary": "好"])]) }
+        await MainActor.run {
+            kernel.usage = (1_200, 8_000)
+            XCTAssertEqual(runtime.command.turns, 0)
+            runtime.command.run("看看有哪些应用")
+            XCTAssertTrue(runtime.snapshot.command.detail.contains(L10n.tr("新对话", "new conversation")), runtime.snapshot.command.detail)
+        }
+        await wait("the task ends") { runtime.snapshot.command.phase == .done }
+        await MainActor.run {
+            let detail = runtime.snapshot.command.detail
+            XCTAssertTrue(detail.hasPrefix("deepseek-flash · "), detail)
+            XCTAssertTrue(detail.contains("1.2k/8.0k · 15%"), detail)
+            XCTAssertTrue(detail.contains(L10n.tr("2 步", "2 steps")), detail)
+            XCTAssertEqual(runtime.command.usage?.used, 1_200)
+            XCTAssertEqual(runtime.command.turns, 1)
+            XCTAssertEqual(kernel.shutdowns, 0)
+            // Past four fifths of the window, the next instruction opens a new conversation.
+            kernel.usage = (6_500, 8_000)
+            runtime.command.run("再看一次")
+        }
+        await wait("the conversation is let go") { kernel.shutdowns == 1 }
+        await MainActor.run {
+            XCTAssertEqual(runtime.snapshot.command.phase, .done)
+            XCTAssertTrue(runtime.snapshot.command.detail.contains("81%"), runtime.snapshot.command.detail)
+            XCTAssertEqual(runtime.command.turns, 0)
+            XCTAssertNil(runtime.command.usage)
+            // And a user who wants no memory gets a new conversation every time.
+            kernel.usage = (100, 8_000)
+            runtime.command.settings.setHistoryMinutes(0)
+            let before = kernel.shutdowns
+            runtime.command.run("第三次")
+            XCTAssertGreaterThanOrEqual(kernel.shutdowns, before)
+        }
+        await wait("the third ends") { runtime.snapshot.command.phase == .done && runtime.command.turns == 0 }
+        await MainActor.run { runtime.stop() }
+        XCTAssertEqual(CommandController.tokens(950), "950")
+        XCTAssertEqual(CommandController.tokens(262_144), "262.1k")
+        XCTAssertEqual(CommandController.tokens(1_048_576), "1.05M")
+    }
+
+    func testSettingsCanCheckTheModelAndFailuresAreSaidInTheServicesWords() async throws {
+        let (runtime, kernel, _) = try await MainActor.run { try makeRuntime() }
+        kernel.usage = (36, 64_000)
+        let checked = await runtime.command.probe()
+        XCTAssertTrue(checked.ok, checked.detail)
+        XCTAssertTrue(checked.detail.contains("64.0k"), checked.detail)
+        await MainActor.run {
+            XCTAssertEqual(kernel.prompts, ["Reply with the single word: ok"])
+            // The check leaves no conversation behind.
+            XCTAssertEqual(runtime.command.turns, 0)
+            XCTAssertNil(runtime.command.usage)
+            runtime.command.openKernel = { throw RPCError(code: -32603, message: #"Internal error: turn failed: 401: {"message":"Authentication Fails, Your api key: ****0000 is invalid","type":"authentication_error"}"#) }
+        }
+        let failed = await runtime.command.probe()
+        XCTAssertFalse(failed.ok)
+        XCTAssertTrue(failed.detail.hasSuffix("401: Authentication Fails, Your api key: ****0000 is invalid"), failed.detail)
+        // A setting the kernel refused at start is named in its log, and that is what the user is told.
+        let logs = await MainActor.run { runtime.command.support.appendingPathComponent("kernel/logs") }
+        try FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
+        try """
+            dsh: warning: 1 entry did not activate
+            llm-route (@deepseek-ai/dsh-llm-pi-ai): ValidationError: invalid config:
+              - $.providers.vibewand.compat.thinkingFormat expected "openai" | "qwen" but got "nonsense" (at providers.vibewand.compat.thinkingFormat)
+            """.write(to: logs.appendingPathComponent("kernel.log"), atomically: true, encoding: .utf8)
+        await MainActor.run { runtime.command.openKernel = { throw RPCError(code: -32603, message: #"Internal error: no adapter registered for provider "vibewand""#) } }
+        let refused = await runtime.command.probe()
+        XCTAssertTrue(refused.detail.hasSuffix(#"compat.thinkingFormat expected "openai" | "qwen" but got "nonsense" (at providers.vibewand.compat.thinkingFormat)"#), refused.detail)
+        XCTAssertEqual(CommandController.brief("Internal error: turn failed: Connection error."), "Connection error.")
+        XCTAssertEqual(CommandController.brief(#"Internal error: no adapter registered for provider "vibewand""#), #"no adapter registered for provider "vibewand""#)
+        XCTAssertEqual(CommandController.brief(#"400: {"error":{"message":"model not found"}}"#), "400: model not found")
         await MainActor.run { runtime.stop() }
     }
 
@@ -228,6 +420,8 @@ final class CommandTests: XCTestCase {
         XCTAssertEqual(SpeechOverlayLayout.barHeight(voice: idle, command: CommandHUDSnapshot()), 48)
         let listening = CommandHUDSnapshot(phase: .listening)
         XCTAssertEqual(SpeechOverlayLayout.barHeight(voice: idle, command: listening), 96)
+        // The line that names the model and its context has room of its own.
+        XCTAssertEqual(SpeechOverlayLayout.barHeight(voice: idle, command: CommandHUDSnapshot(phase: .listening, detail: "deepseek-flash · 新对话")), 116)
         let choosing = CommandHUDSnapshot(phase: .choosing, text: "打开哪个会话？", options: ["甲", "乙", "丙", "丁"])
         XCTAssertGreaterThan(SpeechOverlayLayout.barHeight(voice: idle, command: choosing), SpeechOverlayLayout.barHeight(voice: idle, command: listening))
         XCTAssertEqual(SpeechOverlayLayout.size(template: .vibeKey, expanded: false, mode: .compact, voice: idle, command: choosing).width, 390)
@@ -244,10 +438,12 @@ final class CommandTests: XCTestCase {
             overlay.setDisplayMode(.compact)
             let states: [(String, CommandHUDSnapshot)] = [
                 ("listening", CommandHUDSnapshot(phase: .listening, status: "命令 · 正在听", text: "切到 Codex 里讨论麦克风的那个会话")),
-                ("working", CommandHUDSnapshot(phase: .working, status: "命令 · 查找会话", text: "切到 Codex 里讨论麦克风的那个会话")),
+                ("working", CommandHUDSnapshot(phase: .working, status: "命令 · 查找会话", text: "切到 Codex 里讨论麦克风的那个会话",
+                    detail: "deepseek-flash · 上下文 12.4k/1.05M · 1% · 第 2 步 · 每步确认")),
                 ("choosing", CommandHUDSnapshot(phase: .choosing, status: "命令 · 请选择", text: "打开哪个会话？",
                     options: ["VibeWand 麦克风延迟排查 · VibekeyPluginCodex · 10-05 14:10", "DualSense 麦克风蓝牙桥接 · 10-04 22:31", "修复登录问题 · webapp"], selection: 1)),
-                ("confirming", CommandHUDSnapshot(phase: .confirming, status: "命令 · 请确认", text: "按下「删除会话」？")),
+                ("confirming", CommandHUDSnapshot(phase: .confirming, status: "命令 · 请确认", text: "按下「删除会话」？",
+                    detail: "deepseek-flash · 上下文 12.9k/1.05M · 1% · 第 3 步 · 只确认有风险的")),
                 ("done", CommandHUDSnapshot(phase: .done, status: "命令 · 完成", text: "已切到 Codex 会话「VibeWand 麦克风延迟排查」"))
             ]
             for (name, command) in states {
@@ -261,6 +457,52 @@ final class CommandTests: XCTestCase {
                     XCTAssertTrue(overlay.renderPNG(to: URL(fileURLWithPath: path).appendingPathComponent("command-\(name).png")))
                 }
             }
+        }
+    }
+
+    /// Optional visual evidence of the settings page and the history, from our own hidden views.
+    @MainActor
+    func testCommandSettingsAndHistoryRenderForReview() async throws {
+        guard let path = ProcessInfo.processInfo.environment["VIBEWAND_COMMAND_SETTINGS_REVIEW"] else { throw XCTSkip("Set VIBEWAND_COMMAND_SETTINGS_REVIEW to a folder") }
+        _ = NSApplication.shared
+        let (runtime, kernel, support) = try makeRuntime(permission: .ask, script: [("list_targets", [:]), ("finish", ["summary": "已列出可以操作的应用"])])
+        kernel.usage = (12_400, 1_048_576)
+        runtime.command.run("看看有哪些应用可以操作")
+        await wait("the task ends") { runtime.snapshot.command.phase == .done }
+        let journal = try TaskJournal(root: support.appendingPathComponent("tasks"), now: Date().addingTimeInterval(2))
+        journal.record("instruction", ["text": "切到 Codex 里讨论麦克风的那个会话", "app": "Visual Studio Code", "model": "deepseek-flash", "turn": 2])
+        journal.note(.thought("用户想去 Codex 里一个关于麦克风的会话。先查会话列表，再打开最匹配的那一个。"))
+        journal.note(.toolStarted(id: "1", name: "find_sessions"))
+        journal.record("call", ["tool": "find_sessions", "arguments": ["app": "codex", "query": "麦克风"]])
+        journal.record("result", ["tool": "find_sessions", "ok": true, "verified": true,
+                                  "text": #"{"matched":true,"sessions":[{"folder":"VibekeyPluginCodex","id":"t-101","title":"VibeWand 麦克风延迟排查","updated":"10-05 14:10"}]}"#])
+        journal.note(.usage(used: 13_100, size: 1_048_576))
+        journal.record("confirmed", ["tool": "open_session"])
+        journal.record("call", ["tool": "open_session", "arguments": ["app": "codex", "id": "t-101"]])
+        journal.record("result", ["tool": "open_session", "ok": true, "verified": false, "text": #"{"app_in_front":true,"opened":"VibeWand 麦克风延迟排查"}"#])
+        journal.note(.usage(used: 13_600, size: 1_048_576))
+        journal.record("end", ["reason": "end_turn", "finished": true, "said": "已切到「VibeWand 麦克风延迟排查」（结果未能核对）"])
+
+        let overlay = OverlayController { _, _ in XCTFail("Rendering must not dispatch input") }
+        let model = SettingsModel(runtime: runtime, overlay: overlay)
+        let oldLanguage = L10n.shared.language
+        defer { L10n.shared.language = oldLanguage; runtime.stop() }
+        let directory = URL(fileURLWithPath: path)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        func render(_ view: some View, _ size: NSSize, _ name: String) async throws {
+            let host = NSHostingView(rootView: AnyView(view.background(Color(nsColor: .windowBackgroundColor))))
+            let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [], backing: .buffered, defer: false)
+            window.contentView = host; window.appearance = NSAppearance(named: .aqua)
+            try await Task.sleep(nanoseconds: 600_000_000)
+            host.layoutSubtreeIfNeeded()
+            let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+            host.cacheDisplay(in: host.bounds, to: bitmap)
+            try XCTUnwrap(bitmap.representation(using: .png, properties: [:])).write(to: directory.appendingPathComponent(name))
+        }
+        for (name, language) in [("zh", AppLanguage.zhHans), ("en", .english)] {
+            L10n.shared.language = language
+            try await render(CommandSettingsPage(model: model, settings: runtime.command.settings).id(name), NSSize(width: 1100, height: 1500), "settings-\(name).png")
+            try await render(CommandHistorySheet(command: runtime.command).id(name), NSSize(width: 940, height: 620), "history-\(name).png")
         }
     }
 

@@ -7,7 +7,7 @@ VibeWand is a native macOS Swift package. Keep device decoding, gesture mapping,
 - `Sources/AU05Device/`: HID protocols, discovery, and device lifecycle; `Sources/AU05Capture/`: capture CLI.
 - `Sources/VibeKeyBridge/`: SwiftUI/AppKit interface, gestures, application adapters, overlays, and dictation delivery. Preserve the internal target name and `org.vibekey.bridge` bundle identifier.
 - `Sources/SpeechInput/`: recording, speech providers, credentials, and dictation lifecycle; `Sources/SpeechAPICheck/`: audio-file API checks.
-- `Sources/WandAgent/`: UI-independent command mode: the kernel process and its protocol, the tool catalog and socket, the gateway, task records. `kernel/` holds the kernel's locked package set, its profile and boot check.
+- `Sources/WandAgent/`: UI-independent command mode: the kernel process and its protocol, the model route and model listing, the tool catalog and socket, the gateway with its permission modes, task records. `kernel/` holds the kernel's locked package set, its profile and boot check.
 - `Tests/`: matching XCTest targets. `assets/` contains artwork; `profiles/` contains JSON examples; `docs/` contains bilingual guides; `tools/dualsense-mic/` contains microphone experiments and the bridge.
 
 ## Build, Test, and Development Commands

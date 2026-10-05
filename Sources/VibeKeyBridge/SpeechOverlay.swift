@@ -8,8 +8,10 @@ enum OverlayDisplayMode: String, CaseIterable {
 
 enum SpeechOverlayLayout {
     static let gap: CGFloat = 7
+    /// The line under a command that says which model is acting and how full its context is.
+    static let detailHeight: CGFloat = 20
     static func barHeight(voice: VoiceHUDSnapshot, command: CommandHUDSnapshot = CommandHUDSnapshot()) -> CGFloat {
-        if command.active { return max(96, 62 + 22 * CGFloat(command.lines)) }
+        if command.active { return max(96, 62 + 22 * CGFloat(command.lines)) + (command.detail.isEmpty ? 0 : detailHeight) }
         return voice.showsText ? 118 : 48
     }
     static func size(template: DeviceTemplateID, expanded: Bool, mode: OverlayDisplayMode, voice: VoiceHUDSnapshot,
@@ -83,6 +85,7 @@ private final class SpeechOverlayBar: NSView {
     private let glass: CompanionBackdrop
     private let content = GlassControlContent()
     private let status = NSTextField(labelWithString: "")
+    private let detail = NSTextField(labelWithString: "")
     private let icon = NSImageView()
     private let style = NSButton(), resizeButton = NSButton(), settings = NSButton(), hide = NSButton()
     private let scroll = NSScrollView(), transcript = NSTextView()
@@ -99,8 +102,10 @@ private final class SpeechOverlayBar: NSView {
         wantsLayer = true; layer?.cornerRadius = 18; layer?.masksToBounds = false
         content.frame = bounds; content.autoresizingMask = [.width, .height]
         glass.setCornerRadius(18); glass.setContent(content)
-        addSubview(glass); content.addSubview(icon); content.addSubview(status)
+        addSubview(glass); content.addSubview(icon); content.addSubview(status); content.addSubview(detail)
         status.font = .systemFont(ofSize: 12); status.textColor = .secondaryLabelColor; status.lineBreakMode = .byTruncatingTail
+        detail.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular); detail.textColor = .tertiaryLabelColor
+        detail.lineBreakMode = .byTruncatingMiddle
         for button in [style, resizeButton, settings, hide] {
             button.isBordered = false; button.bezelStyle = .recessed; button.target = self
             button.refusesFirstResponder = true
@@ -152,6 +157,8 @@ private final class SpeechOverlayBar: NSView {
             transcript.scrollRangeToVisible(NSRange(location: (text as NSString).length, length: 0))
         }
         shownCommand = command; style.isHidden = command.active
+        detail.stringValue = command.active ? command.detail : ""; detail.toolTip = detail.stringValue
+        detail.isHidden = detail.stringValue.isEmpty
         setAccessibilityLabel(L10n.tr("语音输入", "Voice input") + " · " + status.stringValue)
         needsLayout = true; needsDisplay = true
     }
@@ -198,7 +205,9 @@ private final class SpeechOverlayBar: NSView {
         style.frame = NSRect(x: resizeButton.frame.minX - styleWidth - 6, y: (header - 28) / 2, width: styleWidth, height: 28)
         icon.frame = NSRect(x: 12, y: (header - 19) / 2, width: 19, height: 19)
         status.frame = NSRect(x: 39, y: (header - 17) / 2, width: max(0, (style.isHidden ? resizeButton : style).frame.minX - 45), height: 17)
-        scroll.frame = NSRect(x: 14, y: header - 1, width: max(1, bounds.width - 28), height: max(1, bounds.height - header - 10))
+        let footer = detail.isHidden ? 0 : SpeechOverlayLayout.detailHeight
+        detail.frame = NSRect(x: 16, y: bounds.height - footer - 6, width: max(1, bounds.width - 32), height: 15)
+        scroll.frame = NSRect(x: 14, y: header - 1, width: max(1, bounds.width - 28), height: max(1, bounds.height - header - 10 - footer))
         transcript.frame = NSRect(x: 0, y: 0, width: scroll.contentSize.width, height: max(scroll.contentSize.height, transcript.frame.height))
         transcript.textContainer?.containerSize = NSSize(width: scroll.contentSize.width, height: .greatestFiniteMagnitude)
         layer?.cornerRadius = min(18, bounds.height / 2)

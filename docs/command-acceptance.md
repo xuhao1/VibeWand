@@ -50,10 +50,41 @@ All of these are fixed in the source.
 - **VS Code takes the reading for a screen reader.** Asking an Electron app for its controls turns on its accessibility tree. VS Code then offers “screen reader optimized” mode and shows it in the status bar. Answer No, or set `editor.accessibilitySupport` to `off`; the tabs are expected to stay readable, which was not checked with the setting off. / **VS Code 把读取当成屏幕阅读器。**向 Electron 应用要控件会打开它的辅助功能树，VS Code 随即询问是否启用“为屏幕阅读器优化”，并在状态栏显示。选“否”，或把 `editor.accessibilitySupport` 设为 `off`；预计标签页仍然读得到，但关闭后的情况没有验证。
 - **Opening a Codex chat is still reported as unchecked.** The app does not read back where the link landed, so the overlay adds “result not verified”. The test read the window's title strip, and in each of its runs the link had landed on the named chat. / **打开 Codex 会话仍然标为未核对。**应用不读回链接落在哪里，所以浮层会加一句“结果未能核对”。测试读了窗口顶部的标题，每次运行链接都落在指定的会话上。
 
+## Second round, for 0.8.5 / 第二轮：0.8.5
+
+Later the same day the model became the user's to choose, permission modes were added, and the overlay and settings began to show what the agent is doing. The kernel's model adapter changed with that, from the harness's DeepSeek-only component to its multi-provider one (`dsh-llm-pi-ai` 0.2.0-rc.2), so the first round's scenarios were partly run again. The model was DeepSeek's `deepseek-flash` over its OpenAI-compatible protocol unless noted.
+
+同一天晚些时候，模型改为由用户选择，加入了权限档位，悬浮窗和设置页开始显示 agent 在做什么。内核的模型适配随之从 Harness 的 DeepSeek 专用组件换成多服务组件（`dsh-llm-pi-ai` 0.2.0-rc.2），所以第一轮的场景复测了一部分。除另有说明外，模型是 DeepSeek 的 `deepseek-flash`，走它的 OpenAI 兼容接口。
+
+| Mode and what was said / 档位与说的话 | What happened / 经过 | Read back / 读回的结果 |
+| --- | --- | --- |
+| Ask every time: 输入 asked first / 每步确认 | Asked “输入「asked first」？”, confirmed, `ui_type` / 先问，确认后输入 | The words are in the document. The overlay's line read `deepseek-flash · 上下文 4.3k/262.1k · 1% · 5 步` / 文档里有这句话；悬浮窗最下一行如左 |
+| Ask every time: 输入 never typed | Asked, declined / 先问，拒绝 | The document is unchanged / 文档不变 |
+| Ask every time: 打开计算器, 切回文本编辑 | Asked “切换到 Calculator？” and “切换到 TextEdit？”, both confirmed / 各问一次，都确认 | Calculator in front, then the document again. The second reply mentioned the typing that had been declined: the conversation carried over / 计算器到前台，再回到文档；第二句的回答提到了之前被拒绝的输入，说明对话延续 |
+| Bypass all: 按一下回车键 / 跳过全部确认 | `ui_key`, no question / 没有提问 | One more line / 多一行 |
+| Ask when risky: the six TextEdit instructions of round one / 只确认有风险的：第一轮文本编辑的六句话 | As in round one; Return asked about, navigation and typing not / 与第一轮相同：回车先问，导航和输入不问 | All read back; 24 s in total, 20 s with thinking turned off (one run each) / 全部读回；共 24 秒，关闭思考后 20 秒（各一次） |
+| VS Code: the two tab instructions / 两句标签页 | `ui_snapshot` → `ui_press` | The window's title is the file named / 窗口标题变为所说的文件 |
+| Codex: open a chat by title, then the Back button / 按标题打开会话，再按后退按钮 | `find_sessions` → `open_session`; `ui_snapshot` → `ui_press` | The named chat is shown, then the earlier one again / 显示指定会话，再回到原先的会话 |
+| Keyboard: right ⌘, ↓, Return / 键盘 | scripted, no model / 脚本内核 | As in round one / 与第一轮相同 |
+
+The kernel alone, with a stand-in for the desktop (`KernelLiveTests`): an instruction and a correction in one conversation; the same service over its Anthropic-compatible protocol with thinking off and a context length of 64000, where no thinking arrived and the kernel reported its context out of 64000; a wrong key, reported with the service's 401 and its own message; and a stop that interrupts a turn waiting on a tool.
+
+单独的内核、假的桌面宿主（`KernelLiveTests`）：同一段对话里的一条命令和一次纠正；同一服务的 Anthropic 兼容接口，关闭思考、上下文长度设为 64000，结果没有思考内容到达，内核按 64000 报告上下文；错误的密钥，报出的是服务的 401 和它的原话；以及在等待工具时被停止打断的一轮。
+
+The settings page and the records window were looked at as images rendered from hidden views in the test process, in Chinese and English; the overlay's command states likewise. Nobody has looked at them in the running app for this record.
+
+设置页和记录窗口是在测试进程里用隐藏的视图渲染成图片后看的，中英文各一份；悬浮窗的各个命令状态也是这样。这份记录里没有人在运行中的应用里看过它们。
+
+Not run again in this round: the Codex choice among several chats, the `⌘K` fallback, and the Claude and Feishu searches. Their tools are unchanged apart from where the confirmation is asked.
+
+这一轮没有复测：Codex 里几个会话都像时的提问、`⌘K` 回退，以及 Claude 和飞书的搜索。除了“在哪里询问确认”之外，它们用到的工具没有改动。
+
 ## Not run / 没有测的
 
 - A microphone and a human voice: transcripts were replayed. / 麦克风和真人语音：用的是转录回放。
 - Physical keys and buttons. The keyboard key was a synthetic event, and a key that another program takes first has to be pressed by hand. / 实体按键。键盘命令键用的是合成事件；被其他程序先取走的键只能用手按来验证。
 - The app bundle's own overlay and settings window while a command runs. / 应用包自己的悬浮面板和设置窗口在命令执行时的表现。
 - DeepSeek Harness, WorkBuddy and WeChat as search targets: they were not running. / 以 DeepSeek Harness、WorkBuddy、微信为目标的搜索：当时没有运行。
+- Any model service other than DeepSeek, and any local model. For the other built-in services only the address was checked to exist; no key for them was at hand and no local server was running. / DeepSeek 以外的任何模型服务，以及本机模型。其余内置服务只核对了地址存在；手头没有它们的密钥，本机也没有模型服务在运行。
+- The buttons of the settings page. What is behind them was run: listing DeepSeek's models (also with a wrong key, and at an address where nothing listens), and the model check behind “Save and test”, which answered in 2.5 s and reported a context of 262.1k. The buttons themselves were not pressed. / 设置页上的按钮。按钮背后的功能跑过：拉取 DeepSeek 的模型列表（也试了错误的密钥和一个没有服务的地址），以及“保存并测试”背后的模型检查，它在 2.5 秒内得到回答并报告上下文为 262.1k。按钮本身没有按过。
 - Keys, menus and typing in VS Code. / VS Code 里的按键、菜单和输入文字。
