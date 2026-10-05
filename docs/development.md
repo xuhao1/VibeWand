@@ -21,9 +21,9 @@ The script compiles a release build, copies the icon, device images and license 
 
 脚本完成 Release 编译、素材与许可证打包和签名，生成 **`dist/VibeWand.app`**。在 Finder 中打开，或复制到「应用程序」后双击；设置、演示、采集与诊断均通过图形界面操作。
 
-The default build targets the build Mac's architecture. The published 0.8.1 package is **arm64 / Apple Silicon**, requires macOS 13+, uses ad-hoc signing, and is not Apple-notarized. The bundled microphone-helper build currently targets arm64, so this packaging flow does not support Intel.
+The default build targets the build Mac's architecture. The published 0.8.2 package is **arm64 / Apple Silicon**, requires macOS 13+, uses ad-hoc signing, and is not Apple-notarized. The bundled microphone-helper build currently targets arm64, so this packaging flow does not support Intel.
 
-默认编译面向构建机器的架构。已发布 0.8.1 为 **arm64 / Apple Silicon**，要求 macOS 13+，临时签名且未公证；当前麦克风组件固定编译为 arm64，此打包流程不支持 Intel。
+默认编译面向构建机器的架构。已发布 0.8.2 为 **arm64 / Apple Silicon**，要求 macOS 13+，临时签名且未公证；当前麦克风组件固定编译为 arm64，此打包流程不支持 Intel。
 
 ## Tests / 测试
 

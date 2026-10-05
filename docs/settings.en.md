@@ -14,7 +14,7 @@ The menu bar keeps everyday entry points. One native settings window groups conf
 | Overlay | Visibility, descriptions, size, opacity, position, and image export |
 | Developer | Demo, physical-event capture, compatibility, diagnostics, and reconnect |
 | About | Version, license, author, and personal / project website links |
-| Voice input | External / built-in dictation, system / API, language, endpoint, separate keys, testing and exports |
+| Voice input | External / built-in dictation, system / API, microphone source (follow the device / system sound input), vocabulary and subject hint, language, endpoint, separate keys, testing and exports |
 
 ## Remap a control
 

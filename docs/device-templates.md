@@ -74,7 +74,7 @@ VibeWand 提供 **VibeKey、手柄、遥控器** 三套可切换的逻辑模板�
 
 ## 麦克风与音频
 
-外置模式只发送按住 Fn 的听写触发，音源由输入法管理。内置模式使用 macOS 默认麦克风，支持系统识别和用户配置的语音 API；不自动切换录音设备。详见[语音输入](voice-input.md)。
+外置模式只发送按住 Fn 的听写触发，音源由输入法管理。内置模式默认使用按下听写键的设备自带的麦克风（按 USB 厂商／产品 ID 匹配 Core Audio 输入，例如 VibeKey 接收器），设备没有麦克风时使用 macOS 默认输入，也可在「语音输入 → 麦克风」固定为系统声音输入；只为本次录音选择设备，不改系统默认输入。详见[语音输入](voice-input.md)。
 
 对于作为手柄参考的 DualSense，需区分连接方式：[JoyHarness 的一手调查](https://github.com/nixihz/JoyHarness/blob/main/docs/research/dualsense-wireless-microphone.md)记录了 USB 连接时在 macOS 26.5.2 出现标准音频输入设备的实测。本项目于 2026-10-04 已在当前 Mac 和蓝牙手柄上接收并解码内置麦克风的 Opus 数据，后续独立实验版已发布系统音频输入，并通过游戏模式显著降低缺帧；仍有残余缺帧与采集期间暂停手柄导航的限制，见 [蓝牙麦克风适配调查](dualsense-microphone.md)。因此当前发布版的蓝牙操作仍使用 Mac 或外接麦克风；不能再把「尚未适配」解释为硬件不支持蓝牙音频。
 

@@ -32,7 +32,6 @@ final class BridgeRuntime {
         cancelAll()
         dualSenseVoiceEnabled = enabled
         UserDefaults.standard.set(enabled,forKey: "dualSenseVoiceEnabled")
-        SpeechAudioInput.deviceUID = enabled ? DualSenseMicrophoneSource.deviceUID : nil
         if templates.selectedID == .dualSense { try replaceDevice(profile: templates.profile(), template: .dualSense) }
         else { dropCompanion(.dualSense); syncCompanions() }
         onSettingsChanged?()
@@ -109,7 +108,6 @@ final class BridgeRuntime {
         self.sourceFactory = sourceFactory ?? Self.makeSource
         device = source ?? AU05HIDClient()
         configuration = templates.configuration()
-        SpeechAudioInput.deviceUID = dualSenseVoiceEnabled && templates.selectedID == .dualSense && templates.profile() == nil ? DualSenseMicrophoneSource.deviceUID : nil
         snapshot.deviceTemplate = templates.selectedID
         deviceName = templates.profile()?.name ?? templates.selectedTemplate.title
         self.voiceInput.onChange = { [weak self] in
@@ -119,6 +117,7 @@ final class BridgeRuntime {
             }
             self.emit(); self.onSettingsChanged?()
         }
+        self.voiceInput.microphone = { [weak self] in self?.deviceMicrophone }
         self.voiceInput.onTranscript = { [weak self] text in self?.deliverDictation(text) }
         self.voiceInput.onPartialTranscript = { [weak self] text in self?.previewDictation(text) }
         self.voiceInput.onCancel = { [weak self] in
@@ -209,7 +208,19 @@ final class BridgeRuntime {
     func stop() {
         inputStarted = false
         syncCompanions()
-        device.stop(); SpeechAudioInput.deviceUID = nil; cancelAll(); pollTimer?.invalidate(); demoTimer?.invalidate(); gestureTimer?.invalidate(); gestureTimer = nil
+        device.stop(); cancelAll(); pollTimer?.invalidate(); demoTimer?.invalidate(); gestureTimer?.invalidate(); gestureTimer = nil
+    }
+
+    /// Built-in dictation records from the device whose key started it, when
+    /// that device has a microphone. nil leaves the macOS default input in place.
+    var deviceMicrophone: String? {
+        guard voiceInput.configuration.effectiveMicrophone == .device else { return nil }
+        if device is DualSenseMicrophoneSource { return DualSenseMicrophoneSource.deviceUID }
+        if let match = templates.profile()?.match {
+            return SpeechAudioInput.deviceUID(vendorID: match.vendorID, productID: match.productID)
+        }
+        guard templates.selectedID == .vibeKey else { return nil }
+        return SpeechAudioInput.deviceUID(vendorID: AU05HIDClient.vendorID, productID: AU05HIDClient.productID)
     }
 
     // MARK: Device following
@@ -299,7 +310,6 @@ final class BridgeRuntime {
         configuration = nextConfiguration
         device = next
         deviceName = templates.profile(for: id)?.name ?? id.template.title
-        SpeechAudioInput.deviceUID = next is DualSenseMicrophoneSource ? DualSenseMicrophoneSource.deviceUID : nil
         snapshot.deviceTemplate = id; snapshot.rotation = 0
         attachDevice()
         inputReady = next.connection == .ready
@@ -373,7 +383,6 @@ final class BridgeRuntime {
         unreadySince = ProcessInfo.processInfo.systemUptime
         deviceName = profile?.name ?? template.template.title
         deviceStatus = L10n.tr("等待设备", "Waiting for device")
-        SpeechAudioInput.deviceUID = next is DualSenseMicrophoneSource ? DualSenseMicrophoneSource.deviceUID : nil
         snapshot.deviceTemplate = template
         snapshot.rotation = 0
         if inputStarted { connectDevice() }
@@ -616,7 +625,11 @@ final class BridgeRuntime {
         case .contextLeft: effect = reduce(state: &interaction, control: .left, context: observation.context)
         case .contextRight: effect = reduce(state: &interaction, control: .right, context: observation.context)
         case .contextConfirm: effect = reduce(state: &interaction, control: .ok, context: observation.context)
-        case .contextEscape: effect = reduce(state: &interaction, control: .escape, context: observation.context)
+        case .contextEscape:
+            let reduced = reduce(state: &interaction, control: .escape, context: observation.context)
+            // A terminal's prompt cannot be read: the press is Escape, the hold is Backspace.
+            let holdsInTerminal = signal.kind == .long && observation.context.applicationProfile == .terminal
+            effect = reduced == .sendEscape && holdsInTerminal ? .deleteBackward : reduced
         case .sessions: effect = .openSessions
         case .models: effect = .openModels
         case .deleteBackward: effect = .deleteBackward
@@ -837,7 +850,9 @@ final class BridgeRuntime {
             guard !observation.secureField else {
                 self.finishDictation(L10n.tr("密码框不接收听写", "Dictation is not typed into password fields")); return
             }
-            self.inserter.insert(text, pid: app.pid, bundleID: app.bundleID, editor: observation.editor) { [weak self] outcome in
+            // A terminal's text area is its whole scrollback; it is pasted into, never read back.
+            let editor = ApplicationProfile.resolve(bundleID: app.bundleID) == .terminal ? nil : observation.editor
+            self.inserter.insert(text, pid: app.pid, bundleID: app.bundleID, editor: editor) { [weak self] outcome in
                 guard let self, self.generation == token else { return }
                 switch outcome {
                 case .inserted(let via, let verified):

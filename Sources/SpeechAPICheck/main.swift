@@ -7,19 +7,24 @@ struct SpeechAPICheck {
     static func main() async {
         var arguments = Array(CommandLine.arguments.dropFirst())
         var streamAudio = false, polishText = false, keyFromStdin = false
+        var vocabulary = SpeechVocabulary()
         while let flag = arguments.first, flag.hasPrefix("--") {
             if flag == "--stream" { streamAudio = true } else if flag == "--polish" { polishText = true }
-            else if flag == "--key-stdin" { keyFromStdin = true } else { break }
+            else if flag == "--key-stdin" { keyFromStdin = true }
+            else if flag == "--no-vocabulary" { vocabulary.computing = false }
+            else if flag == "--terms", arguments.count > 1 { arguments.removeFirst(); vocabulary.terms = SpeechVocabulary.terms(from: arguments[0]) }
+            else { break }
             arguments.removeFirst()
         }
         guard arguments.count == 4, let provider = SpeechProvider(rawValue: arguments[0]), provider != .system else {
-            print("Usage: SpeechAPICheck [--stream] [--polish] qwenRealtime|transcriptionAPI <endpoint> <model> <audio-file>")
+            print("Usage: SpeechAPICheck [--stream] [--polish] [--no-vocabulary] [--terms a,b] qwenRealtime|transcriptionAPI <endpoint> <model> <audio-file>")
             exit(2)
         }
         do {
             var configuration = SpeechConfiguration()
             configuration.mode = .builtIn; configuration.provider = provider
             configuration.endpoint = arguments[1]; configuration.model = arguments[2]
+            configuration.vocabulary = vocabulary
             let audio = try SpeechAudio.read(from: URL(fileURLWithPath: arguments[3]))
             let key = keyFromStdin ? readLine() : try await KeychainSpeechCredentials().readAsync(account: configuration.credentialAccount)
             let start = Date()
@@ -45,7 +50,7 @@ struct SpeechAPICheck {
             if polishText {
                 guard let settings = configuration.effectivePolishing else { throw SpeechInputError.polishingUnavailable }
                 print("Original:", text)
-                text = try await SpeechTextProcessor().polish(text, configuration: settings, apiKey: key)
+                text = try await SpeechTextProcessor().polish(text, configuration: settings, vocabulary: vocabulary, apiKey: key)
                 print("Polished:", text)
             }
             print("Recognized \(String(format: "%.1f", audio.duration))s audio in \(String(format: "%.1f", Date().timeIntervalSince(start)))s")

@@ -1,4 +1,5 @@
 import XCTest
+import SpeechInput
 @testable import VibeKeyBridge
 
 final class RuntimeTests: XCTestCase {
@@ -71,6 +72,30 @@ final class RuntimeTests: XCTestCase {
             XCTAssertEqual(runtime.snapshot.mode, L10n.tr("阅读会话", "Reading"))
             XCTAssertEqual(runtime.snapshot.target, L10n.tr("修复登录问题", "Fix sign-in issue"))
             runtime.stop()
+        }
+    }
+    func testEachDictationChoosesItsMicrophoneAndSystemInputOverridesTheDevice() async throws {
+        let name = "vibewand-microphone-tests-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        addTeardownBlock { defaults.removePersistentDomain(forName: name) }
+        try await MainActor.run {
+            let voice = VoiceInputController(preferences: SpeechPreferences(defaults: defaults),
+                engineFactory: { _ in TranscriptReplayEngine(previews: ["测试"]) })
+            var route: String? = "handset-microphone"
+            voice.microphone = { route }
+            voice.beginTest()
+            XCTAssertEqual(SpeechAudioInput.deviceUID, "handset-microphone")
+            route = nil
+            voice.begin()
+            XCTAssertNil(SpeechAudioInput.deviceUID)
+
+            let runtime = BridgeRuntime(source: UnconfiguredHIDSource(template: DeviceTemplateID.vibeKey.template),
+                templates: DeviceTemplateStore(defaults: defaults), voiceInput: voice)
+            var configuration = voice.configuration
+            XCTAssertEqual(configuration.effectiveMicrophone, .device)
+            configuration.microphone = .system
+            try runtime.updateSpeechConfiguration(configuration)
+            XCTAssertNil(runtime.deviceMicrophone)
         }
     }
 }

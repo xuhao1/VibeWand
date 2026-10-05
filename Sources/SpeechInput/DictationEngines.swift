@@ -13,7 +13,8 @@ public final class SystemDictationEngine: DictationEngine {
     private var continuation: CheckedContinuation<String, Error>?
     private var deadline: Task<Void, Never>?
     private var generation = 0
-    public init(locale: String) { self.locale = Locale(identifier: locale) }
+    private let vocabulary: [String]
+    public init(locale: String, vocabulary: [String] = []) { self.locale = Locale(identifier: locale); self.vocabulary = vocabulary }
     public func start() async throws {
         // Both permission prompts complete before creating a recognition task,
         // so time spent approving the microphone cannot expire that task.
@@ -28,6 +29,7 @@ public final class SystemDictationEngine: DictationEngine {
         request.shouldReportPartialResults = true
         request.taskHint = .dictation
         request.addsPunctuation = true
+        request.contextualStrings = vocabulary
         // Prefer local recognition; Apple's online path covers other locales.
         request.requiresOnDeviceRecognition = recognizer.supportsOnDeviceRecognition
         self.request = request

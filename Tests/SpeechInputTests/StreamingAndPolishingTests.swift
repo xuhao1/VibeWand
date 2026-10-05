@@ -14,6 +14,27 @@ final class StreamingAndPolishingTests: XCTestCase {
         XCTAssertEqual(buffer.text, "今天天气不错。Hello 😊")
         XCTAssertFalse(buffer.accept(["type": "response.text.delta", "delta": "助手回复不能当听写"]))
     }
+    func testDedicatedASRPreviewEventsUseTheSameBuffer() {
+        var buffer = SpeechTranscriptBuffer()
+        XCTAssertTrue(buffer.accept(["type": "conversation.item.input_audio_transcription.text", "item_id": "a", "text": "打开", "stash": " Claude"]))
+        XCTAssertEqual(buffer.text, "打开 Claude")
+        buffer.accept(["type": "conversation.item.input_audio_transcription.completed", "item_id": "a", "transcript": "打开 Claude Code。"])
+        XCTAssertEqual(buffer.text, "打开 Claude Code。")
+    }
+    func testPolishingInstructionsCarryTheSpeakersVocabulary() {
+        var vocabulary = SpeechVocabulary(); vocabulary.computing = false
+        XCTAssertEqual(SpeechTextProcessor.instructions(vocabulary: vocabulary), SpeechTextProcessor.instructions)
+        vocabulary.domain = "照顾婴儿"; vocabulary.terms = ["安抚奶嘴", "Pampers"]
+        var text = SpeechTextProcessor.instructions(vocabulary: vocabulary)
+        XCTAssertTrue(text.hasPrefix(SpeechTextProcessor.instructions))
+        XCTAssertTrue(text.contains("说话者经常谈论：照顾婴儿。"))
+        XCTAssertTrue(text.contains("说话者的专用词汇：安抚奶嘴、Pampers。"))
+        vocabulary.computing = true
+        text = SpeechTextProcessor.instructions(vocabulary: vocabulary)
+        XCTAssertTrue(text.contains("软件开发；照顾婴儿"))
+        XCTAssertTrue(text.contains("安抚奶嘴、Pampers、Claude、"))
+        XCTAssertTrue(text.contains("VibeWand"))
+    }
     func testPolishingSettingsRoundTripNeverContainsCredentials() throws {
         var config = SpeechConfiguration(); config.textStyle = .polished
         config.polishing = SpeechPolishingConfiguration(provider: .chatCompletions, endpoint: "https://text.example/v1", model: "text-model")
@@ -47,6 +68,7 @@ final class StreamingAndPolishingTests: XCTestCase {
         await waitFor(session, .completed)
         await MainActor.run { XCTAssertEqual(session.preview, "整理后的文字") }
         XCTAssertEqual(processor.input, "原始测试文字")
+        XCTAssertEqual(processor.vocabulary, SpeechVocabulary())
     }
     func testPolishingFailureKeepsTheOriginalTranscript() async {
         let engine = await MainActor.run { PreviewEngine() }
@@ -95,9 +117,9 @@ private struct EmptyCredentials: SpeechCredentialStore {
     func remove(account: String) throws {}
 }
 private final class MemoryPolisher: SpeechTextProcessing {
-    var input = "", fail = false
-    func polish(_ text: String, configuration: SpeechPolishingConfiguration, apiKey: String?) async throws -> String {
-        input = text
+    var input = "", fail = false, vocabulary: SpeechVocabulary?
+    func polish(_ text: String, configuration: SpeechPolishingConfiguration, vocabulary: SpeechVocabulary, apiKey: String?) async throws -> String {
+        input = text; self.vocabulary = vocabulary
         if fail { throw SpeechInputError.protocolRejected }
         return "整理后的文字"
     }

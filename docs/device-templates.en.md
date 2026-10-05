@@ -74,7 +74,7 @@ The generic backend supports explicitly selected interfaces with buttons, edge p
 
 ## Microphones and audio
 
-External dictation sends held Fn and leaves microphone selection to the input method. Built-in dictation uses the macOS default microphone with system recognition or a configured speech API; it does not switch recording devices. See [Voice input](voice-input.md).
+External dictation sends held Fn and leaves microphone selection to the input method. Built-in dictation records from the microphone of the device whose dictation key is held (the Core Audio input with the same USB vendor/product ID, such as the VibeKey receiver), falls back to the macOS default input when the device has none, and can be pinned to the system sound input under Voice input → Microphone. The device is chosen for that recording only; the macOS default input is left alone. See [Voice input](voice-input.md).
 
 For the DualSense reference controller, distinguish transports. [JoyHarness's firsthand investigation](https://github.com/nixihz/JoyHarness/blob/main/docs/research/dualsense-wireless-microphone.md) reports a USB audio input on macOS 26.5.2. On 2026-10-04 this project received and decoded microphone Opus frames from the current Bluetooth controller on Mac, and a later standalone prototype published a system input and reduced sequence gaps through Game Mode. Residual gaps remain, and controller navigation pauses during capture. See the [Bluetooth microphone investigation](dualsense-microphone.md). The current release still uses a Mac or external microphone for Bluetooth control; missing software support does not establish a hardware limitation.
 

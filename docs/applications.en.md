@@ -46,6 +46,31 @@ Dictation is pasted once into the current composer on release, then the clipboar
 
 The run fixed an unrecognised `AXComboBox` model trigger and an empty composer whose placeholder, including extra inline spacing, was exposed as draft text. Audio recognition and physical-device input were not retested in this adapter acceptance run.
 
+## Claude Code, Codex and OpenCode in a terminal
+
+Built for iTerm2 (`com.googlecode.iterm2`); it can be turned off under Settings → Applications. A terminal draws its interface as text, so VibeWand cannot see whether a list is open. Nothing is recognised here; fixed keys are sent instead:
+
+| Action | What is sent | Afterwards |
+| --- | --- | --- |
+| Chats (press the dial) | Clear the current input line (`⌃U`), type `/resume`, Return | Turning sends ↑ / ↓, confirm sends Return, back sends Esc |
+| Models (long-press the dial) | Clear the current input line, type `/model`, Return | Same |
+| Turn (otherwise) | Scroll wheel | Claude Code and OpenCode scroll their own transcript; Codex scrolls the terminal's scrollback |
+| ESC | Escape | Hold to keep sending Backspace |
+| OK | Return | — |
+| Dictation | Pasted at the prompt on release | Nothing is sent for you |
+
+Both commands work in all three tools: OpenCode completes `/resume` to `/sessions` and `/model` to `/models`. The command is pasted, so an active Chinese input method cannot swallow it, and your clipboard is put back afterwards.
+
+Things to know:
+
+- Opening a list first clears whatever is on the current input line, so a draft is never submitted together with the command. A multi-line draft is not fully cleared (Claude Code clears only its last line), so deal with those yourself first.
+- A list counts as open until you confirm, go back, or leave it alone for 20 seconds. For 4 seconds after choosing a model you can keep turning, which covers the effort list Codex shows next.
+- The draft at the prompt cannot be read, so turning always scrolls and never moves a caret.
+- In Claude Code's model list Return means "set as default"; "this session only" is `s` on the keyboard.
+- Pressing the dial at a plain shell prompt only produces a "no such file: /resume" error.
+
+Commands and keys were checked in a background terminal against Claude Code 2.1.234, Codex CLI 0.156.1 and OpenCode 1.2.5: opening the chat and model lists, moving up and down, cancelling, clearing the line with `⌃U`, pasting and Backspace. The full path through iTerm2 3.7.3 and a physical device has not been exercised yet.
+
 ## Browsers
 
 The browser allowlist includes Safari, Chrome, Edge, Brave, Firefox, Opera, and Vivaldi. Default rotation scrolls the page. Pressing the dial sends `⌃Tab` for the next tab; the model-entry action maps to `⌘L` for the address bar.

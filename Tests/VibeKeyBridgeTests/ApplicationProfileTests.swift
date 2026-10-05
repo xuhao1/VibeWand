@@ -15,6 +15,27 @@ final class ApplicationProfileTests: XCTestCase {
         }
     }
 
+    func testTerminalAgentsTakeTypedCommandsAndAnAssumedPicker() {
+        XCTAssertEqual(ApplicationProfile.resolve(bundleID: "com.googlecode.iterm2"), .terminal)
+        XCTAssertEqual(ApplicationProfile.terminal.typedCommand(for: .openSessions), "/resume")
+        XCTAssertEqual(ApplicationProfile.terminal.typedCommand(for: .openModels), "/model")
+        XCTAssertNil(ApplicationProfile.terminal.typedCommand(for: .sendReturn))
+        XCTAssertNil(ApplicationProfile.codex.typedCommand(for: .openSessions))
+
+        // The prompt is never treated as a readable draft: turning scrolls, ESC stays Escape.
+        var state = InteractionState()
+        var context = InteractionContext(targetAvailable: true, editorFocused: false,
+            modalOpen: false, compositionActive: false, picker: nil, applicationProfile: .terminal)
+        XCTAssertEqual(reduce(state: &state, control: .right, context: context), .scroll(-1))
+        XCTAssertEqual(reduce(state: &state, control: .escape, context: context), .sendEscape)
+        XCTAssertEqual(reduce(state: &state, control: .dial, context: context), .openSessions)
+        // After the command was typed the list is navigated with the same controls as any picker.
+        context.picker = .sessions
+        XCTAssertEqual(reduce(state: &state, control: .right, context: context), .moveCandidate(1))
+        XCTAssertEqual(reduce(state: &state, control: .dial, context: context), .confirmCandidate)
+        XCTAssertEqual(reduce(state: &state, control: .escape, context: context), .cancelPicker)
+    }
+
     func testBrowserInputFocusNeverChangesWheelIntoCursorOrDeletion() {
         var state = InteractionState(mode: .editing)
         let context = InteractionContext(targetAvailable: true, editorFocused: true,

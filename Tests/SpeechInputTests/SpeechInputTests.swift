@@ -58,12 +58,58 @@ final class SpeechInputTests: XCTestCase {
         XCTAssertTrue(text.contains("\r\n\r\nzh\r\n"))
         XCTAssertTrue(body.range(of: audio.wav) != nil)
     }
-    func testRealtimeUsesInputASRWithoutAssistantGeneration() throws {
-        let event = SpeechAPIClient.sessionUpdate()
-        let session = try XCTUnwrap(event["session"] as? [String: Any])
+    func testQwenRecognisesOnTheASRModelWithVocabularyContext() throws {
+        var config = SpeechConfiguration(); config.provider = .qwenRealtime
+        XCTAssertEqual(try config.recognitionURL().query, "model=qwen3-asr-flash-realtime")
+        XCTAssertEqual(try config.apiURL().query, "model=qwen3.8-omni-flash-realtime")
+        XCTAssertEqual(try config.recognitionURL().host, try config.apiURL().host)
+        config.model = "qwen3-asr-flash-realtime-2026-02-10"
+        XCTAssertEqual(try config.recognitionURL(), try config.apiURL())
+
+        let session = try XCTUnwrap(SpeechAPIClient.sessionUpdate(context: "VibeWand")["session"] as? [String: Any])
         XCTAssertTrue(session["turn_detection"] is NSNull)
-        XCTAssertEqual((session["input_audio_transcription"] as? [String: String])?["model"], "qwen3-asr-flash-realtime")
         XCTAssertEqual(session["modalities"] as? [String], ["text"])
+        XCTAssertEqual(session["input_audio_format"] as? String, "pcm")
+        XCTAssertEqual(session["sample_rate"] as? Int, 16000)
+        let transcription = try XCTUnwrap(session["input_audio_transcription"] as? [String: Any])
+        XCTAssertEqual((transcription["corpus"] as? [String: String])?["text"], "VibeWand")
+        XCTAssertNil(transcription["language"])
+        let plain = try XCTUnwrap(SpeechAPIClient.sessionUpdate()["session"] as? [String: Any])
+        XCTAssertEqual((plain["input_audio_transcription"] as? [String: Any])?.isEmpty, true)
+    }
+    func testVocabularyOrdersContextAndParsesTypedTerms() throws {
+        var vocabulary = SpeechVocabulary()
+        XCTAssertTrue(try XCTUnwrap(vocabulary.context).contains("Claude Code"))
+        vocabulary.domain = "新能源汽车"
+        vocabulary.terms = SpeechVocabulary.terms(from: "刀片电池， 比亚迪\n\n热管理、BMS; ")
+        XCTAssertEqual(vocabulary.terms, ["刀片电池", "比亚迪", "热管理", "BMS"])
+        XCTAssertEqual(vocabulary.allTerms.prefix(2), ["刀片电池", "比亚迪"])
+        let lines = try XCTUnwrap(vocabulary.context).components(separatedBy: "\n")
+        XCTAssertEqual(lines.count, 3)
+        XCTAssertEqual(lines[1], "新能源汽车")
+        XCTAssertEqual(lines[2], "刀片电池, 比亚迪, 热管理, BMS")
+        vocabulary.computing = false
+        XCTAssertEqual(vocabulary.context, "新能源汽车\n刀片电池, 比亚迪, 热管理, BMS")
+        XCTAssertNil({ var empty = SpeechVocabulary(); empty.computing = false; return empty.context }())
+    }
+    func testVocabularyAndMicrophoneAreSharedAndOversizedListsRejected() throws {
+        var config = SpeechConfiguration()
+        XCTAssertEqual(config.effectiveMicrophone, .device)
+        XCTAssertEqual(config.effectiveVocabulary, SpeechVocabulary())
+        config.microphone = .system
+        var vocabulary = SpeechVocabulary(); vocabulary.domain = "机器人"; vocabulary.terms = ["灵巧手"]
+        config.vocabulary = vocabulary
+        let data = try SpeechPreferences().export(config)
+        XCTAssertEqual(try SpeechPreferences().decodeImport(data), config)
+        config.vocabulary?.terms = Array(repeating: "一个很长的专用词汇条目", count: 400)
+        XCTAssertThrowsError(try config.validate())
+    }
+    func testCompatibleAPIReceivesVocabularyAsPrompt() {
+        let audio = SpeechAudio(pcm: Data(repeating: 0, count: 32000))
+        let body = SpeechAPIClient.multipartBody(audio, model: "whisper-1", locale: "zh-CN", prompt: "刀片电池", boundary: "test")
+        XCTAssertTrue(String(decoding: body, as: UTF8.self).contains("name=\"prompt\"\r\n\r\n刀片电池\r\n"))
+        let plain = SpeechAPIClient.multipartBody(audio, model: "whisper-1", locale: "zh-CN", boundary: "test")
+        XCTAssertFalse(String(decoding: plain, as: UTF8.self).contains("name=\"prompt\""))
     }
     func testSafeErrorsDoNotExposeServiceResponseOrKeys() async {
         await MainActor.run {

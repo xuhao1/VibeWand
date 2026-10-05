@@ -45,26 +45,28 @@ public final class SpeechAPIClient: SpeechTranscribing {
         return try await multipart(audio, configuration: configuration, apiKey: apiKey)
     }
 
-    public static func sessionUpdate() -> [String: Any] {
+    /// A recognition-only session: no language is pinned, so mixed speech is
+    /// detected, and `context` biases it toward the speaker's vocabulary.
+    public static func sessionUpdate(context: String? = nil) -> [String: Any] {
         ["type": "session.update", "session": [
             "modalities": ["text"], "turn_detection": NSNull(),
-            "input_audio_transcription": ["model": "qwen3-asr-flash-realtime"],
-            "audio": ["input": ["format": ["type": "pcm", "sample_rate": 16000,
-                "sample_format": "s16le", "channels": 1, "packing": "interleaved", "channel_layout": "mono"]]]
+            "input_audio_format": "pcm", "sample_rate": 16000,
+            "input_audio_transcription": context.map { ["corpus": ["text": $0]] } ?? [:]
         ]]
     }
 
     private func realtime(_ audio: SpeechAudio, configuration: SpeechConfiguration, apiKey: String) async throws -> String {
-        var request = URLRequest(url: try configuration.apiURL()); request.timeoutInterval = 30
+        var request = URLRequest(url: try configuration.recognitionURL()); request.timeoutInterval = 30
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         let socket = session.webSocketTask(with: request)
         socket.resume()
         defer { socket.cancel(with: .normalClosure, reason: nil) }
+        let update = Self.sessionUpdate(context: configuration.effectiveVocabulary.context)
         return try await withTaskCancellationHandler(operation: {
             try await withThrowingTaskGroup(of: String.self) { group in
                 group.addTask {
                     try await Self.waitFor("session.created", socket: socket)
-                    try await Self.send(Self.sessionUpdate(), socket: socket)
+                    try await Self.send(update, socket: socket)
                     try await Self.waitFor("session.updated", socket: socket)
                     for offset in stride(from: 0, to: audio.pcm.count, by: 6400) {
                         try Task.checkCancellation()
@@ -114,10 +116,11 @@ public final class SpeechAPIClient: SpeechTranscribing {
         while try await receive(socket)["type"] as? String != type { try Task.checkCancellation() }
     }
 
-    public static func multipartBody(_ audio: SpeechAudio, model: String, locale: String, boundary: String) -> Data {
+    public static func multipartBody(_ audio: SpeechAudio, model: String, locale: String, prompt: String? = nil, boundary: String) -> Data {
         var body = Data()
         func append(_ text: String) { body.append(Data(text.utf8)) }
-        for (name, value) in [("model", model), ("language", locale.split(separator: "-").first.map(String.init) ?? locale), ("response_format", "json")] {
+        for (name, value) in [("model", model), ("language", locale.split(separator: "-").first.map(String.init) ?? locale), ("response_format", "json")]
+            + (prompt.map { [("prompt", $0)] } ?? []) {
             append("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(name)\"\r\n\r\n\(value)\r\n")
         }
         append("--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"dictation.wav\"\r\nContent-Type: audio/wav\r\n\r\n")
@@ -129,7 +132,8 @@ public final class SpeechAPIClient: SpeechTranscribing {
         if let apiKey, !apiKey.isEmpty { request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization") }
         let boundary = "VibeWand-" + UUID().uuidString
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        request.httpBody = Self.multipartBody(audio, model: configuration.model, locale: configuration.locale, boundary: boundary)
+        request.httpBody = Self.multipartBody(audio, model: configuration.model, locale: configuration.locale,
+            prompt: configuration.effectiveVocabulary.context, boundary: boundary)
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw SpeechInputError.protocolRejected }
         guard (200..<300).contains(http.statusCode) else { throw SpeechInputError.http(http.statusCode) }

@@ -4,7 +4,7 @@ import CoreGraphics
 /// App identity is an allowlist, never a match against a window title or website.
 /// `generic` deliberately receives no synthesized input.
 enum ApplicationProfile: String, CaseIterable, Codable {
-    case codex, claude, deepSeekHarness, workBuddy, browser, weChat, feishu, generic
+    case codex, claude, deepSeekHarness, workBuddy, terminal, browser, weChat, feishu, generic
     case customChat, customBrowser, custom
 
     static func resolve(bundleID: String?) -> ApplicationProfile {
@@ -13,6 +13,7 @@ enum ApplicationProfile: String, CaseIterable, Codable {
         case "com.anthropic.claudefordesktop": return .claude
         case "com.deepseek.dsh": return .deepSeekHarness
         case "com.tencent.workbuddy.mac": return .workBuddy
+        case "com.googlecode.iterm2": return .terminal
         case "com.apple.Safari", "com.apple.SafariTechnologyPreview",
              "com.google.Chrome", "com.google.Chrome.beta", "com.google.Chrome.canary",
              "com.microsoft.edgemac", "com.brave.Browser", "org.mozilla.firefox",
@@ -29,6 +30,7 @@ enum ApplicationProfile: String, CaseIterable, Codable {
         case .claude: return "Claude"
         case .deepSeekHarness: return "DeepSeek Harness"
         case .workBuddy: return "WorkBuddy"
+        case .terminal: return L10n.tr("终端", "Terminal")
         case .browser: return L10n.tr("浏览器", "Browser")
         case .weChat: return L10n.tr("微信", "WeChat")
         case .feishu: return L10n.tr("飞书 / Lark", "Feishu / Lark")
@@ -51,6 +53,7 @@ enum ApplicationProfile: String, CaseIterable, Codable {
         case .claude: return L10n.tr("⌘K 搜索会话；直接操作输入框旁的模型与强度按钮。", "⌘K searches chats; the model and effort buttons beside the composer are pressed directly.")
         case .deepSeekHarness: return L10n.tr("⌘K 搜索会话；按可访问性标签打开模型与推理等级菜单。", "⌘K searches chats; accessibility labels open model and reasoning menus.")
         case .workBuddy: return L10n.tr("侧边栏搜索任务；直接打开模型菜单；松开后粘贴听写。", "Search tasks from the sidebar, open the model menu directly, and paste dictation on release.")
+        case .terminal: return L10n.tr("命令行里的 Claude Code、Codex、OpenCode：输入 /resume 选会话、/model 选模型；旋转滚屏。", "Claude Code, Codex and OpenCode on the command line: /resume picks a chat, /model a model; turn to scroll.")
         case .browser: return L10n.tr("旋转滚动网页；单按切换下个标签页；设置键定位地址栏。", "Turn to scroll; press to switch to the next tab; the model action focuses the address bar.")
         case .weChat: return L10n.tr("⌘F 搜索聊天；旋转浏览结果或滚动；草稿中移动光标。", "⌘F searches chats; turn to browse results, scroll, or move the draft cursor.")
         case .feishu: return L10n.tr("⌘K 快速搜索；旋转浏览结果或滚动；草稿中移动光标。", "⌘K opens quick search; turn to browse results, scroll, or move the draft cursor.")
@@ -67,6 +70,7 @@ enum ApplicationProfile: String, CaseIterable, Codable {
         case .claude: return L10n.tr("已在本机 Claude 桌面版实测听写、会话搜索与模型菜单", "Dictation, chat search and the model menu were exercised on the local Claude desktop app")
         case .deepSeekHarness: return L10n.tr("已核对本机 0.2.0-rc.2 代码和会话 / 模型界面", "Checked against local 0.2.0-rc.2 code and chat / model interfaces")
         case .workBuddy: return L10n.tr("本机 5.6.2 已验收任务搜索、模型切换与听写写入", "Task search, model switching and dictation delivery verified on local 5.6.2")
+        case .terminal: return L10n.tr("命令与按键已对照 Claude Code 2.1、Codex CLI 0.156、OpenCode 1.2 核对；以 iTerm2 为准", "Commands and keys checked against Claude Code 2.1, Codex CLI 0.156 and OpenCode 1.2; built for iTerm2")
         case .browser: return L10n.tr("系统标准快捷键；标签页顺序取决于浏览器设置", "Standard shortcuts; tab order follows your browser settings")
         case .weChat: return L10n.tr("⌘F 兼容映射；本机微信未提供可读的聊天控件", "⌘F compatibility mapping; local WeChat chat controls were not accessible")
         case .feishu: return L10n.tr("已核对本机 ⌘K 搜索界面；Enter 沿用飞书发送设置", "Local ⌘K search verified; Enter follows Feishu send settings")
@@ -80,7 +84,7 @@ enum ApplicationProfile: String, CaseIterable, Codable {
         case .codex, .claude, .deepSeekHarness, .workBuddy, .feishu: return KeyStroke(code: 40, flags: .maskCommand) // K
         case .browser: return KeyStroke(code: 48, flags: .maskControl) // Tab
         case .weChat: return KeyStroke(code: 3, flags: .maskCommand) // F
-        case .generic, .customChat, .customBrowser, .custom: return nil
+        case .terminal, .generic, .customChat, .customBrowser, .custom: return nil
         }
     }
 
@@ -89,7 +93,18 @@ enum ApplicationProfile: String, CaseIterable, Codable {
         case .codex: return KeyStroke(code: 46, flags: [.maskControl, .maskShift])
         case .browser: return KeyStroke(code: 37, flags: .maskCommand) // L
         case .weChat, .feishu: return primaryShortcut
-        case .claude, .deepSeekHarness, .workBuddy, .generic, .customChat, .customBrowser, .custom: return nil
+        case .claude, .deepSeekHarness, .workBuddy, .terminal, .generic, .customChat, .customBrowser, .custom: return nil
+        }
+    }
+
+    /// Command-line agents open their pickers from a typed command. These two
+    /// are understood by Claude Code, Codex and OpenCode alike.
+    func typedCommand(for effect: BridgeEffect) -> String? {
+        guard self == .terminal else { return nil }
+        switch effect {
+        case .openSessions: return "/resume"
+        case .openModels: return "/model"
+        default: return nil
         }
     }
 

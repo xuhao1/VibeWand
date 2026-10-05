@@ -3,7 +3,37 @@ import AVFoundation
 import CoreAudio
 import AudioToolbox
 
-@MainActor public enum SpeechAudioInput { public static var deviceUID: String? }
+@MainActor public enum SpeechAudioInput {
+    /// The input to record from; nil is the macOS default input.
+    public static var deviceUID: String?
+
+    /// A USB device's own microphone. Core Audio names its model "Product:VVVV:PPPP".
+    public static func deviceUID(vendorID: Int, productID: Int) -> String? {
+        let system = AudioObjectID(kAudioObjectSystemObject)
+        var address = AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+        var size: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(system, &address, 0, nil, &size) == noErr else { return nil }
+        var devices = [AudioDeviceID](repeating: 0, count: Int(size) / MemoryLayout<AudioDeviceID>.size)
+        guard AudioObjectGetPropertyData(system, &address, 0, nil, &size, &devices) == noErr else { return nil }
+        let model = String(format: ":%04X:%04X", vendorID, productID)
+        return devices.first { device in
+            var streams = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyStreams,
+                mScope: kAudioDevicePropertyScopeInput, mElement: kAudioObjectPropertyElementMain)
+            var size: UInt32 = 0
+            return AudioObjectGetPropertyDataSize(device, &streams, 0, nil, &size) == noErr && size > 0
+                && string(kAudioDevicePropertyModelUID, of: device)?.uppercased().hasSuffix(model) == true
+        }.flatMap { string(kAudioDevicePropertyDeviceUID, of: $0) }
+    }
+    private static func string(_ selector: AudioObjectPropertySelector, of device: AudioDeviceID) -> String? {
+        var address = AudioObjectPropertyAddress(mSelector: selector,
+            mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+        var value: Unmanaged<CFString>?
+        var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+        guard AudioObjectGetPropertyData(device, &address, 0, nil, &size, &value) == noErr else { return nil }
+        return value?.takeRetainedValue() as String?
+    }
+}
 
 /// Conversion and bounded audio storage stay inside the audio layer. Buffers
 /// never cross the UI boundary and recordings are never written to disk.
@@ -16,6 +46,8 @@ private final class PCMCollector {
     init(inputFormat: AVAudioFormat) throws {
         guard let format = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 16000, channels: 1, interleaved: true),
               let converter = AVAudioConverter(from: inputFormat, to: format) else { throw SpeechInputError.recordingFailed }
+        // A stereo handset may carry its microphone on either channel.
+        converter.downmix = true
         outputFormat = format; self.converter = converter
     }
     func append(_ input: AVAudioPCMBuffer) -> Data? {

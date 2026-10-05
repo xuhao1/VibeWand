@@ -18,6 +18,8 @@ final class VoiceInputController: ObservableObject {
     var onTranscript: ((String) -> Void)?
     var onPartialTranscript: ((String) -> Void)?
     var onCancel: (() -> Void)?
+    /// Chooses the recording device for each session; nil is the macOS default input.
+    var microphone: (() -> String?)?
     private let preferences: SpeechPreferences
     private let credentials: any SpeechCredentialStore
     private let session: DictationSession
@@ -27,7 +29,11 @@ final class VoiceInputController: ObservableObject {
         self.preferences = preferences; self.credentials = credentials
         configuration = preferences.load()
         session = DictationSession(credentials: credentials, factory: engineFactory ?? { configuration in
-            if configuration.provider == .system { return SystemDictationEngine(locale: configuration.locale) }
+            if configuration.provider == .system {
+                // Apple recommends a short list; the speaker's own terms lead it.
+                return SystemDictationEngine(locale: configuration.locale,
+                    vocabulary: Array(configuration.effectiveVocabulary.allTerms.prefix(100)))
+            }
             return APIDictationEngine(configuration: configuration, credentials: credentials)
         })
         session.onState = { [weak self] state in
@@ -55,8 +61,9 @@ final class VoiceInputController: ObservableObject {
         try preferences.save(value)
         cancel(); configuration = value; onChange?()
     }
-    func begin() { resetPreview(); testing = false; message = ""; session.begin(configuration) }
-    func beginTest() { cancel(); resetPreview(); testing = true; testTranscript = ""; session.begin(configuration) }
+    func begin() { resetPreview(); testing = false; message = ""; record() }
+    func beginTest() { cancel(); resetPreview(); testing = true; testTranscript = ""; record() }
+    private func record() { SpeechAudioInput.deviceUID = microphone?(); session.begin(configuration) }
     func end() { session.end() }
     func cancel() { onCancel?(); testing = false; resetPreview(); session.cancel() }
     private func resetPreview() { previewTimer?.invalidate(); previewTimer = nil; liveTranscript = ""; processingNotice = nil }

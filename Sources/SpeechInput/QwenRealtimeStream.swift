@@ -18,12 +18,12 @@ public final class QwenRealtimeStream {
     deinit { session.invalidateAndCancel() }
     public func start(configuration: SpeechConfiguration, apiKey: String) async throws {
         cancel(); try configuration.validate()
-        var request = URLRequest(url: try configuration.apiURL()); request.timeoutInterval = 20
+        var request = URLRequest(url: try configuration.recognitionURL()); request.timeoutInterval = 20
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         let socket = session.webSocketTask(with: request); self.socket = socket; socket.resume()
         do {
             try await SpeechAPIClient.waitFor("session.created", socket: socket)
-            try await SpeechAPIClient.send(SpeechAPIClient.sessionUpdate(), socket: socket)
+            try await SpeechAPIClient.send(SpeechAPIClient.sessionUpdate(context: configuration.effectiveVocabulary.context), socket: socket)
             try await SpeechAPIClient.waitFor("session.updated", socket: socket)
         } catch { cancel(); throw error }
         let token = generation

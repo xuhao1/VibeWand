@@ -11,11 +11,13 @@ Vibe coding 的大部分时间其实不在打字：读回复、翻会话、换�
 ## 能做什么
 
 - **读**：转旋钮或推摇杆滚动对话。输入框里有字时，同一个动作改成移动光标。
-- **说**：按住麦克风键说话，松开后文字出现在输入框里，不会替你发送。可以用自带的识别（系统听写或你自己的语音 API），也可以继续用 Typeless、豆包这类输入法。
+- **说**：按住麦克风键说话，松开后文字出现在输入框里，不会替你发送。可以用自带的识别（系统听写或你自己的语音 API），它用你手里那个设备的麦克风录音，还能填自己的词表；也可以继续用 Typeless、豆包这类输入法。
 - **切**：按一下打开会话列表，转动选择，再按确认。长按调推理强度、换模型。双击切换 macOS 应用。
 - **改**：每个按键的单击、双击、长按都能在设置里重新分配，每种设备各存一套。
 
-<p align="center"><img src="docs/images/overlay-v060-light.png" width="500" alt="VibeWand 悬浮面板与语音条"></p>
+<p align="center"><img src="docs/images/overlay-v081-screenshot-zh.jpg" width="500" alt="VibeWand 0.8.1 演示模式下的真实悬浮面板与语音条截图"></p>
+
+*VibeWand 0.8.1 实际运行窗口截图，使用演示模式。*
 
 屏幕上有个悬浮面板，告诉你当前每个键会做什么。嫌占地方可以收成一条，展开和收起的按钮始终在同一个位置。
 
@@ -41,14 +43,15 @@ Vibe coding 的大部分时间其实不在打字：读回复、翻会话、换�
 | Claude | ⌘K 面板 | 模型菜单，确认后进强度滑块 | ✓ |
 | DeepSeek Harness | 侧边栏会话列表 | 模型菜单及其子菜单 | ✓ |
 | WorkBuddy | 侧边栏搜索任务；⌘K 回退 | 模型菜单 | 松开后粘贴 |
+| iTerm2 里的 Claude Code、Codex、OpenCode | 输入 `/resume` | 输入 `/model` | 松开后粘贴 |
 | 浏览器 | 切换标签页 | 地址栏 | ✓ |
 | 微信、飞书 | 搜索 / 切换聊天 | — | ✓ |
 
-以上四款 AI 工具均在本机实测过。WorkBuddy 5.6.2 已通过原生界面回读验收：搜索并打开任务、切换模型、编辑草稿，以及用转录回放验证听写写入。听写不挑应用：原生输入框边说边写，其他应用在松开后粘贴一次，剪贴板随后恢复原样。别的应用可以在设置里加一条快捷键规则，见[应用适配](docs/applications.md)。
+前四款 AI 工具均在本机实测过；终端这一行目前只在后台终端里核对过命令和按键，经 iTerm2 的整条链路还没有实测。WorkBuddy 5.6.2 已通过原生界面回读验收：搜索并打开任务、切换模型、编辑草稿，以及用转录回放验证听写写入。听写不挑应用：原生输入框边说边写，其他应用在松开后粘贴一次，剪贴板随后恢复原样。别的应用可以在设置里加一条快捷键规则，见[应用适配](docs/applications.md)。
 
 ## 安装
 
-**[下载 VibeWand 0.8.1（Apple Silicon）](https://github.com/xuhao1/VibeWand/releases/download/v0.8.1/VibeWand-0.8.1-macOS-arm64.zip)** · [版本说明](https://github.com/xuhao1/VibeWand/releases/latest)
+**[下载 VibeWand 0.8.2（Apple Silicon）](https://github.com/xuhao1/VibeWand/releases/download/v0.8.2/VibeWand-0.8.2-macOS-arm64.zip)** · [版本说明](https://github.com/xuhao1/VibeWand/releases/latest)
 
 需要 macOS 13 以上和 M 系列芯片。解压后把 **VibeWand.app** 拖进“应用程序”，打开它，然后：
 

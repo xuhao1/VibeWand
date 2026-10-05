@@ -12,6 +12,7 @@ public struct SpeechTranscriptBuffer {
     public mutating func accept(_ event: [String: Any]) -> Bool {
         guard let type = event["type"] as? String,
               type == "conversation.item.input_audio_transcription.delta" ||
+              type == "conversation.item.input_audio_transcription.text" ||
               type == "conversation.item.input_audio_transcription.completed" else { return false }
         let id = event["item_id"] as? String ?? "input"
         if !order.contains(id) { order.append(id) }

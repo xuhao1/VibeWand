@@ -97,7 +97,8 @@ public final class DictationSession {
                         guard let settings = configuration.effectivePolishing else { throw SpeechInputError.polishingUnavailable }
                         let key = try await credentials.readAsync(account: settings.credentialAccount)
                         try Task.checkCancellation()
-                        text = try await processor.polish(raw, configuration: settings, apiKey: key)
+                        text = try await processor.polish(raw, configuration: settings,
+                            vocabulary: configuration.effectiveVocabulary, apiKey: key)
                     } catch {
                         guard token == generation, !Task.isCancelled else { return }
                         onNotice?(.polishingUnavailable)

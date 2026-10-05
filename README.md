@@ -11,11 +11,13 @@ Most of vibe coding is not typing. You read a reply, flip between chats, change 
 ## What it does
 
 - **Read.** Turn the dial or push a stick to scroll the conversation. Once the draft has text in it, the same motion moves the cursor instead.
-- **Speak.** Hold the microphone button and talk. When you let go, the text is in the composer, and nothing is sent for you. Use the built-in recognition (macOS dictation or your own speech API) or keep using an input method such as Typeless.
+- **Speak.** Hold the microphone button and talk. When you let go, the text is in the composer, and nothing is sent for you. Use the built-in recognition (macOS dictation or your own speech API), which records from the microphone of the device you are holding and takes your own vocabulary, or keep using an input method such as Typeless.
 - **Switch.** Press once for the chat list, turn to choose, press to confirm. Long-press for reasoning effort and models. Double-press to switch macOS apps.
 - **Remap.** Every button's press, double press and long press can be reassigned in Settings, and each device keeps its own layout.
 
-<p align="center"><img src="docs/images/overlay-v060-light.png" width="500" alt="VibeWand overlay and speech bar"></p>
+<p align="center"><img src="docs/images/overlay-v081-screenshot-en.jpg" width="500" alt="Actual VibeWand 0.8.1 overlay and speech bar in Demo mode"></p>
+
+*Actual VibeWand 0.8.1 window, captured in Demo mode.*
 
 A floating overlay shows what each button will do right now. It collapses into a thin bar when you want it out of the way, and the button that expands and collapses it never moves.
 
@@ -41,14 +43,15 @@ Per-model details are in the [hardware guide](docs/device-templates.en.md).
 | Claude | ⌘K palette | Model menu, then the effort slider | ✓ |
 | DeepSeek Harness | Sidebar chat list | Model menu and its submenu | ✓ |
 | WorkBuddy | Sidebar task search; ⌘K fallback | Model menu | Paste on release |
+| Claude Code, Codex and OpenCode in iTerm2 | Types `/resume` | Types `/model` | Pasted on release |
 | Browsers | Next tab | Address bar | ✓ |
 | WeChat, Feishu | Search / switch chats | — | ✓ |
 
-All four AI tools were exercised on a real machine. WorkBuddy 5.6.2 passed native UI readback checks for task search and opening, model switching, draft editing and dictation delivery with transcript replay. Dictation is not tied to an app: native fields fill in as you speak, and everything else gets a single paste when you release, after which your clipboard is put back. You can add a shortcut rule for other apps in Settings; see [Applications](docs/applications.en.md).
+The first four AI tools were exercised on a real machine; the terminal row has so far only had its commands and keys checked in a background terminal, not the full path through iTerm2. WorkBuddy 5.6.2 passed native UI readback checks for task search and opening, model switching, draft editing and dictation delivery with transcript replay. Dictation is not tied to an app: native fields fill in as you speak, and everything else gets a single paste when you release, after which your clipboard is put back. You can add a shortcut rule for other apps in Settings; see [Applications](docs/applications.en.md).
 
 ## Install
 
-**[Download VibeWand 0.8.1 (Apple Silicon)](https://github.com/xuhao1/VibeWand/releases/download/v0.8.1/VibeWand-0.8.1-macOS-arm64.zip)** · [Release notes](https://github.com/xuhao1/VibeWand/releases/latest)
+**[Download VibeWand 0.8.2 (Apple Silicon)](https://github.com/xuhao1/VibeWand/releases/download/v0.8.2/VibeWand-0.8.2-macOS-arm64.zip)** · [Release notes](https://github.com/xuhao1/VibeWand/releases/latest)
 
 Requires macOS 13 or later on an M-series Mac. Unzip, drag **VibeWand.app** into Applications, open it, then:
 

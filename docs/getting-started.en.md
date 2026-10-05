@@ -34,7 +34,7 @@ Open **Connect device…** and check the live device name and connection status.
 
 Open Settings → Voice input. External mode uses your input method configured for held Fn. Built-in mode offers macOS dictation, Alibaba Qwen Realtime and compatible transcription APIs. Keys stay in Keychain and are excluded from exports. Use Start test to check recognition and permissions.
 
-Focus an editable field, hold the VibeKey microphone key or Controller △, and release to finish. Review text before sending. Built-in mode normally uses the macOS default microphone. An optional DualSense Bluetooth microphone path is available in Devices & inputs; see [requirements and setup](dualsense-microphone-integration.md). For USB controller audio, check the actual macOS input-device list separately. See [Voice input](voice-input.md).
+Focus an editable field, hold the VibeKey microphone key or Controller △, and release to finish. Review text before sending. Built-in mode records from the microphone of the device whose key you hold (the VibeKey, for example) and falls back to the macOS default input; Voice input settings can pin the system sound input and hold your own vocabulary and subject hint. An optional DualSense Bluetooth microphone path is available in Devices & inputs; see [requirements and setup](dualsense-microphone-integration.md). For USB controller audio, check the actual macOS input-device list separately. See [Voice input](voice-input.md).
 
 ## 5. Try the default workflow
 

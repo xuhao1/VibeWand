@@ -4,6 +4,8 @@ import CryptoKit
 public enum SpeechInputMode: String, Codable, CaseIterable { case external, builtIn }
 public enum SpeechProvider: String, Codable, CaseIterable { case system, qwenRealtime, transcriptionAPI }
 public enum DictationTextStyle: String, Codable, CaseIterable { case verbatim, polished }
+/// `device` records from the device whose key started dictation, when it has a microphone.
+public enum SpeechMicrophone: String, Codable, CaseIterable { case device, system }
 public enum SpeechPolishingProvider: String, Codable, CaseIterable { case qwenRealtime, chatCompletions }
 
 public struct SpeechPolishingConfiguration: Codable, Equatable {
@@ -61,8 +63,12 @@ public struct SpeechConfiguration: Codable, Equatable {
     public var apiProfiles: [String: SpeechAPISettings]?
     public var textStyle: DictationTextStyle?
     public var polishing: SpeechPolishingConfiguration?
+    public var microphone: SpeechMicrophone?
+    public var vocabulary: SpeechVocabulary?
     public init() {}
     public var effectiveTextStyle: DictationTextStyle { textStyle ?? .verbatim }
+    public var effectiveMicrophone: SpeechMicrophone { microphone ?? .device }
+    public var effectiveVocabulary: SpeechVocabulary { vocabulary ?? SpeechVocabulary() }
     public var effectivePolishing: SpeechPolishingConfiguration? {
         if let polishing { return polishing }
         if provider == .qwenRealtime {
@@ -118,6 +124,14 @@ public struct SpeechConfiguration: Codable, Equatable {
         return url
     }
 
+    /// Qwen recognises on its dedicated ASR model, the only one that accepts a
+    /// vocabulary. A configured omni model keeps serving polishing.
+    public func recognitionURL() throws -> URL {
+        guard provider == .qwenRealtime, !model.contains("asr") else { return try apiURL() }
+        var recognition = self; recognition.model = "qwen3-asr-flash-realtime"
+        return try recognition.apiURL()
+    }
+
     public func validate() throws {
         guard version == 1, !locale.isEmpty, locale.count < 80, endpoint.count < 2048,
               !model.isEmpty, model.count < 200, !model.contains(where: { $0.isNewline }) else {
@@ -126,6 +140,7 @@ public struct SpeechConfiguration: Codable, Equatable {
         // Always validate the endpoint, including when exporting system preferences.
         _ = try apiURL()
         try polishing?.validate()
+        try vocabulary?.validate()
         for (id, settings) in apiProfiles ?? [:] {
             guard let provider = SpeechProvider(rawValue: id), provider != .system else { throw SpeechInputError.invalidConfiguration }
             var profile = SpeechConfiguration()
@@ -163,7 +178,7 @@ public final class SpeechPreferences {
         return try encoder.encode(value)
     }
     public func decodeImport(_ data: Data) throws -> SpeechConfiguration {
-        guard data.count <= 16384 else { throw SpeechInputError.invalidConfiguration }
+        guard data.count <= 65536 else { throw SpeechInputError.invalidConfiguration }
         let value = try JSONDecoder().decode(SpeechConfiguration.self, from: data)
         try value.validate()
         return value

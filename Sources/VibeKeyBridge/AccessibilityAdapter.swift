@@ -69,6 +69,16 @@ private struct PendingPicker {
     var expired: Bool { Date().timeIntervalSince(requestedAt) > 1.2 }
 }
 
+/// A terminal draws its pickers as text, so there is nothing to observe. Once
+/// a picker command has been typed, the picker is taken to be open in that
+/// terminal session until it is confirmed, cancelled or left alone.
+private struct TypedPicker {
+    var pid: pid_t
+    var focus: CFHashCode
+    var mode: InteractionMode
+    var expires: Date
+}
+
 private struct PickerBinding {
     var mode: InteractionMode
     var pid: pid_t
@@ -88,6 +98,7 @@ private struct AXSampleRequest {
     /// First sample of this process: ask an Electron app to publish its web
     /// content to accessibility clients. Other apps ignore the attribute.
     var enableWebAccessibility = false
+    var typedPicker: TypedPicker?
     var sessionList: AXUIElement?
 }
 
@@ -110,6 +121,7 @@ final class AccessibilityAdapter {
     private var preparedProcesses: Set<pid_t> = []
     private struct SidebarPicker { var pid: pid_t; var list: AXUIElement; var touched: Date }
     private var sidebarPicker: SidebarPicker?
+    private var typedPicker: TypedPicker?
     /// Title of the highlighted candidate, for the HUD only.
     private(set) var selectionTitle = ""
     private var completions: [(TargetObservation) -> Void] = []
@@ -154,7 +166,7 @@ final class AccessibilityAdapter {
         guard let app = NSWorkspace.shared.frontmostApplication else { return L10n.tr("等待应用", "Waiting for an app") }
         if let custom = customStore.profile(bundleID: app.bundleIdentifier) { return custom.name }
         let profile = resolvedProfile(bundleID: app.bundleIdentifier)
-        return profile == .browser ? (app.localizedName ?? profile.title) : profile.title
+        return profile == .browser || profile == .terminal ? (app.localizedName ?? profile.title) : profile.title
     }
 
     func isEnabled(_ profile: ApplicationProfile) -> Bool {
@@ -179,6 +191,7 @@ final class AccessibilityAdapter {
         pendingPicker = nil
         boundPicker = nil
         sidebarPicker = nil
+        typedPicker = nil
         selectionTitle = ""
         cached = TargetObservation()
         restorePointer()
@@ -240,16 +253,24 @@ final class AccessibilityAdapter {
             if sidebar.pid == app.processIdentifier, Date().timeIntervalSince(sidebar.touched) < 20 { request.sessionList = sidebar.list }
             else { sidebarPicker = nil; selectionTitle = ""; restorePointer() }
         }
+        if let typed = typedPicker {
+            if typed.pid == app.processIdentifier, Date() < typed.expires { request.typedPicker = typed } else { typedPicker = nil }
+        }
         worker.async { [weak self] in
             let result = AXSampler.sample(request)
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     guard let self else { return }
                     self.refreshInFlight = false
+                    // An Electron app that was still starting, or that dropped its web
+                    // tree later, exposes no focus: ask it again on the next sample.
+                    if result.observation.focused == nil { self.preparedProcesses.remove(request.pid) }
                     if token == self.generation, NSWorkspace.shared.frontmostApplication?.processIdentifier == request.pid {
                         if self.candidateNavigation.root != nil && self.candidateNavigation.root != result.observation.pickerRoot { self.restorePointer() }
                         self.cached = result.observation
                         self.boundPicker = result.binding
+                        // Another tab or pane took focus: the list belonged to the one before.
+                        if request.typedPicker != nil, result.observation.context.picker == nil { self.typedPicker = nil }
                         // An observed menu owns its binding; the shortcut request
                         // cannot be reused to classify a later unrelated modal.
                         if result.binding != nil || self.pendingPicker?.expired == true { self.pendingPicker = nil }
@@ -284,6 +305,10 @@ final class AccessibilityAdapter {
                 openSidebarSessions(pid: pid)
                 return profile.title(for: effect)
             }
+            if let command = profile.typedCommand(for: effect), observation.customProfile == nil {
+                typeCommand(command, mode: .sessions, identity: identity)
+                return profile.title(for: effect)
+            }
             if profile.opensSessionsWithButton, observation.customProfile == nil {
                 pressLabelledControl(pid: pid, mode: .sessions, identity: identity, menus: observation.menuHashes,
                     fallback: profile.primaryShortcut, ancestorClasses: profile.sessionTriggerAncestorClasses) {
@@ -312,6 +337,10 @@ final class AccessibilityAdapter {
             }
             guard !observation.context.compositionActive, !observation.context.modalOpen else { return L10n.tr("输入法或弹窗正在处理输入，操作已暂停", "Input method or dialog is active; action paused") }
             let profile = observation.context.applicationProfile
+            if let command = profile.typedCommand(for: effect), observation.customProfile == nil {
+                typeCommand(command, mode: .models, identity: identity)
+                return profile.title(for: effect)
+            }
             if profile.opensModelsWithButton, observation.customProfile == nil {
                 // Codex also has a shortcut in some versions; it is the fallback when no button is found.
                 pressLabelledControl(pid: pid, mode: .models, identity: identity, menus: observation.menuHashes,
@@ -330,7 +359,8 @@ final class AccessibilityAdapter {
             guard let shortcut = observation.shortcut(for: effect, fallback: KeyStroke(code: direction < 0 ? 123 : 124)) else { return unassignedAction }
             post(shortcut, pid: pid)
         case .deleteBackward:
-            guard observation.context.canEditDraft else { return L10n.tr("当前界面保留原生 Escape", "Native Escape is preserved on this screen") }
+            // A terminal's prompt cannot be read; Backspace is harmless on an empty one.
+            guard observation.context.canEditDraft || observation.context.applicationProfile == .terminal else { return L10n.tr("当前界面保留原生 Escape", "Native Escape is preserved on this screen") }
             guard let shortcut = observation.shortcut(for: effect, fallback: KeyStroke(code: 51)) else { return unassignedAction }
             post(shortcut, pid: pid)
         case .moveCandidate(let direction):
@@ -370,6 +400,7 @@ final class AccessibilityAdapter {
             guard !observation.sidebarPicker else { return L10n.tr("没有可选的会话", "No chats to choose from") }
             guard let shortcut = observation.shortcut(for: effect, fallback: KeyStroke(code: direction < 0 ? 126 : 125)) else { return unassignedAction }
             post(shortcut, pid: pid, systemMenu: observation.customProfile == nil || observation.nativeMenu)
+            typedPicker?.expires = Date() + 20
         case .confirmCandidate:
             guard observation.context.picker != nil, !observation.context.compositionActive else { return L10n.tr("未确认选择器，操作已取消", "Picker not confirmed; action canceled") }
             if candidateNavigation.root == observation.pickerRoot, let index = candidateNavigation.index,
@@ -392,6 +423,8 @@ final class AccessibilityAdapter {
             pendingPicker = nil; boundPicker = nil
             sidebarPicker = nil; selectionTitle = ""
             cached.sampledAt = nil
+            // A typed model list may be followed by another (Codex asks for the effort next).
+            if typedPicker?.mode == .sessions { typedPicker = nil } else { typedPicker?.expires = Date() + 4 }
             let profile = observation.context.applicationProfile
             // Choosing a row may open a nested menu (model → variants); keep following it.
             if let mode = observation.context.picker, mode != .sessions, profile.supportsAssistantPickers, !observation.sidebarPicker {
@@ -420,7 +453,7 @@ final class AccessibilityAdapter {
             post(shortcut, pid: pid, systemMenu: observation.context.picker != nil && (observation.customProfile == nil || observation.nativeMenu))
             restorePointer()
             generation += 1
-            pendingPicker = nil; boundPicker = nil
+            pendingPicker = nil; boundPicker = nil; typedPicker = nil
             cached.sampledAt = nil
         case .sendReturn:
             guard let shortcut = observation.shortcut(for: effect, fallback: KeyStroke(code: 36)) else { return unassignedAction }
@@ -438,6 +471,25 @@ final class AccessibilityAdapter {
         case .none: break
         }
         return effect.title
+    }
+
+    /// Empties the prompt line, pastes the command and presses Return. Pasting
+    /// keeps an active input method from swallowing the letters.
+    private func typeCommand(_ command: String, mode: InteractionMode, identity: TargetIdentity) {
+        let pid = identity.pid
+        post(KeyStroke(code: 32, flags: .maskControl), pid: pid, systemMenu: true) // Ctrl+U
+        let delivery = ClipboardTextDelivery()
+        delivery.post(command, pid: pid)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            MainActor.assumeIsolated {
+                delivery.restore(confirmed: true)
+                guard let self, NSWorkspace.shared.frontmostApplication?.processIdentifier == pid else { return }
+                self.post(KeyStroke(code: 36), pid: pid, systemMenu: true)
+            }
+        }
+        generation += 1
+        typedPicker = TypedPicker(pid: pid, focus: identity.focusedHash, mode: mode, expires: Date() + 20)
+        cached.sampledAt = nil
     }
 
     private func openSidebarSessions(pid: pid_t) {
@@ -812,7 +864,7 @@ private final class AXSampler {
         if result.context.editorFocused { result.editor = textOwner }
         // Browser fields never redirect the wheel into caret navigation. This
         // also keeps the runtime's editing gesture scope from bypassing reduce.
-        if profile.alwaysScrolls { result.context.editorFocused = false }
+        if profile.alwaysScrolls || profile == .terminal { result.context.editorFocused = false }
         if result.context.editorFocused, let textOwner {
             result.editor = textOwner
             // Prefer length metadata. Only the confirmed composer may fall back
@@ -834,6 +886,7 @@ private final class AXSampler {
         let viewport = profile.alwaysScrolls ? focusElements.first { string($0, kAXRoleAttribute) == "AXWebArea" }.flatMap(frame) : nil
         result.scrollPoint = ScrollTarget.point(window: windowFrame, composer: composerFrame,
                                                scrollArea: profile.alwaysScrolls ? nil : scrollArea, popup: result.pickerFrame, viewport: viewport)
+        if picker == nil, let typed = request.typedPicker, typed.focus == focused.map(CFHash) { picker = typed.mode }
         result.context.modalOpen = modal
         result.context.picker = picker
         if let compositionOwner = textOwner ?? focused,
@@ -851,6 +904,7 @@ private final class AXSampler {
         else if picker != nil { result.status = L10n.tr("选择器就绪", "Picker ready") }
         else if result.context.editingDraft { result.status = L10n.tr("旋转移动光标 · ESC 删除", "Turn to move cursor · ESC to delete") }
         else if profile.alwaysScrolls { result.status = L10n.tr("旋转滚动网页 · 单按切换标签页", "Turn to scroll · press to switch tabs") }
+        else if profile == .terminal { result.status = L10n.tr("旋转滚屏 · 按旋钮输入 /resume 选会话", "Turn to scroll · press to type /resume for chats") }
         else if profile.isMessaging { result.status = L10n.tr("旋转滚动聊天 · 单按搜索聊天", "Turn to scroll chats · press to search") }
         else if profile == .custom { result.status = L10n.tr("自定义应用配置已就绪", "Custom app profile ready") }
         else { result.status = L10n.tr("旋转上下滚屏 · 按旋钮选择会话", "Turn to scroll · press the dial for chats") }
