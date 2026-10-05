@@ -1,7 +1,7 @@
 import Foundation
 
 enum GestureScope: String, CaseIterable, Codable {
-    case global, reading, editing, sessions, models, efforts, applications
+    case global, reading, editing, sessions, models, efforts, applications, command
     var label: String {
         switch self {
         case .global: return L10n.tr("通用默认", "Default")
@@ -11,6 +11,7 @@ enum GestureScope: String, CaseIterable, Codable {
         case .models: return L10n.tr("模型选择", "Model picker")
         case .efforts: return L10n.tr("强度选择", "Effort picker")
         case .applications: return L10n.tr("切换应用", "App switcher")
+        case .command: return L10n.tr("命令进行中", "Command in progress")
         }
     }
 }
@@ -43,11 +44,11 @@ enum GestureAction: String, CaseIterable, Codable {
     case none, contextDial, contextLeft, contextRight, contextConfirm, contextEscape
     case sessions, models, deleteBackward, enter, escape, cursorLeft, cursorRight, scrollUp, scrollDown
     case previousCandidate, nextCandidate, confirmCandidate, cancelPicker
-    case dictation, pointerClick, switchApplications, previousApplication, nextApplication, confirmApplication, cancelApplication
+    case dictation, command, pointerClick, switchApplications, previousApplication, nextApplication, confirmApplication, cancelApplication
     case toggleOverlay, openSettings, toggleGuide
     var category: ActionCategory {
         switch self {
-        case .dictation, .pointerClick, .switchApplications, .previousApplication, .nextApplication, .confirmApplication, .cancelApplication:
+        case .dictation, .command, .pointerClick, .switchApplications, .previousApplication, .nextApplication, .confirmApplication, .cancelApplication:
             return .system
         case .none, .toggleOverlay, .openSettings, .toggleGuide:
             return .vibeWand
@@ -76,6 +77,7 @@ enum GestureAction: String, CaseIterable, Codable {
         case .confirmCandidate: return L10n.tr("确认候选", "Confirm selection")
         case .cancelPicker: return L10n.tr("取消选择", "Cancel selection")
         case .dictation: return L10n.tr("听写（按住说话）", "Dictation (hold to speak)")
+        case .command: return L10n.tr("命令（按住说话）", "Command (hold to speak)")
         case .pointerClick: return L10n.tr("点击光标位置（鼠标左键）", "Click at pointer (left mouse button)")
         case .switchApplications: return L10n.tr("打开应用切换（⌘Tab）", "Open app switcher (⌘Tab)")
         case .previousApplication: return L10n.tr("上一个应用", "Previous app")
@@ -112,6 +114,10 @@ struct GestureConfiguration: Codable {
     var longPressInterval = 0.55
     // Only overrides are stored. Missing entries inherit the built-in preset.
     var overrides: [String: GestureAction] = [:]
+    /// The template's bindings for command mode, present only while it is on.
+    /// They sit under the user's own choices and are never saved.
+    var commandLayer: [String: GestureAction] = [:]
+    private enum CodingKeys: String, CodingKey { case schemaVersion, doubleClickInterval, longPressInterval, overrides }
     static func key(_ scope: GestureScope, _ control: DeviceControl, _ kind: GestureKind) -> String {
         "\(scope.rawValue).\(control.rawValue).\(kind.rawValue)"
     }
@@ -120,6 +126,8 @@ struct GestureConfiguration: Codable {
     }
     func action(_ scope: GestureScope, _ control: DeviceControl, _ kind: GestureKind) -> GestureAction {
         if let custom = explicit(scope, control, kind) { return custom }
+        // While the coordinator is asking or acting, the device answers it the way it answers a picker.
+        if scope == .command { return action(.models, control, kind) }
         if scope == .applications {
             switch (control, kind) {
             case (.left, .rotate), (.dial, .heldLeft): return .previousApplication
@@ -131,6 +139,7 @@ struct GestureConfiguration: Codable {
             }
         }
         if scope != .global, let custom = explicit(.global, control, kind) { return custom }
+        if let layered = commandLayer[Self.key(.global, control, kind)] { return layered }
         // New direction defaults also apply to saved configurations from before
         // sticks were supported. Explicit user overrides above always win.
         if control.isStickDirection && kind == .rotate {

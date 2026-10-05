@@ -59,6 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         runtime.onSnapshot = { [weak self] state in
             guard let self else { return }
             self.overlay.update(state)
+            self.overlay.showForCommand(state.command.active)
             self.settings?.update(state)
             self.connectionItem?.title = state.captureOnly ? L10n.tr("仅采集物理事件", "Input capture only") : state.demo ? L10n.tr("演示模式", "Demo mode") : state.connected ? L10n.tr("设备已连接", "Device connected") : L10n.tr("等待设备连接", "Waiting for device")
             if let url = self.diagnosticsURL { try? self.runtime.exportSnapshot(url) }

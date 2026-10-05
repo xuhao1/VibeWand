@@ -58,7 +58,9 @@ final class OverlayController {
     /// under the pointer when the panel expands, collapses or changes device.
     private var anchor = NSPoint.zero
     private var deviceBelow = false
-    var isVisible: Bool { panel.isVisible }
+    /// The user keeps the overlay hidden; a command brings it out until it has ended.
+    private var raisedForCommand = false
+    var isVisible: Bool { panel.isVisible && !raisedForCommand }
 
     static func makeLivePreview() -> NSView {
         let view = CompanionView(isPreview: true, onOpenSettings: {}, onHide: {}, onControl: { _, _ in })
@@ -104,13 +106,22 @@ final class OverlayController {
 
     func update(_ state: HUDSnapshot) {
         panel.title = L10n.tr("VibeWand 悬浮面板", "VibeWand Overlay")
-        let changedTemplate = view.deviceTemplate != state.deviceTemplate || host.snapshot.voice.showsText != state.voice.showsText
+        let changedTemplate = view.deviceTemplate != state.deviceTemplate
+            || SpeechOverlayLayout.barHeight(voice: host.snapshot.voice, command: host.snapshot.command)
+                != SpeechOverlayLayout.barHeight(voice: state.voice, command: state.command)
         view.update(state)
         host.update(state, mode: displayMode, expanded: expanded)
         // Resizing never orders the panel front, so switching a template keeps a hidden HUD hidden.
         if changedTemplate { resize() }
     }
+    /// What a command is doing, and how to stop it, must be on screen while it runs,
+    /// even when the user keeps the overlay hidden. It goes away again with the command.
+    func showForCommand(_ active: Bool) {
+        if active, !panel.isVisible { raisedForCommand = true; panel.orderFrontRegardless() }
+        else if !active, raisedForCommand { raisedForCommand = false; panel.orderOut(nil) }
+    }
     func setVisible(_ visible: Bool) {
+        raisedForCommand = false
         if visible { panel.orderFrontRegardless() }
         else { view.cancelMousePress(); panel.orderOut(nil) }
     }
@@ -169,10 +180,11 @@ final class OverlayController {
     }
 
     private var currentSize: NSSize {
-        let size = SpeechOverlayLayout.size(template: view.deviceTemplate, expanded: expanded, mode: displayMode, voice: host.snapshot.voice)
+        let size = SpeechOverlayLayout.size(template: view.deviceTemplate, expanded: expanded, mode: displayMode, voice: host.snapshot.voice,
+                                            command: host.snapshot.command)
         return NSSize(width: size.width * scale, height: size.height * scale)
     }
-    private var barHeight: CGFloat { SpeechOverlayLayout.barHeight(voice: host.snapshot.voice) * scale }
+    private var barHeight: CGFloat { SpeechOverlayLayout.barHeight(voice: host.snapshot.voice, command: host.snapshot.command) * scale }
 
     /// `reorient` re-decides, when expanding, whether the device view has room above the bar.
     private func resize(reorient: Bool = false) {
@@ -267,7 +279,7 @@ private final class CompanionView: NSView {
 
     init(isPreview: Bool = false, onOpenSettings: @escaping () -> Void, onHide: @escaping () -> Void, onControl: @escaping (DeviceControl, InputPhase) -> Void) {
         self.isPreview = isPreview
-        material = CompanionBackdrop(inWindow: isPreview)
+        material = CompanionBackdrop()
         self.onOpenSettings = onOpenSettings
         self.onHide = onHide
         self.onControl = onControl
@@ -796,23 +808,16 @@ private final class CompanionDrawing: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
-@MainActor
-private final class CompanionMaterial: NSVisualEffectView {
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }
-}
-
-/// Real system Liquid Glass on macOS 26+, with a native older-system fallback.
+/// The system's Liquid Glass.
 /// It has no hit target: the HUD's drag handling and gear/hide buttons own input.
 @MainActor
 final class CompanionBackdrop: NSView {
-    private var surface: NSView?
+    private var surface: NSGlassEffectView?
     private var observer: NSObjectProtocol?
-    private let inWindow: Bool
-    private var radius: CGFloat
+    private var radius: CGFloat = 26
     private var embeddedContent: NSView?
     var exporting = false { didSet { if oldValue != exporting { updateMaterial() } } }
-    init(frame: NSRect = .zero, inWindow: Bool = false) {
-        self.inWindow = inWindow; radius = 26
+    override init(frame: NSRect = .zero) {
         super.init(frame: frame)
         wantsLayer = true; layer?.cornerRadius = radius; layer?.masksToBounds = false
         updateMaterial()
@@ -829,15 +834,14 @@ final class CompanionBackdrop: NSView {
     func setCornerRadius(_ value: CGFloat) {
         guard radius != value else { return }
         radius = value; layer?.cornerRadius = value
-        if #available(macOS 26.0, *), let glass = surface as? NSGlassEffectView { glass.cornerRadius = value }
-        else { surface?.layer?.cornerRadius = value }
+        surface?.cornerRadius = value
     }
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
         if NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency { layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor }
     }
     private func updateMaterial() {
-        if #available(macOS 26.0, *), let glass = surface as? NSGlassEffectView { glass.contentView = nil }
+        surface?.contentView = nil
         embeddedContent?.removeFromSuperview()
         embeddedContent?.isHidden = false
         embeddedContent?.translatesAutoresizingMaskIntoConstraints = true
@@ -848,22 +852,12 @@ final class CompanionBackdrop: NSView {
             return
         }
         layer?.backgroundColor = NSColor.clear.cgColor
-        let next: NSView
-        if #available(macOS 26.0, *) {
-            let glass = NSGlassEffectView(frame: bounds)
-            glass.style = .regular; glass.cornerRadius = radius
-            glass.contentView = embeddedContent
-            if #available(macOS 27.0, *) { glass.effectIsInteractive = true }
-            next = glass
-        } else {
-            let material = CompanionMaterial(frame: bounds)
-            material.material = .popover; material.blendingMode = inWindow ? .withinWindow : .behindWindow; material.state = .active
-            material.wantsLayer = true; material.layer?.cornerRadius = radius; material.layer?.masksToBounds = true
-            if let embeddedContent { embeddedContent.frame = material.bounds; embeddedContent.autoresizingMask = [.width, .height]; material.addSubview(embeddedContent) }
-            next = material
-        }
-        next.autoresizingMask = [.width, .height]
-        addSubview(next); surface = next
+        let glass = NSGlassEffectView(frame: bounds)
+        glass.style = .regular; glass.cornerRadius = radius
+        glass.contentView = embeddedContent
+        if #available(macOS 27.0, *) { glass.effectIsInteractive = true }
+        glass.autoresizingMask = [.width, .height]
+        addSubview(glass); surface = glass
         embeddedContent?.frame = bounds
         embeddedContent?.needsLayout = true
     }

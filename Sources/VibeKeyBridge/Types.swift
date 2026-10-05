@@ -10,6 +10,22 @@ struct VoiceHUDSnapshot {
     var showsText: Bool { enabled && (state.active || !text.isEmpty) }
 }
 
+/// What the overlay shows for command mode: what was heard, what is being
+/// done, and any question that waits for a key.
+struct CommandHUDSnapshot: Equatable {
+    enum Phase: Equatable { case idle, listening, working, choosing, confirming, done, attention }
+    var phase = Phase.idle
+    var status = ""
+    var text = ""
+    var options: [String] = []
+    var selection = 0
+    var active: Bool { phase != .idle }
+    /// Rows the overlay needs: the text, wrapped to at most three, then one per option.
+    var lines: Int { max(1, min(3, (text.count + 21) / 22)) + options.count }
+    /// The device answers the coordinator instead of the app in front.
+    var capturesControls: Bool { phase == .working || phase == .choosing || phase == .confirming }
+}
+
 enum DeviceControl: String, CaseIterable, Codable {
     case dial, left, right, ok, escape, voice, settings, forceEscape
     case l1, l2, leftStickPress, rightStickPress
@@ -34,6 +50,7 @@ enum InputPhase: String, Codable {
 
 struct HUDSnapshot {
     var voice = VoiceHUDSnapshot()
+    var command = CommandHUDSnapshot()
     var deviceTemplate: DeviceTemplateID = .vibeKey
     var connectedTemplates: Set<DeviceTemplateID> = []
     /// Name of the chat or model currently highlighted in a picker.

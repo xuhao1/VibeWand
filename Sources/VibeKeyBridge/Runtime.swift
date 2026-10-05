@@ -22,6 +22,16 @@ final class BridgeRuntime {
     var autoSwitchSuspended = false
     let dictation = FnDictation()
     let voiceInput: VoiceInputController
+    private let suppliedCommand: CommandController?
+    private(set) lazy var command: CommandController = {
+        let controller = suppliedCommand ?? CommandController(settings: CommandSettings(), tools: CommandTools(adapter: adapter), voice: voiceInput)
+        controller.onChange = { [weak self] in self?.updateObservedState() }
+        controller.settings.onChange = { [weak self] in self?.applyCommandSettings() }
+        return controller
+    }()
+    private let keyboard = KeyboardCommandInput()
+    /// A command spoken on a long press lasts as long as the press does.
+    private var commandHold: (control: DeviceControl, token: UInt64)?
     private(set) var dualSenseVoiceEnabled = UserDefaults.standard.bool(forKey: "dualSenseVoiceEnabled")
     func setDualSenseVoiceEnabled(_ enabled: Bool) throws {
         guard !enabled || DualSenseMicrophoneSource.supported else {
@@ -48,7 +58,10 @@ final class BridgeRuntime {
     private var draftUpdateInFlight = false
     private let dictationTargetAdapter = DictationTargetAdapter()
     private var lastDictationFailure = ""
-    private(set) var configuration = GestureConfiguration()
+    private(set) var configuration = GestureConfiguration() { didSet { configuration.commandLayer = commandBindings } }
+    private var commandBindings: [String: GestureAction] {
+        command.settings.enabled ? templates.selectedTemplate.commandBindings : [:]
+    }
     private var gestureEngine = GestureEngine()
     private var gestureTimer: Timer?
     let applicationSwitcher = ApplicationSwitcher()
@@ -101,8 +114,9 @@ final class BridgeRuntime {
 
     init(source: (any HIDEventSource)? = nil, templates: DeviceTemplateStore = DeviceTemplateStore(),
          sourceFactory: ((HIDDeviceProfile?, DeviceTemplateID) throws -> any HIDEventSource)? = nil,
-         voiceInput: VoiceInputController? = nil) {
+         voiceInput: VoiceInputController? = nil, command: CommandController? = nil) {
         self.voiceInput = voiceInput ?? VoiceInputController()
+        suppliedCommand = command
         self.templates = templates
         suppliedSource = source != nil
         self.sourceFactory = sourceFactory ?? Self.makeSource
@@ -115,6 +129,7 @@ final class BridgeRuntime {
             if case .failed = self.voiceInput.state {
                 self.cancelLiveDraft(); self.dictationTarget = nil; self.generation &+= 1
             }
+            self.command.voiceChanged()
             self.emit(); self.onSettingsChanged?()
         }
         self.voiceInput.microphone = { [weak self] in self?.deviceMicrophone }
@@ -132,6 +147,7 @@ final class BridgeRuntime {
             object: L10n.shared, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.refreshLanguage() }
             }
+        configuration.commandLayer = commandBindings
     }
 
     deinit {
@@ -176,6 +192,22 @@ final class BridgeRuntime {
             catch { device = UnconfiguredHIDSource(template: templates.selectedTemplate) }
         }
         applicationSwitcher.onChange = { [weak self] in self?.refresh() }
+        keyboard.onPress = { [weak self] in self?.command.begin() }
+        keyboard.onRelease = { [weak self] in self?.command.end() }
+        keyboard.onAbandon = { [weak self] in self?.command.cancelCapture() }
+        keyboard.answer = { [weak self] answer in
+            guard let self, self.command.hud.capturesControls else { return false }
+            // While the coordinator is acting, only Escape is taken from the keyboard.
+            if self.command.hud.phase == .working, answer != .stop { return false }
+            switch answer {
+            case .previous: self.command.move(-1)
+            case .next: self.command.move(1)
+            case .confirm: self.command.confirm()
+            case .stop: self.command.stop()
+            }
+            return true
+        }
+        applyKeyboard()
         let gestureTimer = Timer(timeInterval: 0.015, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.advanceGestures() }
         }
@@ -188,7 +220,7 @@ final class BridgeRuntime {
         refresh()
         pollTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.reconcileControllerVoiceRoute(); self?.fallBackToConnectedDevice(); self?.keepControllerAwake(); self?.refresh()
+                self?.reconcileControllerVoiceRoute(); self?.fallBackToConnectedDevice(); self?.keepControllerAwake(); self?.applyKeyboard(); self?.refresh()
             }
         }
     }
@@ -209,6 +241,21 @@ final class BridgeRuntime {
         inputStarted = false
         syncCompanions()
         device.stop(); cancelAll(); pollTimer?.invalidate(); demoTimer?.invalidate(); gestureTimer?.invalidate(); gestureTimer = nil
+        keyboard.stop(); command.shutdownKernel()
+    }
+
+    // MARK: Command mode
+
+    /// The switch, the key or the model changed: bindings follow, and the next command starts a fresh kernel.
+    private func applyCommandSettings() {
+        configuration.commandLayer = commandBindings
+        command.shutdownKernel()
+        applyKeyboard(); refresh(); onSettingsChanged?()
+    }
+    /// The keyboard listener needs the Accessibility grant, which may arrive after launch.
+    private func applyKeyboard() {
+        keyboard.key = command.settings.enabled && inputStarted ? command.settings.hotkey : .none
+        if keyboard.key == .none { keyboard.stop() } else if adapter.trusted { keyboard.start() }
     }
 
     /// Built-in dictation records from the device whose key started it, when
@@ -504,6 +551,7 @@ final class BridgeRuntime {
     func advanceGestures(now: TimeInterval = ProcessInfo.processInfo.systemUptime) {
         guard !captureOnly else { return }
         gestureEngine.tick(now: now).forEach(dispatch)
+        if let hold = commandHold, gestureEngine.token(for: hold.control) != hold.token { commandHold = nil; command.end() }
         repeatDelete(now: now)
     }
     /// Like a keyboard's Backspace. Repeats are plain deletions, so emptying the
@@ -523,6 +571,7 @@ final class BridgeRuntime {
     }
     private var switcherActive: Bool { demo ? demoSwitcherActive : applicationSwitcher.active }
     private func currentScope(_ context: InteractionContext) -> GestureScope {
+        if command.hud.capturesControls { return .command }
         if switcherActive { return .applications }
         if context.applicationProfile.alwaysScrolls && context.picker == nil { return .reading }
         switch context.picker {
@@ -533,6 +582,20 @@ final class BridgeRuntime {
         }
     }
     private func dispatch(_ signal: GestureSignal) {
+        if signal.action == .command {
+            guard !demo else { return }
+            switch (signal.kind, signal.phase) {
+            case (.hold, .down): command.begin()
+            case (.hold, .up): command.end()
+            case (.hold, .cancel): command.cancelCapture()
+            // The release of a long press is seen in advanceGestures.
+            case (.long, _): command.begin(); commandHold = (signal.control, signal.token)
+            // A key that cannot be held starts on one press and ends on the next.
+            case (_, .pulse): if command.hud.phase == .listening { command.end() } else { command.begin() }
+            default: break
+            }
+            emit(); return
+        }
         if signal.action == .pointerClick {
             guard signal.phase == .pulse || signal.phase == .down else { return }
             if !demo && adapter.trusted {
@@ -545,6 +608,18 @@ final class BridgeRuntime {
             guard signal.phase == .pulse || signal.phase == .down else { return }
             snapshot.action = signal.action.label
             onInternalAction?(signal.action); record(signal, action: signal.action.label); emit(); return
+        }
+        if command.hud.capturesControls {
+            // The device answers the coordinator; nothing is sent to the app in front.
+            guard signal.phase == .pulse || signal.phase == .down else { return }
+            switch signal.action {
+            case .previousCandidate, .contextLeft: command.move(-1)
+            case .nextCandidate, .contextRight: command.move(1)
+            case .confirmCandidate, .contextConfirm, .contextDial, .enter: command.confirm()
+            case .cancelPicker, .contextEscape, .escape: command.stop()
+            default: break
+            }
+            return
         }
         if signal.action == .dictation {
             let wasHeld = !dictationHolders.isEmpty
@@ -758,6 +833,7 @@ final class BridgeRuntime {
     }
 
     private func cancelAll() {
+        command.cancelCapture(); commandHold = nil
         cancelLiveDraft()
         generation &+= 1
         adapter.reset()
@@ -775,6 +851,7 @@ final class BridgeRuntime {
            (voiceInput.state != .idle || !voiceInput.message.isEmpty) {
             snapshot.status = voiceInput.displayMessage
         }
+        snapshot.command = command.hud
         snapshot.deviceTemplate = templates.selectedID
         snapshot.connectedTemplates = connectedTemplates
         snapshot.selection = demo || captureOnly ? "" : adapter.selectionTitle
@@ -792,6 +869,7 @@ final class BridgeRuntime {
         onSnapshot?(snapshot)
     }
     private func beginDictation(replay: Bool = false) {
+        command.cancelCapture()
         cancelLiveDraft()
         generation &+= 1
         dictationTarget = nil; dictationApp = nil; liveDraftDiverged = false

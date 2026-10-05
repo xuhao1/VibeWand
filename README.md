@@ -92,14 +92,14 @@ This build is ad-hoc signed and not notarized by Apple, so the first launch take
 
 ### Build from source
 
-You need Xcode 26 or later and Opus from Homebrew:
+You need Xcode 26 or later and Opus from Homebrew. The current source requires macOS 26:
 
 ```sh
 brew install opus
 bash scripts/build-app.sh
 ```
 
-The result is `dist/VibeWand.app`. More in the [development guide](docs/development.md).
+The result is `dist/VibeWand.app`. The build downloads pinned versions of Node.js and DeepSeek Harness as the kernel for command mode, which makes the app about 170 MB; `VIBEWAND_SKIP_KERNEL=1` leaves it out. More in the [development guide](docs/development.md).
 
 ## Documentation
 

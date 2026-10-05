@@ -16,6 +16,7 @@ Start with setup, then learn the default workflow or customize it. User guides d
 | [Default controls](core-experience.en.md) | [默认操作](core-experience.md) | VibeKey, Controller, Remote defaults and context behavior / 三种模板默认操作与场景行为 |
 | [Settings and remapping](settings.en.md) | [设置与改键](settings.md) | Button editor, action library, timing, import/export, overlay / 按键编辑、动作库、时间、导入导出与悬浮反馈 |
 | [Voice input](voice-input.md) | [语音输入](voice-input.md) | Speech SDK, API protocols, Keychain and local checks / 系统听写、API、钥匙串与本地测试 |
+| [Command mode](command-mode.en.md) | [命令模式](command-mode.md) | Speak a command to find a chat, switch apps or operate the front window; what is sent and what it never does / 说一句话找会话、切应用、操作前台窗口；发出的内容与不做的事 |
 | [Applications](applications.en.md) | [应用适配](applications.md) | Built-in adapters, custom shortcuts, known limits / 内置适配、自定义快捷键与已知边界 |
 | [Computer use](computer-use.en.md) | [Computer use](computer-use.md) | How VibeWand reads and operates apps, the actions and tools it has, the rules it keeps, what is verified / 怎样看界面与操作应用、动作与工具、不变的规矩、验证情况 |
 | [Troubleshooting](troubleshooting.en.md) | [问题排查](troubleshooting.md) | Input capture, diagnostics, permission and connection problems / 采集、诊断、权限与连接问题 |
@@ -43,6 +44,7 @@ These records support implementation and provenance. They are not first-use inst
 
 - [Native controller and Bluetooth verification / 原生手柄与蓝牙实测](controller-input.md)
 - [AU05 protocol and historical checks / AU05 协议与历史检查](direct-device-plan.md)
+- [Command mode design (Chinese) / 命令模式设计方案](VibeWand_Computer_Use_设计方案.md)
 - [Settings design / 设置设计](settings-design.md)
 - [Liquid Glass HUD and action guidance / 液态玻璃悬浮窗与动作引导](overlay-liquid-glass.md)
 - [Appearance audit / 外观审查](ui-appearance-audit.md) and [screenshot gallery / 截图图集](ui-appearance-gallery.html)

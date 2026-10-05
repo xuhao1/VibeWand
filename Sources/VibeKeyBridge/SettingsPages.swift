@@ -162,8 +162,8 @@ struct OverlaySettings: View {
                 }.frame(maxWidth: .infinity, alignment: .topLeading)
             }
         }.task { refreshPreview() }
-            .onChange(of: colorScheme) { _ in refreshPreview() }
-            .onChange(of: model.snapshot.deviceTemplate) { _ in refreshPreview() }
+            .onChange(of: colorScheme) { refreshPreview() }
+            .onChange(of: model.snapshot.deviceTemplate) { refreshPreview() }
     }
 
     private func rangeLabels(_ low: String, _ high: String) -> some View {
@@ -338,7 +338,7 @@ private struct SettingsIcon: View {
     }
 }
 
-private struct SettingsToggleRow: View {
+struct SettingsToggleRow: View {
     let title: String
     @Binding var isOn: Bool
     var body: some View {

@@ -6,8 +6,8 @@ import AU05Device
 private func tr(_ zh: String, _ en: String) -> String { L10n.tr(zh, en) }
 
 enum SettingsSection: Int, CaseIterable {
-    case general, devices, applications, overlay, developer, about, speech
-    static let allCases: [SettingsSection] = [.general, .devices, .speech, .applications, .overlay, .developer, .about]
+    case general, devices, applications, overlay, developer, about, speech, command
+    static let allCases: [SettingsSection] = [.general, .devices, .speech, .command, .applications, .overlay, .developer, .about]
     var title: String {
         switch self {
         case .general: return tr("通用", "General")
@@ -17,6 +17,7 @@ enum SettingsSection: Int, CaseIterable {
         case .developer: return tr("开发者", "Developer")
         case .about: return tr("关于", "About")
         case .speech: return tr("语音输入", "Voice input")
+        case .command: return tr("命令模式", "Command mode")
         }
     }
     var tint: Color {
@@ -28,6 +29,7 @@ enum SettingsSection: Int, CaseIterable {
         case .developer: return .orange
         case .about: return Color(nsColor: .systemGray)
         case .speech: return .pink
+        case .command: return .purple
         }
     }
     var symbol: String {
@@ -39,6 +41,7 @@ enum SettingsSection: Int, CaseIterable {
         case .developer: return "chevron.left.forwardslash.chevron.right"
         case .about: return "info.circle"
         case .speech: return "waveform"
+        case .command: return "wand.and.stars"
         }
     }
 }
@@ -294,6 +297,7 @@ private struct SettingsShell: View {
                 case .developer: DeveloperSettings(model: model)
                 case .about: AboutSettings()
                 case .speech: SpeechSettings(model: model, voice: model.runtime.voiceInput)
+                case .command: CommandSettingsPage(model: model, settings: model.runtime.command.settings)
                 }
             }.id(localization.language).frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -433,7 +437,7 @@ private struct DeviceSettings: View {
                 Label(tr("已自动保存", "Auto-saved"), systemImage: "checkmark.circle").font(.system(size: 13)).foregroundStyle(.secondary)
             }
         }.padding(.horizontal, 18).padding(.top, 10).padding(.bottom, 14)
-            .onChange(of: model.runtime.templates.selectedID) { _ in group = .all }
+            .onChange(of: model.runtime.templates.selectedID) { group = .all }
             .sheet(isPresented: $showTiming) { TimingSettings(model: model) }
             .sheet(isPresented: $showConnection) { ConnectionSettings(model: model) }
     }

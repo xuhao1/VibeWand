@@ -26,11 +26,10 @@ final class DualSenseMicrophoneSource: HIDEventSource {
 
     static var supported: Bool {
         #if arch(arm64)
-        if #available(macOS 26, *) {
-            return FileManager.default.isExecutableFile(atPath: helperURL.path)
-        }
-        #endif
+        return FileManager.default.isExecutableFile(atPath: helperURL.path)
+        #else
         return false
+        #endif
     }
     static var helperURL: URL { Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/VibeWandMic") }
 

@@ -3,11 +3,12 @@ import PackageDescription
 
 let package = Package(
     name: "VibeWand",
-    platforms: [.macOS(.v13)],
+    platforms: [.macOS("26.0")],
     products: [
         .library(name: "SpeechInput", targets: ["SpeechInput"]),
         .executable(name: "SpeechAPICheck", targets: ["SpeechAPICheck"]),
         .library(name: "AU05Device", targets: ["AU05Device"]),
+        .library(name: "WandAgent", targets: ["WandAgent"]),
         .executable(name: "AU05Capture", targets: ["AU05Capture"]),
         .executable(name: "VibeWand", targets: ["VibeKeyBridge"])
     ],
@@ -16,9 +17,11 @@ let package = Package(
         .executableTarget(name: "SpeechAPICheck", dependencies: ["SpeechInput"]),
         .target(name: "AU05Device"),
         .executableTarget(name: "AU05Capture", dependencies: ["AU05Device"]),
-        .executableTarget(name: "VibeKeyBridge", dependencies: ["AU05Device", "SpeechInput"]),
+        .target(name: "WandAgent"),
+        .executableTarget(name: "VibeKeyBridge", dependencies: ["AU05Device", "SpeechInput", "WandAgent"]),
         .testTarget(name: "SpeechInputTests", dependencies: ["SpeechInput"]),
         .testTarget(name: "AU05DeviceTests", dependencies: ["AU05Device"]),
+        .testTarget(name: "WandAgentTests", dependencies: ["WandAgent"]),
         .testTarget(name: "VibeKeyBridgeTests", dependencies: ["VibeKeyBridge"])
     ]
 )

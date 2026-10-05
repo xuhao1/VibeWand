@@ -80,6 +80,18 @@ struct DeviceTemplate {
         return configuration
     }
 
+    /// Where the command key sits while command mode is on. A binding the user
+    /// made themselves always wins; the remote has no spare hold-capable key by default.
+    var commandBindings: [String: GestureAction] {
+        switch id {
+        // Holding the dial speaks a command, so the model entry moves to a long press of OK.
+        case .vibeKey: return [GestureConfiguration.key(.global, .dial, .long): .command,
+                               GestureConfiguration.key(.global, .ok, .long): .models]
+        case .dualSense: return [GestureConfiguration.key(.global, .l2, .hold): .command]
+        case .xiaomiRemote: return [:]
+        }
+    }
+
     private static let buttonGestures: [GestureKind] = [.single, .double, .long, .hold]
     private static func button(_ control: DeviceControl, _ title: String, _ detail: String,
                                _ symbol: String, _ x: Double, _ y: Double,

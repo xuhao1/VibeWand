@@ -7,26 +7,27 @@ VibeWand is a native macOS Swift package. Keep device decoding, gesture mapping,
 - `Sources/AU05Device/`: HID protocols, discovery, and device lifecycle; `Sources/AU05Capture/`: capture CLI.
 - `Sources/VibeKeyBridge/`: SwiftUI/AppKit interface, gestures, application adapters, overlays, and dictation delivery. Preserve the internal target name and `org.vibekey.bridge` bundle identifier.
 - `Sources/SpeechInput/`: recording, speech providers, credentials, and dictation lifecycle; `Sources/SpeechAPICheck/`: audio-file API checks.
+- `Sources/WandAgent/`: UI-independent command mode: the kernel process and its protocol, the tool catalog and socket, the gateway, task records. `kernel/` holds the kernel's locked package set, its profile and boot check.
 - `Tests/`: matching XCTest targets. `assets/` contains artwork; `profiles/` contains JSON examples; `docs/` contains bilingual guides; `tools/dualsense-mic/` contains microphone experiments and the bridge.
 
 ## Build, Test, and Development Commands
 
-Use full Xcode 26+ for the current SDK APIs. The package targets macOS 13+; the currently bundled microphone helper targets arm64/macOS 26 and requires Homebrew Opus under `/opt/homebrew`.
+Use full Xcode 26+ for the current SDK APIs. The package targets macOS 26 on arm64; the bundled microphone helper requires Homebrew Opus under `/opt/homebrew`.
 
 - `swift build`: compile package targets for development.
 - `swift test`: run all XCTest suites.
-- `bash scripts/build-app.sh`: assemble and sign `dist/VibeWand.app`.
+- `bash scripts/build-app.sh`: assemble and sign `dist/VibeWand.app`. It runs `scripts/build-kernel.sh`, which downloads the pinned Node.js and DeepSeek Harness packages for command mode; `VIBEWAND_SKIP_KERNEL=1` skips that.
 - `bash scripts/run.sh`: launch the bundle, building it if absent; rebuild explicitly after source changes.
 
 For toolchain issues, set `DEVELOPER_DIR` to the installed Xcode developer directory; see `docs/development.md`.
 
 ## Coding Style & Naming Conventions
 
-Use four-space Swift indentation, `UpperCamelCase` types, and `lowerCamelCase` members. Name files after their principal type or responsibility. Follow surrounding formatting; no repository formatter or linter is configured. Keep UI-independent speech logic in `SpeechInput` and device decoding in `AU05Device`.
+Use four-space Swift indentation, `UpperCamelCase` types, and `lowerCamelCase` members. Name files after their principal type or responsibility. Follow surrounding formatting; no repository formatter or linter is configured. Keep UI-independent speech logic in `SpeechInput`, device decoding in `AU05Device`, and command-mode logic that needs no window in `WandAgent`. The model's reach is the tool catalog in `Sources/WandAgent/Tools.swift`; adding a tool, or a package to `kernel/profile`, is a deliberate change with a test to update.
 
 ## Testing Guidelines
 
-Use XCTest with `*Tests.swift` files and descriptive `test...` methods. Run focused checks with `swift test --filter InteractionTests`, then the full suite for behavior changes. Cover state transitions, cancellation, and malformed input; no numeric coverage threshold is configured. Hardware and app compatibility claims require real-device or real-app verification, including observed UI outcomes.
+Use XCTest with `*Tests.swift` files and descriptive `test...` methods. Run focused checks with `swift test --filter InteractionTests`, then the full suite for behavior changes. Cover state transitions, cancellation, and malformed input; no numeric coverage threshold is configured. Hardware and app compatibility claims require real-device or real-app verification, including observed UI outcomes. Command mode is tested with `ScriptedKernel` and never drives another app from `swift test`; the opt-in `KernelLiveTests` use a real kernel with a stand-in desktop.
 
 ## Commit & Pull Request Guidelines
 

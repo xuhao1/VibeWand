@@ -8,10 +8,10 @@ fi
 task_sdk_path="$(xcrun --sdk macosx --show-sdk-path)"
 task_sdk_version="$(xcrun --sdk macosx --show-sdk-version)"
 # The Swift Build backend can write the deployment target into the SDK field.
-# Set the linker platform explicitly; keep macOS 13 as the minimum runtime.
+# Set the linker platform explicitly; macOS 26 is the minimum runtime.
 # VIBEWAND_CONFIGURATION=debug gives a fast development bundle; releases use the default.
 task_configuration="${VIBEWAND_CONFIGURATION:-release}"
-swift build -c "$task_configuration" --sdk "$task_sdk_path" -Xlinker -platform_version -Xlinker macos -Xlinker 13.0 -Xlinker "$task_sdk_version"
+swift build -c "$task_configuration" --sdk "$task_sdk_path" -Xlinker -platform_version -Xlinker macos -Xlinker 26.0 -Xlinker "$task_sdk_version"
 task_binary_dir="$(swift build -c "$task_configuration" --show-bin-path)"
 task_app="${VIBEWAND_APP_PATH:-$task_root/dist/VibeWand.app}"
 mkdir -p "$task_root/dist"
@@ -40,6 +40,14 @@ for task_asset in controller gamepad gamepad-overlay remote; do
     cp "$task_root/assets/device/$task_asset.png" "$task_staged_app/Contents/Resources/$task_asset.png"
   fi
 done
+# Command mode's kernel: a pinned Node.js runtime and DeepSeek Harness limited to VibeWand's profile.
+# Both keep the signatures they were published with. VIBEWAND_SKIP_KERNEL=1 leaves it out;
+# command mode then reports that this build has no kernel.
+if [ "${VIBEWAND_SKIP_KERNEL:-0}" != "1" ]; then
+  task_kernel="$(bash "$task_root/scripts/build-kernel.sh" | tail -1)"
+  cp -R "$task_kernel" "$task_staged_app/Contents/Resources/kernel"
+  rm -f "$task_staged_app/Contents/Resources/kernel/.stamp"
+fi
 cp "$task_root/LICENSE" "$task_staged_app/Contents/Resources/LICENSE"
 cp -R "$task_root/third-party" "$task_staged_app/Contents/Resources/third-party"
 cat > "$task_staged_app/Contents/Info.plist" <<'PLIST'
@@ -54,15 +62,15 @@ cat > "$task_staged_app/Contents/Info.plist" <<'PLIST'
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundleShortVersionString</key><string>0.8.4</string>
 <key>CFBundleVersion</key><string>25</string>
-<key>LSMinimumSystemVersion</key><string>13.0</string>
+<key>LSMinimumSystemVersion</key><string>26.0</string>
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>
 <key>GCSupportsControllerUserInteraction</key><true/>
 <key>GCSupportedGameControllers</key><array><dict><key>ProfileName</key><string>ExtendedGamepad</string></dict></array>
-<key>NSAccessibilityUsageDescription</key><string>读取当前输入框和选择器状态，并执行你通过 VibeWand 发出的光标、删除、确认、会话和标签页操作。</string>
+<key>NSAccessibilityUsageDescription</key><string>读取当前输入框和选择器状态，并执行你通过 VibeWand 发出的光标、删除、确认、会话和标签页操作；开启命令模式后，也用于读取前台窗口的控件并执行你说出的界面操作。</string>
 <key>NSAudioCaptureUsageDescription</key><string>将 DualSense 蓝牙麦克风声音接入本程序可选的语音输入；仅接收本程序发布的音频。</string>
 <key>NSBluetoothAlwaysUsageDescription</key><string>连接已配对的 DualSense 手柄麦克风。</string>
-<key>NSMicrophoneUsageDescription</key><string>按住听写键时使用麦克风，将语音转换为输入框中的文字。</string>
+<key>NSMicrophoneUsageDescription</key><string>按住听写键或命令键时使用麦克风，将语音转换为输入框中的文字或一条命令。</string>
 <key>NSSpeechRecognitionUsageDescription</key><string>使用 macOS 语音识别，将你主动录制的语音转换为文字。</string>
 </dict></plist>
 PLIST

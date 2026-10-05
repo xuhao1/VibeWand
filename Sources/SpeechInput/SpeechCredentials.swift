@@ -33,7 +33,8 @@ public extension SpeechCredentialStore {
 
 public struct KeychainSpeechCredentials: SpeechCredentialStore {
     public static let service = "org.vibekey.bridge.speech-api"
-    public init() {}
+    private let service: String
+    public init(service: String = KeychainSpeechCredentials.service) { self.service = service }
     public func contains(account: String) -> Bool {
         var item = query(account)
         item[kSecReturnAttributes as String] = true
@@ -42,7 +43,7 @@ public struct KeychainSpeechCredentials: SpeechCredentialStore {
     }
     private func query(_ account: String) -> [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,
-         kSecAttrService as String: Self.service,
+         kSecAttrService as String: service,
          kSecAttrAccount as String: account,
          kSecAttrSynchronizable as String: false]
     }

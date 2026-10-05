@@ -92,14 +92,14 @@ VibeWand 干的是 computer use 这类事：看懂前台应用的界面，替你
 
 ### 从源码编译
 
-需要 Xcode 26 以上和 Homebrew 的 Opus：
+需要 Xcode 26 以上和 Homebrew 的 Opus。当前源码的最低系统是 macOS 26：
 
 ```sh
 brew install opus
 bash scripts/build-app.sh
 ```
 
-产物在 `dist/VibeWand.app`。更多细节见[开发指南](docs/development.md)。
+产物在 `dist/VibeWand.app`。构建时会下载固定版本的 Node.js 和 DeepSeek Harness 作为命令模式的内核，应用因此约 170 MB；`VIBEWAND_SKIP_KERNEL=1` 可以跳过。更多细节见[开发指南](docs/development.md)。
 
 ## 文档
 

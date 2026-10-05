@@ -14,9 +14,12 @@ final class VoiceInputController: ObservableObject {
     @Published private(set) var processingNotice: SpeechInputError?
     private var previewTimer: Timer?
     private var testing = false
+    /// The recording is a spoken command: it goes to the coordinator, never into a text field.
+    private var commanding = false
     var onChange: (() -> Void)?
     var onTranscript: ((String) -> Void)?
     var onPartialTranscript: ((String) -> Void)?
+    var onCommandTranscript: ((String) -> Void)?
     var onCancel: (() -> Void)?
     /// Chooses the recording device for each session; nil is the macOS default input.
     var microphone: (() -> String?)?
@@ -43,13 +46,14 @@ final class VoiceInputController: ObservableObject {
         session.onPartialTranscript = { [weak self] text in
             guard let self else { return }
             self.liveTranscript = text
-            if !self.testing, !text.isEmpty { self.onPartialTranscript?(text) }
+            if !self.testing, !self.commanding, !text.isEmpty { self.onPartialTranscript?(text) }
             self.onChange?()
         }
         session.onNotice = { [weak self] notice in self?.processingNotice = notice; self?.onChange?() }
         session.onTranscript = { [weak self] text in
             guard let self else { return }
             if self.testing { self.testTranscript = text; self.testing = false }
+            else if self.commanding { self.commanding = false; self.onCommandTranscript?(text) }
             else { self.onTranscript?(text) }
             self.previewTimer?.invalidate()
             self.previewTimer = Timer.scheduledTimer(withTimeInterval: 8, repeats: false) { [weak self] _ in
@@ -61,11 +65,17 @@ final class VoiceInputController: ObservableObject {
         try preferences.save(value)
         cancel(); configuration = value; onChange?()
     }
-    func begin() { resetPreview(); testing = false; message = ""; record() }
-    func beginTest() { cancel(); resetPreview(); testing = true; testTranscript = ""; record() }
-    private func record() { SpeechAudioInput.deviceUID = microphone?(); session.begin(configuration) }
+    func begin() { resetPreview(); testing = false; commanding = false; message = ""; record(configuration) }
+    func beginTest() { cancel(); resetPreview(); testing = true; testTranscript = ""; record(configuration) }
+    /// A command is taken down as spoken: polishing could change what was asked for.
+    func beginCommand() {
+        cancel(); resetPreview(); commanding = true; message = ""
+        var verbatim = configuration; verbatim.textStyle = .verbatim
+        record(verbatim)
+    }
+    private func record(_ configuration: SpeechConfiguration) { SpeechAudioInput.deviceUID = microphone?(); session.begin(configuration) }
     func end() { session.end() }
-    func cancel() { onCancel?(); testing = false; resetPreview(); session.cancel() }
+    func cancel() { onCancel?(); testing = false; commanding = false; resetPreview(); session.cancel() }
     private func resetPreview() { previewTimer?.invalidate(); previewTimer = nil; liveTranscript = ""; processingNotice = nil }
     func setTextStyle(_ style: DictationTextStyle) throws {
         guard state != .transcribing && state != .polishing else { return }

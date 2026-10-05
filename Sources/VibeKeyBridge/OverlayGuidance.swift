@@ -43,7 +43,7 @@ enum HUDGuidance {
     static func caption(_ action: GestureAction, scope: GestureScope, profile: ApplicationProfile) -> String {
         switch action {
         case .contextDial, .sessions:
-            if [.sessions, .models, .efforts].contains(scope), action == .contextDial { return confirmation(scope) }
+            if [.sessions, .models, .efforts, .command].contains(scope), action == .contextDial { return confirmation(scope) }
             if profile.alwaysScrolls { return L10n.tr("下一标签页", "Next tab") }
             if profile.isMessaging { return L10n.tr("切换聊天", "Switch chat") }
             return L10n.tr("选会话", "Chats")
@@ -52,19 +52,20 @@ enum HUDGuidance {
             if profile.isMessaging { return L10n.tr("搜索聊天", "Search chats") }
             return L10n.tr("模型 / 强度", "Model / effort")
         case .contextConfirm, .confirmCandidate: return confirmation(scope)
-        case .contextEscape: return scope == .editing ? L10n.tr("退格", "Backspace") : L10n.tr("返回", "Back")
+        case .contextEscape: return scope == .editing ? L10n.tr("退格", "Backspace") : scope == .command ? L10n.tr("停止", "Stop") : L10n.tr("返回", "Back")
         case .contextLeft:
             if scope == .editing { return L10n.tr("光标左移", "Caret left") }
-            if [.sessions, .models, .efforts].contains(scope) { return L10n.tr("上一个", "Previous") }
+            if [.sessions, .models, .efforts, .command].contains(scope) { return L10n.tr("上一个", "Previous") }
             return L10n.tr("下滚屏", "Scroll down")
         case .contextRight:
             if scope == .editing { return L10n.tr("光标右移", "Caret right") }
-            if [.sessions, .models, .efforts].contains(scope) { return L10n.tr("下一个", "Next") }
+            if [.sessions, .models, .efforts, .command].contains(scope) { return L10n.tr("下一个", "Next") }
             return L10n.tr("上滚屏", "Scroll up")
         case .deleteBackward: return L10n.tr("退格", "Backspace")
         case .enter: return "Enter"
-        case .escape, .cancelPicker, .cancelApplication: return L10n.tr("返回", "Back")
+        case .escape, .cancelPicker, .cancelApplication: return scope == .command ? L10n.tr("停止", "Stop") : L10n.tr("返回", "Back")
         case .dictation: return L10n.tr("听写", "Dictate")
+        case .command: return L10n.tr("命令", "Command")
         case .pointerClick: return L10n.tr("鼠标左键", "Click")
         case .cursorLeft: return L10n.tr("光标左移", "Caret left")
         case .cursorRight: return L10n.tr("光标右移", "Caret right")
@@ -83,6 +84,7 @@ enum HUDGuidance {
         case .sessions: return L10n.tr("确认会话", "Open chat")
         case .models: return L10n.tr("确认模型", "Use model")
         case .efforts: return L10n.tr("确认强度", "Use effort")
+        case .command: return L10n.tr("确认", "Confirm")
         default: return L10n.tr("确认 / Enter", "Confirm / Enter")
         }
     }

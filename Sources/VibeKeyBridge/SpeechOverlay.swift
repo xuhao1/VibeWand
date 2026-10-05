@@ -8,9 +8,13 @@ enum OverlayDisplayMode: String, CaseIterable {
 
 enum SpeechOverlayLayout {
     static let gap: CGFloat = 7
-    static func barHeight(voice: VoiceHUDSnapshot) -> CGFloat { voice.showsText ? 118 : 48 }
-    static func size(template: DeviceTemplateID, expanded: Bool, mode: OverlayDisplayMode, voice: VoiceHUDSnapshot) -> NSSize {
-        let height = barHeight(voice: voice)
+    static func barHeight(voice: VoiceHUDSnapshot, command: CommandHUDSnapshot = CommandHUDSnapshot()) -> CGFloat {
+        if command.active { return max(96, 62 + 22 * CGFloat(command.lines)) }
+        return voice.showsText ? 118 : 48
+    }
+    static func size(template: DeviceTemplateID, expanded: Bool, mode: OverlayDisplayMode, voice: VoiceHUDSnapshot,
+                     command: CommandHUDSnapshot = CommandHUDSnapshot()) -> NSSize {
+        let height = barHeight(voice: voice, command: command)
         if mode == .compact { return NSSize(width: 390, height: height) }
         let device = OverlayLayout.size(for: template, expanded: expanded)
         return NSSize(width: device.width, height: device.height + 7 + height)
@@ -40,11 +44,9 @@ final class SpeechOverlayHost: NSView {
         bar = SpeechOverlayBar(isPreview: isPreview, onOpenSettings: onOpenSettings, onHide: onHide, onToggleStyle: onToggleStyle)
         super.init(frame: .zero)
         content.frame = bounds; content.autoresizingMask = [.width, .height]
-        if #available(macOS 26.0, *) {
-            let group = NSGlassEffectContainerView(frame: bounds)
-            group.contentView = content; group.spacing = 0; group.autoresizingMask = [.width, .height]
-            addSubview(group)
-        } else { addSubview(content) }
+        let group = NSGlassEffectContainerView(frame: bounds)
+        group.contentView = content; group.spacing = 0; group.autoresizingMask = [.width, .height]
+        addSubview(group)
         content.addSubview(fullView); content.addSubview(bar)
         bar.onToggleMode = { [weak self] in self?.onToggleMode?() }
     }
@@ -55,7 +57,8 @@ final class SpeechOverlayHost: NSView {
     }
     override func layout() {
         super.layout()
-        let size = SpeechOverlayLayout.size(template: snapshot.deviceTemplate, expanded: expanded, mode: mode, voice: snapshot.voice)
+        let size = SpeechOverlayLayout.size(template: snapshot.deviceTemplate, expanded: expanded, mode: mode, voice: snapshot.voice,
+                                            command: snapshot.command)
         let factor = bounds.width / max(1, size.width)
         if mode == .full {
             let device = OverlayLayout.size(for: snapshot.deviceTemplate, expanded: expanded)
@@ -85,12 +88,13 @@ private final class SpeechOverlayBar: NSView {
     private let scroll = NSScrollView(), transcript = NSTextView()
     private let onOpenSettings: () -> Void, onHide: () -> Void, onToggleStyle: () -> Void
     private let isPreview: Bool
+    private var shownCommand = CommandHUDSnapshot()
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { false }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     init(isPreview: Bool, onOpenSettings: @escaping () -> Void, onHide: @escaping () -> Void, onToggleStyle: @escaping () -> Void) {
         self.isPreview = isPreview; self.onOpenSettings = onOpenSettings; self.onHide = onHide; self.onToggleStyle = onToggleStyle
-        glass = CompanionBackdrop(inWindow: isPreview)
+        glass = CompanionBackdrop()
         super.init(frame: .zero)
         wantsLayer = true; layer?.cornerRadius = 18; layer?.masksToBounds = false
         content.frame = bounds; content.autoresizingMask = [.width, .height]
@@ -139,12 +143,51 @@ private final class SpeechOverlayBar: NSView {
         resizeButton.isEnabled = !isPreview; settings.isEnabled = !isPreview; hide.isEnabled = !isPreview
         scroll.isHidden = !voice.showsText
         let text = voice.text.isEmpty ? voice.state.title : voice.text
-        if transcript.string != text {
+        let command = snapshot.command
+        if command.active { show(command) }
+        else if transcript.string != text || shownCommand.active {
+            // Leaving a command restores the plain transcript style.
             transcript.string = text
+            transcript.font = .systemFont(ofSize: 14); transcript.textColor = .labelColor
             transcript.scrollRangeToVisible(NSRange(location: (text as NSString).length, length: 0))
         }
+        shownCommand = command; style.isHidden = command.active
         setAccessibilityLabel(L10n.tr("语音输入", "Voice input") + " · " + status.stringValue)
         needsLayout = true; needsDisplay = true
+    }
+    /// A command takes the bar over: what was heard or asked, then any options with the chosen one marked.
+    private func show(_ command: CommandHUDSnapshot) {
+        status.stringValue = command.status; status.toolTip = command.status
+        let symbol: String, tint: NSColor
+        switch command.phase {
+        case .listening: symbol = "waveform"; tint = .controlAccentColor
+        case .done: symbol = "checkmark.circle"; tint = .systemGreen
+        case .attention: symbol = "exclamationmark.circle"; tint = .systemOrange
+        case .choosing, .confirming: symbol = "questionmark.circle"; tint = .controlAccentColor
+        default: symbol = "wand.and.stars"; tint = .controlAccentColor
+        }
+        icon.image = NSImage(systemSymbolName: symbol, accessibilityDescription: command.status); icon.contentTintColor = tint
+        scroll.isHidden = false
+        guard command != shownCommand else { return }
+        let waiting = command.text.isEmpty && command.options.isEmpty
+        let body = NSMutableAttributedString(string: waiting ? L10n.tr("说出要做的事，松开执行", "Say what to do, then release") : command.text,
+            attributes: [.font: NSFont.systemFont(ofSize: 14), .foregroundColor: waiting ? NSColor.secondaryLabelColor : NSColor.labelColor])
+        let row = NSMutableParagraphStyle(); row.lineBreakMode = .byTruncatingTail
+        var selected = NSRange(location: 0, length: 0)
+        for (index, option) in command.options.enumerated() {
+            let chosen = index == command.selection
+            let line = NSAttributedString(string: "\n" + (chosen ? "▸ " : "   ") + option, attributes: [
+                .font: NSFont.systemFont(ofSize: 14, weight: chosen ? .semibold : .regular), .paragraphStyle: row,
+                .foregroundColor: chosen ? NSColor.controlAccentColor : NSColor.secondaryLabelColor])
+            if chosen { selected = NSRange(location: body.length + 1, length: line.length - 1) }
+            body.append(line)
+        }
+        if command.phase == .confirming {
+            body.append(NSAttributedString(string: "\n" + L10n.tr("确认键继续 · 返回键取消", "Confirm to continue · Back to cancel"),
+                attributes: [.font: NSFont.systemFont(ofSize: 12), .foregroundColor: NSColor.secondaryLabelColor]))
+        }
+        transcript.textStorage?.setAttributedString(body)
+        transcript.scrollRangeToVisible(selected)
     }
     override func layout() {
         super.layout(); glass.frame = bounds
@@ -154,7 +197,7 @@ private final class SpeechOverlayBar: NSView {
         let styleWidth: CGFloat = L10n.shared.language == .english ? 100 : 87
         style.frame = NSRect(x: resizeButton.frame.minX - styleWidth - 6, y: (header - 28) / 2, width: styleWidth, height: 28)
         icon.frame = NSRect(x: 12, y: (header - 19) / 2, width: 19, height: 19)
-        status.frame = NSRect(x: 39, y: (header - 17) / 2, width: max(0, style.frame.minX - 45), height: 17)
+        status.frame = NSRect(x: 39, y: (header - 17) / 2, width: max(0, (style.isHidden ? resizeButton : style).frame.minX - 45), height: 17)
         scroll.frame = NSRect(x: 14, y: header - 1, width: max(1, bounds.width - 28), height: max(1, bounds.height - header - 10))
         transcript.frame = NSRect(x: 0, y: 0, width: scroll.contentSize.width, height: max(scroll.contentSize.height, transcript.frame.height))
         transcript.textContainer?.containerSize = NSSize(width: scroll.contentSize.width, height: .greatestFiniteMagnitude)

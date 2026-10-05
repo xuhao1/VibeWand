@@ -4,7 +4,7 @@
 
 ## Unified settings and graphical editing
 
-The menu bar keeps everyday entry points. One native settings window groups configuration into seven sidebar pages. The editor pairs a device picture and input list with an inspector for the selected control. Settings appears in the Dock while open or minimized; clicking its Dock icon restores the window. Closing settings returns to menu-bar operation without stopping device input.
+The menu bar keeps everyday entry points. One native settings window groups configuration into eight sidebar pages. The editor pairs a device picture and input list with an inspector for the selected control. Settings appears in the Dock while open or minimized; clicking its Dock icon restores the window. Closing settings returns to menu-bar operation without stopping device input.
 
 | Page | Purpose |
 | --- | --- |
@@ -15,6 +15,7 @@ The menu bar keeps everyday entry points. One native settings window groups conf
 | Developer | Demo, physical-event capture, compatibility, diagnostics, and reconnect |
 | About | Version, license, author, and personal / project website links |
 | Voice input | External / built-in dictation, system / API, microphone source (follow the device / system sound input), vocabulary and subject hint, language, endpoint, separate keys, testing and exports |
+| Command mode | The switch and what it sends, the model key and model name, the keyboard command key, viewing and clearing local records; see [Command mode](command-mode.en.md) |
 
 ## Remap a control
 

@@ -1,0 +1,6 @@
+{
+  "name": "dsh-profile-vibewand",
+  "private": true,
+  "dependencies": {},
+  "dsh": { "profile": { "bundles": [], "patchReload": "startup" } }
+}
