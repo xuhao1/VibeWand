@@ -124,14 +124,6 @@ public struct SpeechConfiguration: Codable, Equatable {
         return url
     }
 
-    /// Qwen recognises on its dedicated ASR model, the only one that accepts a
-    /// vocabulary. A configured omni model keeps serving polishing.
-    public func recognitionURL() throws -> URL {
-        guard provider == .qwenRealtime, !model.contains("asr") else { return try apiURL() }
-        var recognition = self; recognition.model = "qwen3-asr-flash-realtime"
-        return try recognition.apiURL()
-    }
-
     public func validate() throws {
         guard version == 1, !locale.isEmpty, locale.count < 80, endpoint.count < 2048,
               !model.isEmpty, model.count < 200, !model.contains(where: { $0.isNewline }) else {

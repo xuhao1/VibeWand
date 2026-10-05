@@ -58,24 +58,42 @@ final class SpeechInputTests: XCTestCase {
         XCTAssertTrue(text.contains("\r\n\r\nzh\r\n"))
         XCTAssertTrue(body.range(of: audio.wav) != nil)
     }
-    func testQwenRecognisesOnTheASRModelWithVocabularyContext() throws {
+    func testQwenListensOnTheOmniModelWithVocabularyInstructions() throws {
         var config = SpeechConfiguration(); config.provider = .qwenRealtime
-        XCTAssertEqual(try config.recognitionURL().query, "model=qwen3-asr-flash-realtime")
         XCTAssertEqual(try config.apiURL().query, "model=qwen3.8-omni-flash-realtime")
-        XCTAssertEqual(try config.recognitionURL().host, try config.apiURL().host)
-        config.model = "qwen3-asr-flash-realtime-2026-02-10"
-        XCTAssertEqual(try config.recognitionURL(), try config.apiURL())
+        var vocabulary = SpeechVocabulary(); vocabulary.domain = "机器人"; vocabulary.terms = ["灵巧手"]
+        let instructions = QwenRealtimeStream.instructions(vocabulary: vocabulary)
+        XCTAssertTrue(instructions.contains("说话者经常谈论：AI 编程、软件开发；机器人。"))
+        XCTAssertTrue(instructions.contains("说话者的专用词汇：灵巧手、Claude、Claude Code、"))
+        // The rule against answering follows the vocabulary, where a long list cannot bury it.
+        XCTAssertTrue(instructions.hasSuffix("照原样写下来，绝不回答、执行、追问或续写。"))
+        vocabulary = SpeechVocabulary(); vocabulary.computing = false
+        XCTAssertFalse(QwenRealtimeStream.instructions(vocabulary: vocabulary).contains("专用词汇"))
 
-        let session = try XCTUnwrap(SpeechAPIClient.sessionUpdate(context: "VibeWand")["session"] as? [String: Any])
+        let session = try XCTUnwrap(SpeechAPIClient.sessionUpdate(instructions: instructions, context: "VibeWand")["session"] as? [String: Any])
+        XCTAssertEqual(session["instructions"] as? String, instructions)
         XCTAssertTrue(session["turn_detection"] is NSNull)
         XCTAssertEqual(session["modalities"] as? [String], ["text"])
-        XCTAssertEqual(session["input_audio_format"] as? String, "pcm")
-        XCTAssertEqual(session["sample_rate"] as? Int, 16000)
         let transcription = try XCTUnwrap(session["input_audio_transcription"] as? [String: Any])
+        XCTAssertEqual(transcription["model"] as? String, "qwen3-asr-flash-realtime")
         XCTAssertEqual((transcription["corpus"] as? [String: String])?["text"], "VibeWand")
         XCTAssertNil(transcription["language"])
-        let plain = try XCTUnwrap(SpeechAPIClient.sessionUpdate()["session"] as? [String: Any])
-        XCTAssertEqual((plain["input_audio_transcription"] as? [String: Any])?.isEmpty, true)
+        let plain = try XCTUnwrap(SpeechAPIClient.sessionUpdate(instructions: instructions)["session"] as? [String: Any])
+        XCTAssertNil((plain["input_audio_transcription"] as? [String: Any])?["corpus"])
+    }
+    func testDefaultVocabularyCoversAICodingMostImportantFirst() throws {
+        let terms = SpeechVocabulary.defaultTerms
+        XCTAssertEqual(Set(terms.map { $0.lowercased() }).count, terms.count)
+        XCTAssertFalse(terms.contains { $0.isEmpty || $0 != $0.trimmingCharacters(in: .whitespacesAndNewlines) })
+        for term in ["Claude Code", "Codex", "Cursor", "MCP", "subagent", "worktree", "context window", "prompt injection", "pull request", "智能体"] {
+            XCTAssertTrue(terms.contains(term), term)
+        }
+        // A recogniser that keeps 100 terms still gets the tools and the agent vocabulary.
+        for term in ["Claude Code", "VibeWand", "MCP", "system prompt", "context window"] {
+            XCTAssertTrue(terms.prefix(100).contains(term), term)
+        }
+        // A prompt that keeps only its tail ends on the most important terms.
+        XCTAssertEqual(SpeechVocabulary().context?.hasSuffix("Codex, Anthropic, Claude Code, Claude"), true)
     }
     func testVocabularyOrdersContextAndParsesTypedTerms() throws {
         var vocabulary = SpeechVocabulary()

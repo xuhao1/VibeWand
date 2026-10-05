@@ -40,63 +40,28 @@ public final class SpeechAPIClient: SpeechTranscribing {
         try audio.validate(); try configuration.validate(); try Task.checkCancellation()
         if configuration.provider == .qwenRealtime {
             guard let apiKey, !apiKey.isEmpty else { throw SpeechInputError.missingAPIKey }
-            return try await realtime(audio, configuration: configuration, apiKey: apiKey)
+            let stream = await QwenRealtimeStream()
+            try await stream.start(configuration: configuration, apiKey: apiKey)
+            for offset in stride(from: 0, to: audio.pcm.count, by: 6400) {
+                try await stream.append(audio.pcm.subdata(in: offset..<min(offset + 6400, audio.pcm.count)))
+            }
+            return try await stream.finish()
         }
         return try await multipart(audio, configuration: configuration, apiKey: apiKey)
     }
 
-    /// A recognition-only session: no language is pinned, so mixed speech is
-    /// detected, and `context` biases it toward the speaker's vocabulary.
-    public static func sessionUpdate(context: String? = nil) -> [String: Any] {
-        ["type": "session.update", "session": [
-            "modalities": ["text"], "turn_detection": NSNull(),
-            "input_audio_format": "pcm", "sample_rate": 16000,
-            "input_audio_transcription": context.map { ["corpus": ["text": $0]] } ?? [:]
+    /// An Omni session that only listens. Its recogniser streams previews,
+    /// biased by `context`, with no language pinned so mixed speech is
+    /// detected; the model writes the transcript under `instructions`.
+    public static func sessionUpdate(instructions: String, context: String? = nil) -> [String: Any] {
+        var recogniser: [String: Any] = ["model": "qwen3-asr-flash-realtime"]
+        if let context { recogniser["corpus"] = ["text": context] }
+        return ["type": "session.update", "session": [
+            "modalities": ["text"], "turn_detection": NSNull(), "instructions": instructions,
+            "input_audio_transcription": recogniser,
+            "audio": ["input": ["format": ["type": "pcm", "sample_rate": 16000,
+                "sample_format": "s16le", "channels": 1, "packing": "interleaved", "channel_layout": "mono"]]]
         ]]
-    }
-
-    private func realtime(_ audio: SpeechAudio, configuration: SpeechConfiguration, apiKey: String) async throws -> String {
-        var request = URLRequest(url: try configuration.recognitionURL()); request.timeoutInterval = 30
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        let socket = session.webSocketTask(with: request)
-        socket.resume()
-        defer { socket.cancel(with: .normalClosure, reason: nil) }
-        let update = Self.sessionUpdate(context: configuration.effectiveVocabulary.context)
-        return try await withTaskCancellationHandler(operation: {
-            try await withThrowingTaskGroup(of: String.self) { group in
-                group.addTask {
-                    try await Self.waitFor("session.created", socket: socket)
-                    try await Self.send(update, socket: socket)
-                    try await Self.waitFor("session.updated", socket: socket)
-                    for offset in stride(from: 0, to: audio.pcm.count, by: 6400) {
-                        try Task.checkCancellation()
-                        let chunk = audio.pcm.subdata(in: offset..<min(offset + 6400, audio.pcm.count))
-                        try await Self.send(["type": "input_audio_buffer.append", "audio": chunk.base64EncodedString()], socket: socket)
-                    }
-                    try await Self.send(["type": "input_audio_buffer.commit"], socket: socket)
-                    // Only accept INPUT transcription. Model responses are never dictation.
-                    // No response.create: this avoids an assistant reply or audio output.
-                    while true {
-                        let event = try await Self.receive(socket)
-                        if event["type"] as? String == "conversation.item.input_audio_transcription.completed" {
-                            let text = (event["transcript"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-                            guard !text.isEmpty else { throw SpeechInputError.noSpeech }
-                            return text
-                        }
-                        if event["type"] as? String == "conversation.item.input_audio_transcription.failed" {
-                            throw SpeechInputError.protocolRejected
-                        }
-                    }
-                }
-                group.addTask {
-                    try await Task.sleep(nanoseconds: 45_000_000_000)
-                    throw SpeechInputError.timedOut
-                }
-                defer { group.cancelAll(); socket.cancel(with: .normalClosure, reason: nil) }
-                guard let text = try await group.next() else { throw SpeechInputError.protocolRejected }
-                return text
-            }
-        }, onCancel: { socket.cancel(with: .goingAway, reason: nil) })
     }
 
     static func send(_ event: [String: Any], socket: URLSessionWebSocketTask) async throws {

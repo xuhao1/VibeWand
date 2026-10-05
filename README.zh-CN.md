@@ -51,7 +51,7 @@ Vibe coding 的大部分时间其实不在打字：读回复、翻会话、换�
 
 ## 安装
 
-**[下载 VibeWand 0.8.2（Apple Silicon）](https://github.com/xuhao1/VibeWand/releases/download/v0.8.2/VibeWand-0.8.2-macOS-arm64.zip)** · [版本说明](https://github.com/xuhao1/VibeWand/releases/latest)
+**[下载 VibeWand 0.8.3（Apple Silicon）](https://github.com/xuhao1/VibeWand/releases/download/v0.8.3/VibeWand-0.8.3-macOS-arm64.zip)** · [版本说明](https://github.com/xuhao1/VibeWand/releases/latest)
 
 需要 macOS 13 以上和 M 系列芯片。解压后把 **VibeWand.app** 拖进“应用程序”，打开它，然后：
 

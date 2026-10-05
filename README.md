@@ -51,7 +51,7 @@ The first four AI tools were exercised on a real machine; the terminal row has s
 
 ## Install
 
-**[Download VibeWand 0.8.2 (Apple Silicon)](https://github.com/xuhao1/VibeWand/releases/download/v0.8.2/VibeWand-0.8.2-macOS-arm64.zip)** · [Release notes](https://github.com/xuhao1/VibeWand/releases/latest)
+**[Download VibeWand 0.8.3 (Apple Silicon)](https://github.com/xuhao1/VibeWand/releases/download/v0.8.3/VibeWand-0.8.3-macOS-arm64.zip)** · [Release notes](https://github.com/xuhao1/VibeWand/releases/latest)
 
 Requires macOS 13 or later on an M-series Mac. Unzip, drag **VibeWand.app** into Applications, open it, then:
 

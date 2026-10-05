@@ -71,7 +71,7 @@ struct SpeechSettings: View {
                                 field(tr("服务地址", "Endpoint"), text: $draft.endpoint, placeholder: "https://… / wss://…")
                                 field(tr("模型", "Model"), text: $draft.model, placeholder: "Model ID")
                                 SettingsNote(text: draft.provider == .qwenRealtime ?
-                                    tr("支持百炼业务空间地址和完整 Realtime WebSocket 地址。识别使用支持词表的 qwen3-asr-flash-realtime，自动识别语种；这里的模型用于自动整理。", "Accepts a Model Studio workspace base URL or full Realtime WebSocket URL. Recognition uses qwen3-asr-flash-realtime, which accepts a vocabulary and detects the language; the model here serves polishing.") :
+                                    tr("支持百炼业务空间地址和完整 Realtime WebSocket 地址。这里的 Omni 模型负责识别和自动整理：词表和领域提示写进它的系统提示词，语种自动识别。", "Accepts a Model Studio workspace base URL or full Realtime WebSocket URL. The Omni model here both recognises and polishes: the vocabulary and subject hint go into its system prompt, and the language is detected.") :
                                     tr("兼容 POST /audio/transcriptions，上传 WAV 并读取 JSON 的 text 字段。支持本机 HTTP 服务。", "Uses POST /audio/transcriptions with a WAV upload and the JSON text field. Local HTTP services are supported."))
                             }
                             HStack { Spacer(); Button(tr("保存配置", "Save settings"), action: commit).disabled(voice.state.active) }
@@ -149,7 +149,7 @@ struct SpeechSettings: View {
     }
     private var vocabularySettings: some View {
         SettingsCard(title: tr("词表与领域", "Vocabulary and subject")) {
-            Toggle(tr("内置软件开发词汇", "Built-in software development terms"), isOn: Binding(get: { draft.effectiveVocabulary.computing },
+            Toggle(tr("默认 AI 编程词表", "Default AI coding vocabulary"), isOn: Binding(get: { draft.effectiveVocabulary.computing },
                 set: { enabled in vocabulary { $0.computing = enabled }; commit() }))
             field(tr("领域提示", "Subject hint"), text: Binding(get: { draft.effectiveVocabulary.domain }, set: { text in vocabulary { $0.domain = text } }),
                   placeholder: tr("例如：新能源汽车、机器人、照顾婴儿", "e.g. electric vehicles, robotics, baby care"))
@@ -165,7 +165,7 @@ struct SpeechSettings: View {
                 Spacer()
                 Button(tr("保存词表", "Save vocabulary"), action: commit).disabled(voice.state.active)
             }
-            SettingsNote(text: tr("词表和领域提示会随每次听写发给所选语音服务，让识别偏向这些写法；自动整理也据此纠正同音错词。", "The vocabulary and subject hint are sent to the selected speech service with each dictation to bias recognition; polishing also uses them to repair misheard words."))
+            SettingsNote(text: tr("默认词表收录 \(SpeechVocabulary.defaultTerms.count) 个 AI 编程常用词：模型与编程工具、智能体概念、Git 和工程术语。词表和领域提示随每次听写发给所选语音服务，让识别偏向这些写法；自动整理也据此纠正同音错词。", "The default vocabulary holds \(SpeechVocabulary.defaultTerms.count) AI coding terms: models and coding tools, agent concepts, Git and engineering words. The vocabulary and subject hint are sent to the selected speech service with each dictation to bias recognition; polishing also uses them to repair misheard words."))
         }
     }
     private func vocabulary(_ change: (inout SpeechVocabulary) -> Void) {
