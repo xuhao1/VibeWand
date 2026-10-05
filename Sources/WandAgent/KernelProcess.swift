@@ -49,6 +49,40 @@ public enum KernelEvent: Equatable {
     }
 }
 
+/// What a session can be set to, as the runtime advertises it when the session opens.
+public struct KernelOptions: Equatable, Sendable {
+    public struct Model: Equatable, Sendable, Identifiable {
+        public var provider: String, model: String
+        /// The provider's and the model's display names.
+        public var group: String, name: String
+        public var id: String { provider + "/" + model }
+    }
+    /// Every model of every provider the runtime is set up with.
+    public var models: [Model] = []
+    /// The reasoning efforts the session's model offers. Empty when it has none to choose from.
+    public var efforts: [String] = []
+
+    public init() {}
+    init(_ options: JSONValue) {
+        for option in options.array ?? [] {
+            let choices = option["options"]?.array ?? []
+            switch option["category"]?.string {
+            case "model":
+                for group in choices {
+                    for choice in group["options"]?.array ?? [] {
+                        // The value is the route itself: a provider and a model, as a JSON pair.
+                        guard let pair = choice["value"]?.string.flatMap({ JSONValue(data: Data($0.utf8)) })?.array, pair.count == 2,
+                              let provider = pair[0].string, let model = pair[1].string else { continue }
+                        models.append(Model(provider: provider, model: model, group: group["name"]?.string ?? provider, name: choice["name"]?.string ?? model))
+                    }
+                }
+            case "thought_level": efforts = choices.compactMap { $0["value"]?.string }
+            default: break
+            }
+        }
+    }
+}
+
 /// One agent runtime process, driven over the Agent Client Protocol.
 /// The runtime is given no file or terminal capability; its only tools are the ones mounted per session.
 public final class KernelProcess {
@@ -93,14 +127,19 @@ public final class KernelProcess {
         ])
     }
 
-    public func openSession(directory: URL, relay: ToolRelay?) async throws -> String {
+    /// Opens a session and returns it with what can be chosen for it.
+    public func openSession(directory: URL, relay: ToolRelay?) async throws -> (id: String, options: KernelOptions) {
         let servers: [JSONValue] = relay.map { [[
             "name": .string($0.name), "command": .string($0.command),
             "args": .array($0.arguments.map(JSONValue.string)), "env": []
         ]] } ?? []
         let result = try await rpc.request("session/new", ["cwd": .string(directory.path), "mcpServers": .array(servers)])
         guard let session = result["sessionId"]?.string else { throw RPCError(code: 0, message: "The kernel returned no session") }
-        return session
+        return (session, KernelOptions(result["configOptions"] ?? []))
+    }
+
+    public func setOption(_ id: String, to value: String, session: String) async throws {
+        _ = try await rpc.request("session/set_config_option", ["sessionId": .string(session), "configId": .string(id), "value": .string(value)])
     }
 
     /// Runs one turn and returns the protocol's stop reason, such as `end_turn` or `cancelled`.

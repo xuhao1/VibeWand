@@ -1,0 +1,19 @@
+{
+  "name": "vibewand-coordinator",
+  "version": "0.9.0",
+  "private": true,
+  "description": "VibeWand's command-mode coordinator as a DeepSeek Harness bundle, for running it on a harness the user installed themselves: a model, a session and the Agent Client Protocol bridge, with no tools of its own.",
+  "license": "SEE LICENSE IN ../../LICENSE",
+  "engines": {
+    "dsh": "0.2.0-rc.2"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh": "0.2.0-rc.2"
+  },
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

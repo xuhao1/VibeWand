@@ -17,6 +17,8 @@ struct CommandSettingsPage: View {
     @State private var askingBypass = false
     @State private var showingHistory = false
     @State private var conversation = ""
+    /// What the installed harness says its version is; nil while it is being asked or when there is none.
+    @State private var harnessVersion: String?
 
     private static let disclosure = (
         "配置好模型后，这些内容会离开这台 Mac，发给你在下面选的模型服务：你说出的命令原话；应用、窗口和会话的标题，项目文件夹名；操作界面时前台窗口里控件上的文字。输入框和文档的内容、选中的文字不会发给它。",
@@ -33,6 +35,10 @@ struct CommandSettingsPage: View {
             }
         }
         .onAppear { draft = settings.model; notes = settings.instructions; conversation = conversationLine }
+        .task(id: settings.kernelMode) {
+            guard settings.kernelMode == .harness, let harness = settings.harness else { harnessVersion = nil; return }
+            harnessVersion = await command.version(of: harness)
+        }
         .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in conversation = conversationLine }
         .sheet(isPresented: $showingHistory) { CommandHistorySheet(command: command) }
         .alert(tr("跳过全部确认？", "Bypass all confirmations?"), isPresented: $askingBypass) {
@@ -55,6 +61,10 @@ struct CommandSettingsPage: View {
     private var readiness: (ready: Bool, text: String) {
         if !settings.enabled { return (false, tr("已关闭", "Turned off")) }
         if !Self.kernelReady { return (false, tr("此版本未包含命令内核", "This build does not include the command kernel")) }
+        if settings.kernelMode == .harness {
+            return settings.usable ? (true, tr("已就绪：经 DeepSeek Harness 使用 ", "Ready: through DeepSeek Harness, on ") + settings.modelName)
+                                   : (false, tr("没有找到已安装的 DeepSeek Harness", "No installed DeepSeek Harness found"))
+        }
         if settings.model.model.isEmpty { return (false, tr("还没有选模型", "No model chosen yet")) }
         if !settings.usable { return (false, tr("还没有保存这个地址的密钥", "No key saved for this address yet")) }
         return (true, tr("已就绪：", "Ready: ") + settings.model.model)
@@ -62,77 +72,139 @@ struct CommandSettingsPage: View {
 
     private var modelCard: some View {
         SettingsCard(title: tr("模型", "Model")) {
-            Picker(tr("服务", "Service"), selection: Binding(get: { draft.endpoint }, set: { draft = settings.configuration(for: $0); listed = []; listNote = ""; checked = nil; keyDraft = "" })) {
-                ForEach(CommandEndpoint.all) { Text($0.title).tag($0.id) }
+            Picker(tr("内核", "Kernel"), selection: Binding(get: { settings.kernelMode }, set: { settings.setKernelMode($0); checked = nil })) {
+                Text(tr("内置（VibeWand 自带）", "Built in (shipped with VibeWand)")).tag(CommandKernelMode.builtIn)
+                Text(tr("插件模式（用已安装的 DeepSeek Harness）", "Plugin mode (the DeepSeek Harness you installed)")).tag(CommandKernelMode.harness)
             }
-            if draft.endpoint == CommandEndpoint.custom {
-                field(tr("地址", "Address"), text: $draft.baseURL, placeholder: "https://example.com/v1")
-                Picker(tr("接口", "Protocol"), selection: $draft.wire) {
-                    Text("OpenAI Chat Completions").tag(ModelRoute.Wire.openAIChat)
-                    Text("OpenAI Responses").tag(ModelRoute.Wire.openAIResponses)
-                    Text("Anthropic Messages").tag(ModelRoute.Wire.anthropic)
-                }
-            } else {
-                Text(draft.baseURL).font(.system(size: 13, design: .monospaced)).foregroundStyle(.secondary).textSelection(.enabled)
-            }
-            Divider()
-            Label(keyState, systemImage: settings.keySaved(for: draft) ? "checkmark.shield" : "key").font(.system(size: 14, weight: .medium))
-            SecureField(tr("输入这个地址的 API Key", "Enter the API key for this address"), text: $keyDraft).textFieldStyle(.roundedBorder)
-            HStack {
-                Button(tr("保存密钥", "Save key")) { model.perform { try settings.setModel(draft); try settings.saveKey(keyDraft); keyDraft = "" } }
-                    .disabled(keyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                Button(tr("删除密钥", "Delete key")) { model.perform { try settings.setModel(draft); try settings.removeKey() } }.disabled(!settings.keySaved(for: draft))
-            }
-            SettingsNote(text: tr("密钥按地址保存在此 Mac 的钥匙串中，只在启动命令内核时交给它，换了地址不会带过去。费用由你在该服务的账户承担。",
-                                  "Keys are kept per address in this Mac's Keychain, handed to the command kernel only when it starts, and never carried to another address. Usage is billed to your account with that service."))
-            Divider()
-            VStack(alignment: .leading, spacing: 6) {
-                Text(tr("模型", "Model")).font(.system(size: 13, weight: .medium))
-                HStack {
-                    TextField(tr("模型 ID", "Model ID"), text: $draft.model).textFieldStyle(.roundedBorder)
-                    Menu(tr("选择", "Choose")) {
-                        ForEach(listed) { entry in
-                            Button(entry.name.map { "\($0)（\(entry.id)）" } ?? entry.id) {
-                                draft.model = entry.id
-                                if let window = entry.contextWindow { draft.contextWindow = window }
-                            }
-                        }
-                    }.disabled(listed.isEmpty).fixedSize()
-                    Button(tr("获取模型列表", "Fetch models"), action: fetchModels).disabled(busy || draft.origin == nil)
-                }
-                if !listNote.isEmpty { SettingsNote(text: listNote) }
-            }
-            HStack(spacing: 16) {
-                Picker(tr("思考强度", "Reasoning"), selection: $draft.reasoning) {
-                    Text(tr("模型默认", "Model default")).tag(ModelRoute.Reasoning.automatic)
-                    Text(tr("关闭", "Off")).tag(ModelRoute.Reasoning.off)
-                    Text(tr("低", "Low")).tag(ModelRoute.Reasoning.low)
-                    Text(tr("中", "Medium")).tag(ModelRoute.Reasoning.medium)
-                    Text(tr("高", "High")).tag(ModelRoute.Reasoning.high)
-                }.fixedSize()
-                Spacer(minLength: 0)
-                Text(tr("上下文长度", "Context length")).font(.system(size: 13))
-                TextField(tr("自动", "Automatic"), text: Binding(
-                    get: { draft.contextWindow > 0 ? String(draft.contextWindow) : "" },
-                    set: { draft.contextWindow = Int($0.filter(\.isNumber)) ?? 0 })).textFieldStyle(.roundedBorder).frame(width: 110)
-            }
-            SettingsNote(text: tr("思考强度选“模型默认”时不发送任何参数；选了档位而服务不认识时，测试会报错。上下文长度是模型能容纳的 token 数，从列表里选模型时会自动填上；留空由内核按 262144 计算。对话用到八成后，下一条命令自动开始新对话。",
-                                  "“Model default” sends no reasoning parameter; a level the service does not know shows up as an error when you test. Context length is how many tokens the model holds, filled in when you pick a model from the list; left empty, the kernel assumes 262144. Once a conversation has used four fifths of it, the next command starts a new one."))
-            DisclosureGroup(tr("附加参数（JSON）", "Extra settings (JSON)")) {
-                TextEditor(text: $draft.extra).font(.system(size: 12, design: .monospaced)).frame(height: 64)
-                    .overlay { RoundedRectangle(cornerRadius: 6).stroke(Color.primary.opacity(0.12)) }
-                SettingsNote(text: tr("写进内核里这个服务的配置，覆盖上面生成的同名项。例如本机 Qwen 关闭思考：{\"compat\": {\"thinkingFormat\": \"qwen-chat-template\"}}；自定义请求头：{\"headers\": {\"X-Title\": \"VibeWand\"}}。",
-                                      "Merged into the kernel's settings for this service, over the generated ones of the same name. For a local Qwen that should stop thinking: {\"compat\": {\"thinkingFormat\": \"qwen-chat-template\"}}; for extra request headers: {\"headers\": {\"X-Title\": \"VibeWand\"}}."))
-            }.font(.system(size: 13))
-            HStack {
-                Button(tr("保存配置", "Save settings")) { model.perform { try settings.setModel(draft); draft = settings.model } }.disabled(draft == settings.model)
-                Button(tr("保存并测试", "Save and test"), action: test).disabled(busy || draft.model.isEmpty || !Self.kernelReady)
-                if busy { ProgressView().controlSize(.small) }
-            }
+            if settings.kernelMode == .harness { harnessSettings } else { builtInSettings }
             if let checked {
                 Label(checked.detail, systemImage: checked.ok ? "checkmark.circle" : "xmark.octagon").font(.system(size: 13))
                     .foregroundStyle(checked.ok ? Color.green : Color.red).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
             }
+        }
+    }
+
+    /// Plugin mode: the user's own harness runs the coordinator. Its models and sign-ins are set up in its own apps.
+    @ViewBuilder private var harnessSettings: some View {
+        if let harness = settings.harness {
+            let verified = harnessVersion.map(HarnessPlugin.verified.contains) ?? true
+            Label(harnessVersion.map { "DeepSeek Harness \($0) · " + (verified ? tr("已验证", "verified") : tr("未验证", "not verified")) } ?? tr("正在询问 DeepSeek Harness 的版本…", "Asking DeepSeek Harness for its version…"),
+                  systemImage: verified ? "checkmark.seal" : "exclamationmark.triangle")
+                .font(.system(size: 14, weight: .medium)).foregroundStyle(verified ? Color.primary : Color.orange)
+            if !verified {
+                SettingsToggleRow(title: tr("仍然在这个未验证的版本上尝试", "Try this unverified version anyway"),
+                                  isOn: Binding(get: { settings.harnessUnverified }, set: { settings.setHarnessUnverified($0) }))
+                SettingsNote(text: tr("插件声明兼容的 DeepSeek Harness 版本是 \(HarnessPlugin.verified.joined(separator: "、"))，Harness 自己会拒绝在其他版本上加载它。打开这一项，VibeWand 会按 Harness 的规矩为“这个插件版本 + 这个 Harness 版本”登记一条例外；它可能出错，出错时改回内置内核。",
+                                      "The plugin declares DeepSeek Harness \(HarnessPlugin.verified.joined(separator: ", ")) as compatible, and the harness itself refuses to load it on any other. With this on, VibeWand records an exemption the way the harness does, for exactly this plugin version on this harness version. It may fail; switch back to the built-in kernel if it does."))
+            }
+            SettingsNote(text: tr("VibeWand 的协调器作为插件运行在你自己的 DeepSeek Harness 上：模型服务、密钥和登录都用它的，每段对话保存在它那里，可以在它的桌面版或网页版的“未分组”里打开，查看完整上下文。模型能调用的仍然只有 VibeWand 的 13 个工具。它会在 \(harness.home.path)/profiles/vibewand 里写入自己的配置，别的不动。",
+                                  "VibeWand's coordinator runs as a plugin on your own DeepSeek Harness: the model services, keys and sign-ins are its own, and each conversation is kept there, where its desktop or web app lists it under Ungrouped with its full context. The model can still call VibeWand's 13 tools and nothing else. VibeWand writes its own profile to \(harness.home.path)/profiles/vibewand and touches nothing else."))
+            Divider()
+            Picker(tr("模型", "Model"), selection: Binding(get: { settings.harnessModel }, set: { settings.setHarnessModel($0) })) {
+                Text(tr("跟随 Harness 的默认（\(harness.defaultModel.provider) / \(harness.defaultModel.model)）", "Follow the harness's default (\(harness.defaultModel.provider) / \(harness.defaultModel.model))")).tag(HarnessPlugin.Model?.none)
+                ForEach(harnessChoices, id: \.self) { Text("\($0.provider) / \($0.model)").tag(HarnessPlugin.Model?.some($0)) }
+            }
+            Picker(tr("思考强度", "Reasoning"), selection: Binding(get: { settings.harnessReasoning }, set: { settings.setHarnessReasoning($0) })) {
+                Text(tr("模型默认", "Model default")).tag(ModelRoute.Reasoning.automatic)
+                Text(tr("关闭", "Off")).tag(ModelRoute.Reasoning.off)
+                Text(tr("低", "Low")).tag(ModelRoute.Reasoning.low)
+                Text(tr("中", "Medium")).tag(ModelRoute.Reasoning.medium)
+                Text(tr("高", "High")).tag(ModelRoute.Reasoning.high)
+            }.fixedSize()
+            SettingsNote(text: tr("默认模型和可选的模型服务来自 Harness 的\(harness.source == "web" ? "网页版" : "桌面版")配置，每次开始对话时读取；在 Harness 里改了，下一段对话生效。“测试”之后这里会列出 Harness 里的全部模型。思考强度只在所选模型提供这一档时生效。",
+                                  "The default model and the services on offer come from the settings of the harness's \(harness.source == "web" ? "web" : "desktop") app, read each time a conversation starts; a change made there applies to the next conversation. After a test, every model of your harness is listed here. A reasoning level applies only when the chosen model offers it."))
+            HStack {
+                Button(tr("测试并列出模型", "Test and list models"), action: testHarness).disabled(busy)
+                Button(tr("打开 DeepSeek Harness", "Open DeepSeek Harness")) {
+                    if let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.deepseek.dsh") { NSWorkspace.shared.open(app) }
+                }.disabled(NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.deepseek.dsh") == nil)
+                if busy { ProgressView().controlSize(.small) }
+            }
+            SettingsNote(text: tr("每次测试会在 Harness 里留下一段很短的对话。", "Each test leaves one very short conversation in the harness."))
+        } else {
+            Label(tr("没有找到已安装的 DeepSeek Harness", "No installed DeepSeek Harness found"), systemImage: "exclamationmark.triangle")
+                .font(.system(size: 14, weight: .medium)).foregroundStyle(.orange)
+            SettingsNote(text: tr("插件模式需要你自己安装的 DeepSeek Harness 桌面版，或终端里的 dsh 命令。装好后回到这里，或改用内置内核。",
+                                  "Plugin mode needs a DeepSeek Harness you installed yourself: its desktop app, or the dsh command for the terminal. Come back here once it is installed, or use the built-in kernel."))
+        }
+    }
+    /// The harness's models as its last conversation listed them, with the saved choice kept in the list.
+    private var harnessChoices: [HarnessPlugin.Model] {
+        let listed = command.catalog.map { HarnessPlugin.Model(provider: $0.provider, model: $0.model) }
+        return (settings.harnessModel.map { [$0] } ?? []).filter { !listed.contains($0) } + listed
+    }
+    private func testHarness() {
+        busy = true; checked = nil
+        Task { checked = await command.probe(); busy = false }
+    }
+
+    @ViewBuilder private var builtInSettings: some View {
+        Picker(tr("服务", "Service"), selection: Binding(get: { draft.endpoint }, set: { draft = settings.configuration(for: $0); listed = []; listNote = ""; checked = nil; keyDraft = "" })) {
+            ForEach(CommandEndpoint.all) { Text($0.title).tag($0.id) }
+        }
+        if draft.endpoint == CommandEndpoint.custom {
+            field(tr("地址", "Address"), text: $draft.baseURL, placeholder: "https://example.com/v1")
+            Picker(tr("接口", "Protocol"), selection: $draft.wire) {
+                Text("OpenAI Chat Completions").tag(ModelRoute.Wire.openAIChat)
+                Text("OpenAI Responses").tag(ModelRoute.Wire.openAIResponses)
+                Text("Anthropic Messages").tag(ModelRoute.Wire.anthropic)
+            }
+        } else {
+            Text(draft.baseURL).font(.system(size: 13, design: .monospaced)).foregroundStyle(.secondary).textSelection(.enabled)
+        }
+        Divider()
+        Label(keyState, systemImage: settings.keySaved(for: draft) ? "checkmark.shield" : "key").font(.system(size: 14, weight: .medium))
+        SecureField(tr("输入这个地址的 API Key", "Enter the API key for this address"), text: $keyDraft).textFieldStyle(.roundedBorder)
+        HStack {
+            Button(tr("保存密钥", "Save key")) { model.perform { try settings.setModel(draft); try settings.saveKey(keyDraft); keyDraft = "" } }
+                .disabled(keyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            Button(tr("删除密钥", "Delete key")) { model.perform { try settings.setModel(draft); try settings.removeKey() } }.disabled(!settings.keySaved(for: draft))
+        }
+        SettingsNote(text: tr("密钥按地址保存在此 Mac 的钥匙串中，只在启动命令内核时交给它，换了地址不会带过去。费用由你在该服务的账户承担。",
+                              "Keys are kept per address in this Mac's Keychain, handed to the command kernel only when it starts, and never carried to another address. Usage is billed to your account with that service."))
+        Divider()
+        VStack(alignment: .leading, spacing: 6) {
+            Text(tr("模型", "Model")).font(.system(size: 13, weight: .medium))
+            HStack {
+                TextField(tr("模型 ID", "Model ID"), text: $draft.model).textFieldStyle(.roundedBorder)
+                Menu(tr("选择", "Choose")) {
+                    ForEach(listed) { entry in
+                        Button(entry.name.map { "\($0)（\(entry.id)）" } ?? entry.id) {
+                            draft.model = entry.id
+                            if let window = entry.contextWindow { draft.contextWindow = window }
+                        }
+                    }
+                }.disabled(listed.isEmpty).fixedSize()
+                Button(tr("获取模型列表", "Fetch models"), action: fetchModels).disabled(busy || draft.origin == nil)
+            }
+            if !listNote.isEmpty { SettingsNote(text: listNote) }
+        }
+        HStack(spacing: 16) {
+            Picker(tr("思考强度", "Reasoning"), selection: $draft.reasoning) {
+                Text(tr("模型默认", "Model default")).tag(ModelRoute.Reasoning.automatic)
+                Text(tr("关闭", "Off")).tag(ModelRoute.Reasoning.off)
+                Text(tr("低", "Low")).tag(ModelRoute.Reasoning.low)
+                Text(tr("中", "Medium")).tag(ModelRoute.Reasoning.medium)
+                Text(tr("高", "High")).tag(ModelRoute.Reasoning.high)
+            }.fixedSize()
+            Spacer(minLength: 0)
+            Text(tr("上下文长度", "Context length")).font(.system(size: 13))
+            TextField(tr("自动", "Automatic"), text: Binding(
+                get: { draft.contextWindow > 0 ? String(draft.contextWindow) : "" },
+                set: { draft.contextWindow = Int($0.filter(\.isNumber)) ?? 0 })).textFieldStyle(.roundedBorder).frame(width: 110)
+        }
+        SettingsNote(text: tr("思考强度选“模型默认”时不发送任何参数；选了档位而服务不认识时，测试会报错。上下文长度是模型能容纳的 token 数，从列表里选模型时会自动填上；留空由内核按 262144 计算。对话用到八成后，下一条命令自动开始新对话。",
+                              "“Model default” sends no reasoning parameter; a level the service does not know shows up as an error when you test. Context length is how many tokens the model holds, filled in when you pick a model from the list; left empty, the kernel assumes 262144. Once a conversation has used four fifths of it, the next command starts a new one."))
+        DisclosureGroup(tr("附加参数（JSON）", "Extra settings (JSON)")) {
+            TextEditor(text: $draft.extra).font(.system(size: 12, design: .monospaced)).frame(height: 64)
+                .overlay { RoundedRectangle(cornerRadius: 6).stroke(Color.primary.opacity(0.12)) }
+            SettingsNote(text: tr("写进内核里这个服务的配置，覆盖上面生成的同名项。例如本机 Qwen 关闭思考：{\"compat\": {\"thinkingFormat\": \"qwen-chat-template\"}}；自定义请求头：{\"headers\": {\"X-Title\": \"VibeWand\"}}。",
+                                  "Merged into the kernel's settings for this service, over the generated ones of the same name. For a local Qwen that should stop thinking: {\"compat\": {\"thinkingFormat\": \"qwen-chat-template\"}}; for extra request headers: {\"headers\": {\"X-Title\": \"VibeWand\"}}."))
+        }.font(.system(size: 13))
+        HStack {
+            Button(tr("保存配置", "Save settings")) { model.perform { try settings.setModel(draft); draft = settings.model } }.disabled(draft == settings.model)
+            Button(tr("保存并测试", "Save and test"), action: test).disabled(busy || draft.model.isEmpty || !Self.kernelReady)
+            if busy { ProgressView().controlSize(.small) }
         }
     }
     private var keyState: String {

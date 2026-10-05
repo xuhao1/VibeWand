@@ -4,11 +4,15 @@
 
 Hold the command key and say what you want. When you release it, VibeWand finds the app, chat or control for you. It finds, opens, presses and puts text in place; the work itself is still done by the software you chose.
 
-**Ships in 0.8.5. Needs macOS 26.**
+**Ships in 0.9.0. Needs macOS 26.**
 
 ## Set up a model
 
-Command mode is on by default, and does nothing until a model is set up: the command key is inert, the device's keys keep what they did, and nothing leaves this Mac. Under Settings → Command mode → Model:
+Command mode is on by default, and does nothing until a model is set up: the command key is inert, the device's keys keep what they did, and nothing leaves this Mac.
+
+Settings → Command mode → Model starts with the kernel. **Built in** is the one VibeWand ships, with its model set up on that page as described here. **Plugin mode** uses the DeepSeek Harness you installed yourself, with the model set up there; see [Plugin mode](#plugin-mode).
+
+For the built-in kernel:
 
 1. **Pick a service.** DeepSeek, OpenAI, Anthropic, OpenRouter, Google Gemini, Alibaba Model Studio, Moonshot, Zhipu, Volcengine Ark and SiliconFlow are built in, as are Ollama, LM Studio and oMLX on this Mac. For anything else choose Custom address, type the address and pick the protocol: OpenAI Chat Completions, OpenAI Responses or Anthropic Messages.
 2. **Save the API key for that address.** It is kept in this Mac's Keychain per address and never carried to another one; the command kernel is handed it only when it starts. Usage is billed to your account with that service. A server on this Mac and a custom address may need none.
@@ -28,14 +32,37 @@ Of the built-in services, only DeepSeek has been run with a real key, once over 
 
 A command is recognised by the built-in recogniser: macOS dictation, or the speech API configured under Voice input. Whether you dictate through an external input method makes no difference to it, and it is always taken down verbatim, without polishing.
 
+## Plugin mode
+
+Swap the kernel for the DeepSeek Harness you installed yourself: VibeWand's coordinator then runs as one of its plugins. What that gives you:
+
+- **Conversations are read in the harness.** Each one is kept in the harness's own session store and listed in the sidebar of its desktop or web app under Ungrouped, titled with the words of the command. Opened, it shows the whole context: the system prompt, every turn, every tool call, usage and how full the context is.
+- **Models are set up in the harness.** The model services, API keys and account sign-ins, OAuth included, are the harness's own, and VibeWand stores no key. It starts on the default model your harness is set to; after “Test and list models” you can pick any other model your harness serves.
+
+To turn it on, choose Plugin mode under Settings → Command mode → Model → Kernel. It needs the DeepSeek Harness desktop app installed, or the `dsh` command for the terminal (under Homebrew or `~/.local/bin`).
+
+**Compatibility.** DeepSeek Harness is still in preview and its interfaces change often, so the plugin states the versions it has been verified on, and the harness itself refuses to load it on any other:
+
+| VibeWand | Plugin | Verified DeepSeek Harness |
+| --- | --- | --- |
+| 0.9.0 | `vibewand-coordinator` 0.9.0 | 0.2.0-rc.2 (the runtime carried by the desktop app) |
+
+The settings page shows the version it found and whether it is verified. On a version outside the table a command does not run and says why. You can turn on “Try this unverified version anyway”, and VibeWand then records an exemption the way the harness does, for exactly this plugin version on this harness version. It may fail; switch back to the built-in kernel if it does. The desktop app updates itself, so meeting this after an update is to be expected.
+
+**What it does in the harness.** It writes to one place, `~/.dsh/profiles/vibewand/`: a profile that points at the plugin, rewritten each time a conversation starts. The model rows (`llm-pi-ai`, `llm-deepseek`, `llm-deepseek-account`) are copied as they stand from your desktop app's settings, or the web app's when there are none, so a model changed in the harness is in force for the next conversation; your interface settings and any plugin you inserted yourself are not carried over. Conversations go into the harness's session store, which is the point of this mode. VibeWand does not change the harness's credentials file, other settings or existing sessions; the running harness process keeps its own data as usual, refreshing sign-in tokens and updating its session index.
+
+**What stays the same.** The model can still call VibeWand's 13 tools and nothing else; the harness's own shell, file and web tools are not among them. Permission modes, the overlay, Agent records, how long a conversation is kept and the limits all work as before. A reasoning level applies only when the chosen model offers it. Context length, extra settings and the rest of “Set up a model” above apply to the built-in kernel only.
+
+**Worth knowing.** Each test leaves one very short conversation in the harness. “Clear all records” clears VibeWand's own records; conversations in the harness are deleted in the harness.
+
 ## Permission
 
 Settings → Command mode → Permission decides how much it asks before it acts:
 
 | Mode | What happens |
 | --- | --- |
-| Ask every time (default) | Switching apps, opening a chat, pressing a control, sending keys and typing each show on the overlay what is about to happen and wait for your confirm key. Reading the window and searching do not |
-| Ask when risky | Navigation and typing run at once. Buttons and menu items whose name contains delete, discard, don't save, send, submit, pay and the like, Return in a multi-line field, and ⌘Return, ⌘⌫ and ⌘Q wait for you every time |
+| Ask every time | Switching apps, opening a chat, pressing a control, sending keys and typing each show on the overlay what is about to happen and wait for your confirm key. Reading the window and searching do not |
+| Ask when risky (default) | Navigation and typing run at once. Buttons and menu items whose name contains delete, discard, don't save, send, submit, pay and the like, Return in a multi-line field, and ⌘Return, ⌘⌫ and ⌘Q wait for you every time |
 | Bypass all | Nothing is asked, deleting, sending and submitting included. When the model picks the wrong control or mishears you, those happen too |
 
 In every mode the back key stops at any moment, a choice between several candidates is still yours, and once you move to another app what follows is dropped.
@@ -119,9 +146,11 @@ With command mode off, or no model set up, VibeWand behaves as before, reads non
 
 **The kernel.** Command mode ships DeepSeek Harness as its kernel, reduced to a model, a session and the tools VibeWand provides: none of its own shell, file, web, skill or subagent tools, and without the two components that attach the session log and the plugin list to model requests. The model service is reached through its own multi-provider component; VibeWand hands it the address, model and settings at start, and the key lives only in its process environment, never on disk. It uses a folder of its own, does not touch a DeepSeek Harness you run yourself, and does not use the accounts you signed in to there. It creates a random installation identifier in that folder and sends it with model requests; clearing the records replaces it.
 
+**In plugin mode** the same content goes to the model service you chose in the harness, sent by your own harness with the key or sign-in it holds, and the conversation is also kept in the harness's session store. What VibeWand gives the harness is the same tree of a model, a session and VibeWand's tools, without the harness's telemetry and session-log reporting components.
+
 ## What has been verified
 
-On 2026-10-05 it was run against real apps in two rounds, with every result read back from the app; see the [acceptance record](command-acceptance.md):
+Between 2026-10-05 and 10-06 it was run against real apps in three rounds, with every result read back from the app; see the [acceptance record](command-acceptance.md):
 
 - **TextEdit:** typing; a Return that needs confirmation, confirmed once and refused once; a menu item; opening an app by its Chinese name and switching back.
 - **Permission modes:** under Ask every time, typing is asked about first, goes into the document when confirmed and stays out when declined; under Bypass all, Return runs without a question.
@@ -129,6 +158,7 @@ On 2026-10-05 it was run against real apps in two rounds, with every result read
 - **Codex:** opening a chat by title, with the link landing on the chat it names; asking when several fit; falling back to the `⌘K` search when the list has no match; pressing the window's Back button.
 - **Claude and Feishu:** opening the search with the keywords in it, then picking with the dial and closing with the back button.
 - **Keyboard:** right ⌘ held on its own starts listening; while a question waits, the arrows and Return answer it and do not reach the app in front.
+- **Plugin mode:** the DeepSeek Harness 0.2.0-rc.2 installed on the test Mac (the desktop app's runtime) loaded the plugin, typed into a real TextEdit window and switched apps, and kept the conversation in its session store; such a conversation was opened in the harness's standard web interface, which showed its content, usage and context trajectory; a plugin declaring another version was refused by the harness. All of this ran in a harness home of the test's own, on DeepSeek's model.
 
 Worth knowing in use:
 
@@ -138,6 +168,8 @@ Worth knowing in use:
 - **Not every service takes a reasoning level.** When one is chosen and the service refuses it, Save and test reports the error; go back to Model default, or spell out the service's format under Extra settings.
 
 Not verified: the whole experience with a microphone and a human voice (the runs replayed transcripts); physical keys (the keyboard key was a synthetic event); the app's own settings page and overlay as they look while running (only off-screen renders were checked); model services other than DeepSeek, and local models; searches aimed at DeepSeek Harness, WorkBuddy and WeChat; keys, menus and typing in VS Code.
+
+Not verified for plugin mode in particular: running on a real `~/.dsh` (the model services in the test Mac's own settings were only checked to be carried over and listed; no model was called with the keys there); model services signed in to with OAuth or a DeepSeek account; the desktop app's own window (the web app, which is the same interface, was looked at); a `dsh` installed for the terminal; any version other than 0.2.0-rc.2.
 
 ## Not implemented yet
 

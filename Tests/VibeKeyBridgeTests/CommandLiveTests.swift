@@ -33,6 +33,49 @@ final class CommandLiveTests: XCTestCase {
         return try await KernelSession.open(try install.launch(home: home, route: route))
     }
 
+    /// The DeepSeek Harness installed on this Mac, given a home inside the test's own folder so that the user's is
+    /// never touched. Its "desktop" profile has one model row of the kind the harness's apps write.
+    private static func harness(in support: URL) throws -> HarnessPlugin {
+        let repository = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let app = URL(fileURLWithPath: environment["VIBEWAND_HARNESS_APP"] ?? "/Applications/DeepSeek Harness.app")
+        guard let plugin = HarnessPlugin.locate(desktopApp: app, bundle: repository.appendingPathComponent("kernel/plugin"),
+                                                home: support.appendingPathComponent("dsh")) else {
+            throw stopped("DeepSeek Harness is not installed; plugin mode has nothing to run on")
+        }
+        let desktop = plugin.home.appendingPathComponent("profiles/desktop")
+        try FileManager.default.createDirectory(at: desktop, withIntermediateDirectories: true)
+        try """
+            - id: llm-pi-ai
+              name: "@deepseek-ai/dsh-llm-pi-ai"
+              config:
+                providers:
+                  wand-test:
+                    api: openai-completions
+                    baseURL: https://api.deepseek.com
+                    apiKeyEnv: WAND_TEST_API_KEY
+                    models:
+                      - id: deepseek-flash
+                        name: deepseek-flash
+            - id: agent-default-model
+              name: "@deepseek-ai/dsh-agent-default-model"
+              config:
+                provider: wand-test
+                model: deepseek-flash
+
+            """.write(to: desktop.appendingPathComponent("cordis.patch.yml"), atomically: true, encoding: .utf8)
+        return plugin
+    }
+    /// As the app starts the coordinator on a harness, except that the test's key travels in the environment:
+    /// in use the harness finds its keys in its own home.
+    private static func kernel(on plugin: HarnessPlugin, support: URL) async throws -> KernelSession {
+        guard let key = environment["DEEPSEEK_VIBEWAND_DEV"], !key.isEmpty, let version = await plugin.version() else {
+            throw stopped("Set DEEPSEEK_VIBEWAND_DEV, and check that the installed DeepSeek Harness starts")
+        }
+        var launch = try plugin.launch(version: version, allowUnverified: false, support: support.appendingPathComponent("harness"), model: nil)
+        launch.environment["WAND_TEST_API_KEY"] = key
+        return try await KernelSession.open(launch)
+    }
+
     // MARK: Reading the desktop
 
     private static func attribute(_ node: AXUIElement, _ name: String) -> CFTypeRef? {
@@ -120,25 +163,37 @@ final class CommandLiveTests: XCTestCase {
         private let words: Words
         private let support: URL
         private let suite: String
+        /// The harness this bench runs on in plugin mode, with its home inside the bench's folder.
+        let plugin: HarnessPlugin?
         private var previous: NSRunningApplication?
 
-        init(scripted: ScriptedKernel? = nil, permission: PermissionMode = .risky) throws {
+        /// `harness` runs the coordinator as a plugin of the DeepSeek Harness installed on this Mac, and
+        /// `production` leaves the app's own way of starting a kernel in place.
+        init(scripted: ScriptedKernel? = nil, permission: PermissionMode = .risky, harness: Bool = false, production: Bool = false) throws {
             let words = Words(), suite = "VibeWand.CommandLive.\(UUID().uuidString)"
             let support = FileManager.default.temporaryDirectory.appendingPathComponent("vw-command-live-\(UUID().uuidString)")
             try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
             guard let defaults = UserDefaults(suiteName: suite) else { throw stopped("No preferences for the test") }
             let voice = VoiceInputController(preferences: SpeechPreferences(defaults: defaults),
                                              engineFactory: { _ in TranscriptReplayEngine(previews: [words.text]) })
-            let settings = CommandSettings(defaults: defaults, credentials: KeyOnFile())
+            let plugin = harness ? try CommandLiveTests.harness(in: support) : nil
+            let settings = CommandSettings(defaults: defaults, credentials: KeyOnFile(), harness: { plugin })
             settings.setPermission(permission)
+            if harness { settings.setKernelMode(.harness) }
             let templates = DeviceTemplateStore(defaults: defaults)
             runtime = BridgeRuntime(source: UnconfiguredHIDSource(template: templates.selectedTemplate), templates: templates,
                                     sourceFactory: { _, id in UnconfiguredHIDSource(template: id.template) }, voiceInput: voice) {
                 let command = CommandController(settings: settings, tools: CommandTools(adapter: $0), voice: $1, support: support)
-                command.openKernel = { if let scripted { return scripted }; return try await kernel(home: support.appendingPathComponent("kernel")) }
+                if !production {
+                    command.openKernel = {
+                        if let scripted { return scripted }
+                        if let plugin { return try await kernel(on: plugin, support: support) }
+                        return try await kernel(home: support.appendingPathComponent("kernel"))
+                    }
+                }
                 return command
             }
-            self.words = words; self.support = support; self.suite = suite
+            self.words = words; self.support = support; self.suite = suite; self.plugin = plugin
             runtime.start(demo: false)
         }
 
@@ -309,6 +364,63 @@ final class CommandLiveTests: XCTestCase {
         XCTAssertTrue(checked.ok, checked.detail)
         XCTAssertTrue(checked.detail.contains("262.1k"), checked.detail)
         XCTAssertEqual(bench.runtime.command.turns, 0)
+    }
+
+    /// Plugin mode as the app starts it, on the DeepSeek Harness installed on this Mac with a home of the test's
+    /// own. No key is given, so the model cannot answer; everything before that is the app's own path: asking the
+    /// harness its version, writing the profile, loading the bundle and opening a conversation.
+    @MainActor
+    func testLivePluginModeStartsOnTheInstalledHarness() async throws {
+        let listed = (Self.environment["VIBEWAND_COMMAND_LIVE"] ?? "").split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+        guard listed.contains("plugin-start") else { throw XCTSkip("Requires explicitly enabled live command acceptance: plugin-start") }
+        let bench = try Bench(harness: true, production: true)
+        defer { bench.leave() }
+        let plugin = try XCTUnwrap(bench.plugin)
+        XCTAssertTrue(bench.runtime.command.settings.active)
+        let checked = await bench.runtime.command.probe()
+        Self.report("plugin mode start → \(checked.ok): \(checked.detail)")
+        XCTAssertFalse(checked.ok)
+        XCTAssertTrue(checked.detail.contains("WAND_TEST_API_KEY"), "the harness got as far as asking for the model's key: \(checked.detail)")
+        // The conversation opened, so the harness said what it serves: the profile's own route beside its DeepSeek one.
+        let served = bench.runtime.command.catalog.map(\.id)
+        Self.report("the harness serves \(served)")
+        XCTAssertTrue(served.contains("wand-test/deepseek-flash") && served.contains { $0.hasPrefix("deepseek-official/") }, "\(served)")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: plugin.home.appendingPathComponent("profiles/vibewand/package.json").path))
+        XCTAssertEqual(bench.runtime.command.settings.modelName, "deepseek-flash")
+    }
+
+    /// Plugin mode against a real window: the installed harness runs the coordinator and the same tools act.
+    @MainActor
+    func testLivePluginModeOperatesARealWindow() async throws {
+        try Self.enabled("plugin")
+        let bench = try Bench(harness: true)
+        defer { bench.leave() }
+        let plugin = try XCTUnwrap(bench.plugin)
+        let (window, _) = try await document(bench)
+        defer { window.close() }
+
+        var spoken = try await bench.say("输入 hello from the harness")
+        XCTAssertEqual(spoken.hud.phase, .done)
+        XCTAssertTrue(spoken.calls.contains("ui_type"), "\(spoken.calls)")
+        try await bench.wait("the words in the document") { window.text.contains("hello from the harness") }
+        Self.report("overlay detail: \(spoken.hud.detail)")
+        XCTAssertTrue(spoken.hud.detail.hasPrefix("deepseek-flash") && spoken.hud.detail.contains("%"), spoken.hud.detail)
+
+        let calculator = "com.apple.calculator"
+        let launched = NSRunningApplication.runningApplications(withBundleIdentifier: calculator).isEmpty
+        defer { if launched { NSRunningApplication.runningApplications(withBundleIdentifier: calculator).first?.terminate() } }
+        spoken = try await bench.say("打开计算器")
+        try await bench.wait("Calculator in front") { Self.frontBundle() == calculator }
+        spoken = try await bench.say("切回文本编辑")
+        try await bench.wait("the document back in front") { window.owned }
+
+        // The three commands are one conversation, kept in the harness's own store under the folder named VibeWand.
+        let store = plugin.home.appendingPathComponent("sessions")
+        let folders = try FileManager.default.contentsOfDirectory(atPath: store.path)
+        XCTAssertEqual(folders.count, 1, "\(folders)")
+        XCTAssertTrue(folders[0].hasSuffix("-harness-VibeWand--"), folders[0])
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: store.appendingPathComponent(folders[0]).path).count, 1)
+        try await bench.hold()
     }
 
     /// The permission modes with a real model: every step put to the user, then nothing asked at all.

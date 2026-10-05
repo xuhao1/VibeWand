@@ -28,14 +28,15 @@ final class CatalogTests: XCTestCase {
         }
     }
 
-    func testTaskPromptCarriesTheWordsUnchangedAfterTheirContext() {
+    func testTaskPromptLeadsWithTheWordsUnchangedThenTheirContext() {
         let prompt = CoordinatorPrompt.task("把这段报错交给 Codex，先不要改代码", frontApp: "Visual Studio Code",
                                            window: "Runtime.swift — VibeWand", now: Date(timeIntervalSince1970: 1_791_186_000))
         let lines = prompt.split(separator: "\n").map(String.init)
         XCTAssertEqual(lines.count, 3)
-        XCTAssertTrue(lines[0].hasPrefix("Now: 2026-10-0"))
-        XCTAssertEqual(lines[1], "The user was in: Visual Studio Code, window \"Runtime.swift — VibeWand\"")
-        XCTAssertEqual(lines[2], "Command: 把这段报错交给 Codex，先不要改代码")
+        // A runtime titles a conversation from its opening words, so the command is what a list of them shows.
+        XCTAssertEqual(lines[0], "Command: 把这段报错交给 Codex，先不要改代码")
+        XCTAssertTrue(lines[1].hasPrefix("Now: 2026-10-0"))
+        XCTAssertEqual(lines[2], "The user was in: Visual Studio Code, window \"Runtime.swift — VibeWand\"")
         XCTAssertEqual(CoordinatorPrompt.task("停", frontApp: "", window: "").split(separator: "\n").count, 2)
     }
 

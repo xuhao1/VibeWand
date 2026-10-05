@@ -2,9 +2,9 @@
 
 [Documentation / 文档目录](README.md) · [Contributing / 贡献说明](../CONTRIBUTING.md)
 
-Use an Apple Silicon Mac with full Xcode 26 or later (macOS 26+ SDK) and Homebrew Opus for the bundled application. The source and the published 0.8.5 package target macOS 26; 0.8.4 was the last package for macOS 13+. See [Getting started](getting-started.en.md) / [快速开始](getting-started.md) to build the application bundle.
+Use an Apple Silicon Mac with full Xcode 26 or later (macOS 26+ SDK) and Homebrew Opus for the bundled application. The source and the published 0.9.0 package target macOS 26; 0.8.4 was the last package for macOS 13+. See [Getting started](getting-started.en.md) / [快速开始](getting-started.md) to build the application bundle.
 
-打包环境需要 Apple Silicon Mac、完整 Xcode 26+（macOS 26+ SDK）及 Homebrew Opus。源码和已发布的 0.8.5 安装包的最低系统都是 macOS 26；0.8.4 是最后一个支持 macOS 13 以上的安装包。
+打包环境需要 Apple Silicon Mac、完整 Xcode 26+（macOS 26+ SDK）及 Homebrew Opus。源码和已发布的 0.9.0 安装包的最低系统都是 macOS 26；0.8.4 是最后一个支持 macOS 13 以上的安装包。
 
 ## Build from source / 从源码编译
 
@@ -21,9 +21,9 @@ The script compiles a release build, copies the icon, device images and license 
 
 脚本完成 Release 编译、素材与许可证打包和签名，生成 **`dist/VibeWand.app`**。在 Finder 中打开，或复制到「应用程序」后双击；设置、演示、采集与诊断均通过图形界面操作。
 
-The default build targets the build Mac's architecture. The published 0.8.5 package is **arm64 / Apple Silicon**, requires macOS 26+, uses ad-hoc signing, and is not Apple-notarized. The bundled microphone-helper build currently targets arm64, so this packaging flow does not support Intel.
+The default build targets the build Mac's architecture. The published 0.9.0 package is **arm64 / Apple Silicon**, requires macOS 26+, uses ad-hoc signing, and is not Apple-notarized. The bundled microphone-helper build currently targets arm64, so this packaging flow does not support Intel.
 
-默认编译面向构建机器的架构。已发布 0.8.5 为 **arm64 / Apple Silicon**，要求 macOS 26+，临时签名且未公证；当前麦克风组件固定编译为 arm64，此打包流程不支持 Intel。
+默认编译面向构建机器的架构。已发布 0.9.0 为 **arm64 / Apple Silicon**，要求 macOS 26+，临时签名且未公证；当前麦克风组件固定编译为 arm64，此打包流程不支持 Intel。
 
 ## Command kernel / 命令内核
 
@@ -45,6 +45,10 @@ Whether a tool call waits for the user is decided in `Gateway` from the permissi
 
 一次工具调用要不要等用户，由 `Gateway` 按权限档位（`PermissionMode`）决定：每个有改动的调用都问、只问宿主判定有风险的、或都不问。问题的措辞和“什么算有风险”在宿主一侧（`CommandTools.confirm`）。
 
+**Plugin mode** runs the same coordinator on a DeepSeek Harness the user installed. `kernel/plugin` is a harness bundle: a manifest and one patch file holding the complete tree, with the rows named as the harness's base bundle names them. It is copied into the app as `Contents/Resources/harness-plugin`. `HarnessPlugin` finds the harness's `dsh` command, asks it for its version, writes the profile `vibewand` into the harness's home (a manifest naming the bundle, a link to it, and the model rows copied from the user's own profile), and starts `dsh --profile vibewand` with that home. The manifest's `peerDependencies` on `@deepseek-ai/dsh` and its `engines.dsh` declare the versions in `HarnessPlugin.verified`; the harness enforces the first. To add a version: run `KernelLiveTests` and the `plugin` scenarios below against that harness, then add it to `HarnessPlugin.verified` and to both fields of `kernel/plugin/package.json` as an `a || b` range. A unit test fails when the three disagree or when the bundle mounts a package that is not listed there.
+
+**插件模式**把同一个协调器跑在用户自己安装的 DeepSeek Harness 上。`kernel/plugin` 是一个 Harness bundle：一份清单和一个补丁文件，补丁就是完整的组件树，各行沿用 Harness 基础 bundle 的 id。它随应用复制到 `Contents/Resources/harness-plugin`。`HarnessPlugin` 找到 Harness 的 `dsh` 命令、询问版本、把 `vibewand` 这个 profile 写进 Harness 的目录（一份指向 bundle 的清单、一个指向它的链接，以及从用户自己的 profile 抄来的模型行），再用该目录启动 `dsh --profile vibewand`。清单里对 `@deepseek-ai/dsh` 的 `peerDependencies` 和 `engines.dsh` 声明的就是 `HarnessPlugin.verified` 里的版本，前者由 Harness 强制执行。新增一个版本：先用那个 Harness 跑通 `KernelLiveTests` 和下面的 `plugin` 场景，再把它加进 `HarnessPlugin.verified`，并以 `a || b` 的范围写进 `kernel/plugin/package.json` 的两个字段。三处不一致，或 bundle 挂了清单之外的包，单元测试会失败。
+
 To change the kernel version, edit `kernel/package.json` and the launcher pin in `scripts/build-kernel.sh`, then refresh the lock with `npm install --package-lock-only --ignore-scripts` in `kernel/`. The profile test in `Tests/WandAgentTests` fails if a package is added to the tree without being listed there.
 
 更换内核版本时，修改 `kernel/package.json` 和 `scripts/build-kernel.sh` 里的启动器版本与摘要，再在 `kernel/` 中用 `npm install --package-lock-only --ignore-scripts` 刷新锁文件。`Tests/WandAgentTests` 里的 profile 测试会在插件树多出未登记的包时失败。
@@ -59,9 +63,9 @@ For behavior changes, run the test suite with the same Xcode toolchain:
 swift test
 ```
 
-Command mode is tested with a scripted kernel and never touches another app. One opt-in suite drives a real kernel and a real model with a stand-in for the desktop; it needs a key in the environment and an assembled kernel. It reaches DeepSeek over both its OpenAI-compatible and Anthropic-compatible protocols, and checks that a wrong key is reported in the service's words:
+Command mode is tested with a scripted kernel and never touches another app. One opt-in suite drives a real kernel and a real model with a stand-in for the desktop; it needs a key in the environment and an assembled kernel. It reaches DeepSeek over both its OpenAI-compatible and Anthropic-compatible protocols, and checks that a wrong key is reported in the service's words. With DeepSeek Harness installed it also runs plugin mode on it, in a harness home of the test's own (`VIBEWAND_HARNESS_APP` names the app when it is not in /Applications; `VIBEWAND_HARNESS_SETTINGS=<a profile's cordis.patch.yml>` additionally checks that the model rows of that file compose, reading it only):
 
-命令模式用脚本内核测试，不触碰其他应用。另有一组需要显式启用的测试，用真实内核和真实模型、以假的桌面宿主运行；它需要环境变量里的密钥和已组装的内核。它分别经 DeepSeek 的 OpenAI 兼容和 Anthropic 兼容接口运行，并检查密钥错误时报出的是服务的原话：
+命令模式用脚本内核测试，不触碰其他应用。另有一组需要显式启用的测试，用真实内核和真实模型、以假的桌面宿主运行；它需要环境变量里的密钥和已组装的内核。它分别经 DeepSeek 的 OpenAI 兼容和 Anthropic 兼容接口运行，并检查密钥错误时报出的是服务的原话。本机装有 DeepSeek Harness 时，它还会在测试自己的 Harness 目录里跑插件模式（应用不在 /Applications 时用 `VIBEWAND_HARNESS_APP` 指明；`VIBEWAND_HARNESS_SETTINGS=<某个 profile 的 cordis.patch.yml>` 另外检查该文件里的模型行能否组合，只读不写）：
 
 ```sh
 bash scripts/build-kernel.sh
@@ -80,6 +84,8 @@ VIBEWAND_COMMAND_LIVE=textedit,keyboard,code,codex,search-claude DEEPSEEK_VIBEWA
 | --- | --- | --- |
 | `textedit` | — | Typing, a confirmed and a refused Return, a menu item, switching apps / 输入、确认与拒绝的回车、菜单项、切换应用 |
 | `permission` | — | Ask every time: typing asked about, confirmed and declined; Bypass all: Return without a question; the overlay's context line / 每步确认下输入先问，确认与拒绝各一次；跳过全部确认下回车不问；悬浮窗的上下文一行 |
+| `plugin` | DeepSeek Harness installed / 已安装 | Plugin mode in a real window: typing and switching apps on the installed harness, the conversation kept in its store / 插件模式操作真实窗口：在已安装的 Harness 上输入、切换应用，对话存进它的会话库 |
+| `plugin-start`, `probe` | `plugin-start`: DeepSeek Harness | The app's own way of starting plugin mode, without a key, and the model check behind “Save and test”; no window / 应用自己启动插件模式的路径（不带密钥），以及“保存并测试”背后的模型检查；不开窗口 |
 | `keyboard` | — | The keyboard command key, answering with arrows and Return; no model / 键盘命令键与方向键、回车作答；不用模型 |
 | `code` | Visual Studio Code | Reading tabs and pressing one by name; the test offers the model no keys or typing there / 读取并按下标签页；测试在这里不给模型按键和输入 |
 | `codex` | Codex running / 运行中 | Opening a chat by its link, the window's Back button / 用链接打开会话、窗口的后退按钮 |

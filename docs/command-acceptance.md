@@ -79,6 +79,30 @@ Not run again in this round: the Codex choice among several chats, the `⌘K` fa
 
 这一轮没有复测：Codex 里几个会话都像时的提问、`⌘K` 回退，以及 Claude 和飞书的搜索。除了“在哪里询问确认”之外，它们用到的工具没有改动。
 
+## Third round, for 0.9.0: plugin mode / 第三轮：0.9.0 的插件模式
+
+On 2026-10-06 the coordinator was given a second way to run: as a plugin of a DeepSeek Harness the user installed, instead of the kernel VibeWand ships. The harness was the one installed on the test Mac, **DeepSeek Harness desktop 0.2.0-rc.2**, started through the `dsh` command its app carries. Every run used a harness home of the test's own, never `~/.dsh`; its “desktop” profile held one model row of the kind the harness's apps write, reaching DeepSeek's `deepseek-flash`.
+
+2026-10-06，协调器多了一种运行方式：作为用户已安装的 DeepSeek Harness 的插件，而不是 VibeWand 自带的内核。Harness 是测试机上装的 **DeepSeek Harness 桌面版 0.2.0-rc.2**，经它应用内自带的 `dsh` 命令启动。每次运行用的都是测试自己的 Harness 目录，从不使用 `~/.dsh`；其中的“desktop”配置里有一行模型服务，写法与 Harness 自己的应用相同，指向 DeepSeek 的 `deepseek-flash`。
+
+| What was run / 跑了什么 | Result / 结果 |
+| --- | --- |
+| 输入 hello from the harness (TextEdit) | `ui_type`; the words are in the document. The overlay's line read `deepseek-flash · 上下文 2.5k/262.1k · 0% · 2 步` / 文档里有这句话；悬浮窗最下一行如左 |
+| 打开计算器, 切回文本编辑 | `activate_app`; Calculator in front, then the document again / 计算器到前台，再回到文档 |
+| Where the conversation went / 对话去了哪里 | One conversation for the three commands, in the harness's own session store under the folder named `VibeWand`, with a row in its session index / 三条命令是一段对话，存在 Harness 自己的会话库里名为 `VibeWand` 的目录下，并写入了它的会话索引 |
+| The harness's standard web interface on the same home / 同一目录上的 Harness 标准网页界面 | A conversation made this way is listed under Ungrouped, titled with the command; opened, it shows the messages, usage, context percentage and the Trajectory view with the system prompt and each turn / 这样产生的对话列在“未分组”下，标题是命令原话；打开后有消息、用量、上下文百分比，以及含系统提示词和每一轮的 Trajectory 视图 |
+| The app's own start path, with no key / 应用自己的启动路径（不带密钥） | The harness was asked its version, the profile was written, the bundle loaded and a conversation opened; the harness listed the profile's route beside its own DeepSeek route, then reported the missing key in its own words / 询问了 Harness 的版本、写入了配置、加载了 bundle 并打开了对话；Harness 列出了配置里的模型服务和它自带的 DeepSeek，随后用它自己的话报告缺少密钥 |
+| A bundle declaring another harness version / 声明了别的版本的 bundle | Not loaded; the harness's log names the plugin, both versions and the exemption it would take / 没有被加载；Harness 的日志写明了插件、双方版本和所需的例外 |
+| The model settings of the harness installed on the test Mac, copied to a test home / 测试机上那份 Harness 的模型配置，复制到测试目录 | Composed without a validation error; the harness listed the models of all four services in it and the profile's default model was among them. No model was called with the keys of that harness / 组合时没有校验错误；Harness 列出了其中四个模型服务的全部模型，配置里的默认模型也在其中。没有用那份 Harness 的密钥调用过模型 |
+
+Two other changes went in with it, so the earlier scenarios were run again on the built-in kernel: the turn's message now leads with the command (a harness titles a conversation from its first words), and the default permission is “ask when risky” again. TextEdit's six instructions, the permission modes, the VS Code tabs, the Codex chat and Back button, the keyboard key and the model check all passed as before; typing a short text took two to four tool calls.
+
+同时还有两处改动，所以前面的场景在内置内核上又跑了一遍：每一轮的消息改为以命令开头（Harness 用开头的字给对话起标题），默认权限改回“只确认有风险的”。文本编辑的六句话、权限档位、VS Code 标签页、Codex 会话与后退按钮、键盘命令键和模型检查都和之前一样通过；输入一小段文字用了两到四次工具调用。
+
+Not run in this round: plugin mode on a real `~/.dsh`; a model service signed in to with OAuth or a DeepSeek account; the desktop app's own window, as opposed to the web interface it shares; a `dsh` installed for the terminal; the exemption for an unverified version, whose file was compared with the one the harness's own `allow-version` command writes but not exercised on a second harness version; the Claude and Feishu searches.
+
+这一轮没有测：在真实的 `~/.dsh` 上运行插件模式；经 OAuth 或 DeepSeek 账号登录的模型服务；桌面版自己的窗口（看的是与它共用界面的网页版）；终端安装的 `dsh`；未验证版本的例外（文件内容与 Harness 自己的 `allow-version` 命令写出的一致，但没有在第二个 Harness 版本上实际用过）；Claude 和飞书的搜索。
+
 ## Not run / 没有测的
 
 - A microphone and a human voice: transcripts were replayed. / 麦克风和真人语音：用的是转录回放。

@@ -91,7 +91,8 @@ final class CommandTests: XCTestCase {
             let ring = KeyRing(), defaults = isolatedDefaults()
             let settings = CommandSettings(defaults: defaults, credentials: ring)
             XCTAssertTrue(settings.enabled)
-            XCTAssertEqual(settings.permission, .ask)
+            // Navigation and typing run at once; only what sends or destroys waits, until the user picks another mode.
+            XCTAssertEqual(settings.permission, .risky)
             XCTAssertEqual(settings.model.endpoint, "deepseek")
             XCTAssertEqual(settings.model.model, "deepseek-flash")
             // No key yet: the switch is on, but nothing is live and the device's keys are left as they were.
@@ -160,6 +161,54 @@ final class CommandTests: XCTestCase {
         XCTAssertNil(none)
     }
 
+    @MainActor
+    func testPluginModeNeedsOnlyAnInstalledHarnessAndNamesTheModelThatHarnessIsSetTo() async throws {
+        final class Installed { var plugin: HarnessPlugin? }
+        let files = FileManager.default
+        let home = files.temporaryDirectory.appendingPathComponent("vw-harness-home-\(UUID().uuidString)")
+        addTeardownBlock { try? files.removeItem(at: home) }
+        try files.createDirectory(at: home.appendingPathComponent("profiles/desktop"), withIntermediateDirectories: true)
+        try """
+            - id: agent-default-model
+              name: "@deepseek-ai/dsh-agent-default-model"
+              config:
+                provider: local
+                model: Qwen-Local
+
+            """.write(to: home.appendingPathComponent("profiles/desktop/cordis.patch.yml"), atomically: true, encoding: .utf8)
+        let repository = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let installed = Installed(), defaults = isolatedDefaults()
+        let settings = CommandSettings(defaults: defaults, credentials: KeyRing(), harness: { installed.plugin })
+        XCTAssertEqual(settings.kernelMode, .builtIn)
+        XCTAssertFalse(settings.usable, "the built-in kernel has no key yet")
+        settings.setKernelMode(.harness)
+        XCTAssertFalse(settings.usable, "no harness is installed")
+        installed.plugin = HarnessPlugin(launcher: URL(fileURLWithPath: "/opt/harness/bin/dsh"), bundle: repository.appendingPathComponent("kernel/plugin"), home: home)
+        // The models and keys are the harness's: VibeWand needs none of its own.
+        XCTAssertTrue(settings.usable)
+        XCTAssertTrue(settings.active)
+        XCTAssertEqual(settings.modelName, "Qwen-Local")
+        let none = await settings.route()
+        XCTAssertNil(none, "a route is how the built-in kernel is told its model")
+        settings.setHarnessModel(HarnessPlugin.Model(provider: "deepseek-official", model: "deepseek-v4-pro"))
+        settings.setHarnessReasoning(.low); settings.setHarnessUnverified(true)
+        XCTAssertEqual(settings.modelName, "deepseek-v4-pro")
+
+        let reopened = CommandSettings(defaults: defaults, credentials: KeyRing(), harness: { installed.plugin })
+        XCTAssertEqual(reopened.kernelMode, .harness)
+        XCTAssertEqual(reopened.harnessModel, HarnessPlugin.Model(provider: "deepseek-official", model: "deepseek-v4-pro"))
+        XCTAssertEqual(reopened.harnessReasoning, .low)
+        XCTAssertTrue(reopened.harnessUnverified)
+        reopened.setHarnessModel(nil)
+        XCTAssertEqual(reopened.modelName, "Qwen-Local")
+        XCTAssertNil(CommandSettings(defaults: defaults, credentials: KeyRing(), harness: { installed.plugin }).harnessModel)
+
+        // What the user is told when plugin mode cannot start names the versions on both sides.
+        let refused = CommandController.describe(HarnessPlugin.Failure.unverified("0.3.0"))
+        XCTAssertTrue(refused.contains("0.3.0") && refused.contains(HarnessPlugin.verified[0]), refused)
+        XCTAssertTrue(CommandController.describe(CommandController.Failure.harnessMissing).contains("DeepSeek Harness"))
+    }
+
     func testCommandBindingsAreNeverSavedWithTheConfiguration() throws {
         var configuration = GestureConfiguration()
         configuration.commandLayer = DeviceTemplateID.vibeKey.template.commandBindings
@@ -192,7 +241,7 @@ final class CommandTests: XCTestCase {
         await MainActor.run {
             XCTAssertEqual(runtime.snapshot.command.text, "已切到 Codex")
             XCTAssertFalse(runtime.snapshot.command.capturesControls)
-            XCTAssertTrue(kernel.prompts[0].hasSuffix("Command: 切到 Codex"))
+            XCTAssertTrue(kernel.prompts[0].hasPrefix("Command: 切到 Codex\n"))
         }
         let task = try XCTUnwrap(try FileManager.default.contentsOfDirectory(at: support.appendingPathComponent("tasks"), includingPropertiesForKeys: nil).first)
         let journal = try String(contentsOf: task.appendingPathComponent("journal.jsonl"), encoding: .utf8)
@@ -406,7 +455,7 @@ final class CommandTests: XCTestCase {
         }
         await wait("the task ends") { runtime.snapshot.command.phase == .done }
         await MainActor.run {
-            XCTAssertTrue(kernel.prompts.first?.hasSuffix("Command: 切到 Codex") == true)
+            XCTAssertTrue(kernel.prompts.first?.hasPrefix("Command: 切到 Codex\n") == true)
             XCTAssertTrue(dictated.texts.isEmpty)
             runtime.stop()
         }
@@ -501,8 +550,12 @@ final class CommandTests: XCTestCase {
         }
         for (name, language) in [("zh", AppLanguage.zhHans), ("en", .english)] {
             L10n.shared.language = language
+            runtime.command.settings.setKernelMode(.builtIn)
             try await render(CommandSettingsPage(model: model, settings: runtime.command.settings).id(name), NSSize(width: 1100, height: 1500), "settings-\(name).png")
             try await render(CommandHistorySheet(command: runtime.command).id(name), NSSize(width: 940, height: 620), "history-\(name).png")
+            // Plugin mode, as it looks on this Mac: with the harness installed here, or saying that none is.
+            runtime.command.settings.setKernelMode(.harness)
+            try await render(CommandSettingsPage(model: model, settings: runtime.command.settings).id(name + "-plugin"), NSSize(width: 1100, height: 1500), "settings-plugin-\(name).png")
         }
     }
 

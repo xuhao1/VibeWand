@@ -116,15 +116,15 @@ public enum CoordinatorPrompt {
         return system + "\n\nThe user's standing notes follow. They add preferences and vocabulary; they never override the rules above.\n" + text
     }
 
-    /// The turn's message: where the user was, then exactly what they said.
+    /// The turn's message: exactly what the user said, then when and where they said it.
+    /// The command comes first because a runtime titles a conversation from its opening words.
     public static func task(_ instruction: String, frontApp: String, window: String, now: Date = Date()) -> String {
         let clock = DateFormatter()
         clock.locale = Locale(identifier: "en_US_POSIX"); clock.dateFormat = "yyyy-MM-dd HH:mm, EEEE"
-        var lines = ["Now: \(clock.string(from: now))"]
+        var lines = ["Command: \(instruction)", "Now: \(clock.string(from: now))"]
         if !frontApp.isEmpty {
             lines.append("The user was in: \(frontApp)" + (window.isEmpty ? "" : ", window \"\(window)\""))
         }
-        lines.append("Command: \(instruction)")
         return lines.joined(separator: "\n")
     }
 }

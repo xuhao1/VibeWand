@@ -7,7 +7,7 @@
 
 Every VibeWand feature comes down to operating an app on your Mac for you. This page covers how it looks at an interface, which actions it can take, which route each app uses, and what has been verified. For how to use it, see [Default controls](core-experience.en.md) and [Command mode](command-mode.en.md).
 
-**Both parts ship in 0.8.5 and need macOS 26. Command mode does nothing until a model is set up.**
+**Both parts ship in 0.9.0 and need macOS 26. Command mode does nothing until a model is set up.**
 
 ## Two ways to drive it
 
@@ -100,7 +100,7 @@ These are enforced in code, not left to the model.
 
 - **Nothing is sent for you.** Releasing the dictation key presses no Return, and text typed by command mode stays in the field as well, unless your command says in so many words to send it.
 - **An action is tied to the target that was there when you pressed.** The app, window and focus are recorded at the press and checked again before acting; if they changed, the action is dropped. Command mode operates one app: the one in front when you spoke, or the one it brought forward for you. Once you move elsewhere, what follows is dropped.
-- **How much it asks is yours to set, and by default it asks at every step.** Command mode has three permission modes: confirm every step on the device (the default); confirm only what has consequences, that is, buttons and menu items whose name contains delete, discard, don't save, send, submit, pay and the like, Return in a multi-line field, and `⌘Return`, `⌘⌫` and `⌘Q`; or ask nothing. The gateway does the asking, so the model cannot go around it.
+- **Anything with consequences asks every time by default, and how much it asks is yours to set.** Command mode has three permission modes: confirm only what has consequences (the default), that is, buttons and menu items whose name contains delete, discard, don't save, send, submit, pay and the like, Return in a multi-line field, and `⌘Return`, `⌘⌫` and `⌘Q`; confirm every step on the device; or ask nothing. The gateway does the asking, so the model cannot go around it.
 - **Password fields are never typed into,** by dictation or by command mode.
 - **Input-method candidates and unknown dialogs get only the native Return and Esc,** never a “send” or “search” binding.
 - **Apps are recognised from a list.** The full bundle ID must match exactly; window titles and web addresses are not considered. Apps that are unsupported, or that you turned off, receive no app actions.
@@ -127,6 +127,6 @@ What command mode sends to the model service is listed under [What is sent](comm
 | Claude Code, Codex and OpenCode in a terminal | Accepted in iTerm2 3.7.3 against Codex CLI 0.160.0, Claude Code 2.1.289 and OpenCode 1.18.34, with the terminal text read back after every step; presses came from the runtime, and physical device buttons were not pressed. See the [acceptance record](terminal-acceptance.md) |
 | WeChat | Search candidates and draft editing are unverified |
 | Command mode's kernel process, tool channel, cancellation, choosing, and command key | Covered by automated tests and by runs against the real model |
-| Command mode's results in real apps | Read back item by item on 2026-10-05 in TextEdit, VS Code, Codex, Claude and Feishu, and the three permission modes in TextEdit; see the [acceptance record](command-acceptance.md). Not run: a microphone and a human voice, physical keys, model services other than DeepSeek and local models, searches aimed at DeepSeek Harness, WorkBuddy and WeChat, and keys, menus and typing in VS Code |
+| Command mode's results in real apps | Read back item by item between 2026-10-05 and 10-06 in TextEdit, VS Code, Codex, Claude and Feishu, and the three permission modes and plugin mode in TextEdit; see the [acceptance record](command-acceptance.md). Not run: a microphone and a human voice, physical keys, model services other than DeepSeek and local models, plugin mode on a real harness home, searches aimed at DeepSeek Harness, WorkBuddy and WeChat, and keys, menus and typing in VS Code |
 
 By this repository's convention, a capability whose result has not been observed in the real app does not count as supported. Keep in mind what the last row lists as not run.

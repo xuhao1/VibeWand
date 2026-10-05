@@ -8,7 +8,7 @@ import WandAgent
 /// overlay reports as done is read from the gateway, not from the model's last words.
 @MainActor
 final class CommandController {
-    enum Failure: Error { case kernelMissing, modelMissing }
+    enum Failure: Error { case kernelMissing, modelMissing, harnessMissing }
     let settings: CommandSettings
     let tools: CommandTools
     private let voice: VoiceInputController
@@ -31,6 +31,12 @@ final class CommandController {
     private(set) var usage: (used: Int, size: Int)?
     /// Instructions the conversation in the kernel has taken. 0 means the next one opens a new conversation.
     private(set) var turns = 0
+    /// The models the user's harness serves, as its last conversation listed them. Plugin mode only.
+    private(set) var catalog: [KernelOptions.Model] = []
+    /// What the harness said its version was, kept until its command changes on disk.
+    private var harnessVersion: (launcher: URL, stamp: Date?, version: String)?
+    /// Where the kernel of the mode in force writes its diagnostics.
+    private var log: URL { support.appendingPathComponent(settings.kernelMode == .harness ? "harness/logs/kernel.log" : "kernel/logs/kernel.log") }
     private var steps = 0
     private var timer: Timer?
     private var idle: Timer?
@@ -51,7 +57,9 @@ final class CommandController {
         guard settings.enabled else {
             show(.attention, L10n.tr("命令模式未开启，可在设置中打开", "Command mode is off. Turn it on in Settings."), for: 3); return
         }
-        guard openKernel != nil || settings.usable else { show(.attention, Self.describe(Failure.modelMissing), for: 4); return }
+        guard openKernel != nil || settings.usable else {
+            show(.attention, Self.describe(settings.kernelMode == .harness ? Failure.harnessMissing : Failure.modelMissing), for: 4); return
+        }
         // Speaking again interrupts at once, before the new words are known.
         halt()
         tools.captureSource()
@@ -119,7 +127,7 @@ final class CommandController {
             if !pruned { pruned = true; TaskJournal.clear(root: records, olderThan: 14) }
             journal = try? TaskJournal(root: records)
             journal?.record("instruction", ["text": .string(words), "app": .string(tools.source?.name ?? ""),
-                                            "model": .string(settings.model.model), "turn": .number(Double(turns))])
+                                            "model": .string(settings.modelName), "turn": .number(Double(turns))])
             let gateway = Gateway(host: tools, permission: settings.permission, stepLimit: settings.stepLimit, journal: journal)
             self.gateway = gateway; runningTurn = token
             let prompt = CoordinatorPrompt.task(words, frontApp: tools.source?.name ?? "", window: tools.source?.window ?? "")
@@ -128,6 +136,7 @@ final class CommandController {
                 Task { @MainActor in self?.note(event, token) }
             }
             journal?.settle()
+            if let opened = (kernel as? KernelSession)?.options.models, !opened.isEmpty { catalog = opened }
             let ending = await gateway.ending, unverified = await gateway.unverified
             let result = outcome(ending, unverified: !unverified.isEmpty)
             journal?.record("end", ["reason": .string(reason), "finished": .bool(result.phase == .done), "said": .string(result.text),
@@ -176,7 +185,7 @@ final class CommandController {
 
     /// The line under a command: which model is acting, how full its context is, how far it has got and how much it asks.
     private func detail(ended: Bool = false) -> String {
-        var parts = [settings.model.model]
+        var parts = [settings.modelName]
         if let usage {
             parts.append(L10n.tr("上下文 ", "context ") + "\(Self.tokens(usage.used))/\(Self.tokens(usage.size)) · \(usage.used * 100 / usage.size)%")
         } else if turns == 0 { parts.append(L10n.tr("新对话", "new conversation")) }
@@ -267,16 +276,35 @@ final class CommandController {
         }
     }
     private func openBundledKernel() async throws -> any CommandKernel {
+        let session = settings.kernelMode == .harness ? try await openOnHarness() : try await openBuiltIn()
+        session.onExit = { [weak self, weak session] in
+            Task { @MainActor in if let session, self?.kernel === session { self?.forget() } }
+        }
+        return session
+    }
+    private func openBuiltIn() async throws -> KernelSession {
         guard let install = Self.install() else { throw Failure.kernelMissing }
         guard let route = await settings.route() else { throw Failure.modelMissing }
         // Conversations are never resumed across starts, so the previous one's log has no further use.
         let home = support.appendingPathComponent("kernel")
         try? FileManager.default.removeItem(at: home.appendingPathComponent("sessions"))
-        let session = try await KernelSession.open(try install.launch(home: home, route: route, instructions: settings.instructions))
-        session.onExit = { [weak self, weak session] in
-            Task { @MainActor in if let session, self?.kernel === session { self?.forget() } }
-        }
-        return session
+        return try await KernelSession.open(try install.launch(home: home, route: route, instructions: settings.instructions))
+    }
+    /// Plugin mode: the user's own harness runs the coordinator, on its models, and keeps the conversations.
+    private func openOnHarness() async throws -> KernelSession {
+        guard let harness = settings.harness, let version = await version(of: harness) else { throw Failure.harnessMissing }
+        let launch = try harness.launch(version: version, allowUnverified: settings.harnessUnverified, support: support.appendingPathComponent("harness"),
+                                        model: settings.harnessModel, instructions: settings.instructions)
+        let effort = settings.harnessReasoning
+        return try await KernelSession.open(launch, effort: effort == .automatic ? nil : effort.rawValue)
+    }
+    /// The installed harness's version. Asking takes about half a second, so the answer is kept while its command is unchanged.
+    func version(of harness: HarnessPlugin) async -> String? {
+        let stamp = (try? harness.launcher.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+        if let harnessVersion, harnessVersion.launcher == harness.launcher, harnessVersion.stamp == stamp { return harnessVersion.version }
+        guard let version = await harness.version() else { return nil }
+        harnessVersion = (harness.launcher, stamp, version)
+        return version
     }
     /// Keeps the conversation for follow-ups such as "not that one", then lets the process go.
     private func armIdle() {
@@ -304,6 +332,8 @@ final class CommandController {
             defer { self.shutdownKernel() }
             do {
                 let started = Date(), kernel = try await self.ready()
+                // What the harness can serve is known once the conversation opens, whether or not its model then answers.
+                defer { if let opened = (kernel as? KernelSession)?.options.models, !opened.isEmpty { self.catalog = opened } }
                 _ = try await kernel.run("Reply with the single word: ok", tools: { _, _ in .failure("No tool is available in this check.") }) { [weak self] event in
                     Task { @MainActor in if case .usage(let used, let size) = event { self?.usage = (used, size) } }
                 }
@@ -318,10 +348,11 @@ final class CommandController {
     /// The records of recent instructions, newest first.
     func history() -> [TaskRecord] { TaskJournal.recent(root: support.appendingPathComponent("tasks")) }
 
-    /// Removes the task records and what the kernel wrote. The profile is reinstalled on the next start.
+    /// Removes the task records and what the kernel wrote here. The profile is reinstalled on the next start.
+    /// Conversations kept by the user's own harness in plugin mode are that harness's to delete.
     func clearRecords() {
         shutdownKernel()
-        for name in ["tasks", "kernel"] { try? FileManager.default.removeItem(at: support.appendingPathComponent(name)) }
+        for name in ["tasks", "kernel", "harness"] { try? FileManager.default.removeItem(at: support.appendingPathComponent(name)) }
     }
 
     nonisolated static let applicationSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("VibeWand")
@@ -351,7 +382,7 @@ final class CommandController {
     /// What went wrong, for the user. A model setting the kernel refused at start is named only in its log.
     private func explain(_ error: Error) -> String {
         guard let refused = error as? RPCError, refused.message.contains("no adapter registered"),
-              let log = try? String(contentsOf: support.appendingPathComponent("kernel/logs/kernel.log"), encoding: .utf8),
+              let log = try? String(contentsOf: log, encoding: .utf8),
               let line = log.split(separator: "\n").first(where: { $0.contains("$.providers.vibewand") }) else { return Self.describe(error) }
         let reason = line.replacingOccurrences(of: "$.providers.vibewand.", with: "").trimmingCharacters(in: CharacterSet(charactersIn: " -"))
         return L10n.tr("内核没有接受这套模型配置：", "The kernel refused these model settings: ") + reason.prefix(240)
@@ -360,6 +391,12 @@ final class CommandController {
         switch error {
         case Failure.kernelMissing: return L10n.tr("此版本未包含命令内核", "This build does not include the command kernel")
         case Failure.modelMissing: return L10n.tr("请先在设置的命令模式中选好模型并保存密钥", "Choose a model and save its key under Command mode in Settings first.")
+        case Failure.harnessMissing: return L10n.tr("没有找到可用的 DeepSeek Harness。请安装它，或在设置的命令模式里改用内置内核。",
+                                                    "No usable DeepSeek Harness was found. Install it, or switch to the built-in kernel under Command mode in Settings.")
+        case HarnessPlugin.Failure.unverified(let version):
+            let verified = HarnessPlugin.verified.joined(separator: ", ")
+            return L10n.tr("已安装的 DeepSeek Harness 是 \(version)，插件只在 \(verified) 上验证过。可在设置的命令模式里允许尝试，或改用内置内核。",
+                           "The installed DeepSeek Harness is \(version); the plugin has been verified on \(verified) only. Allow trying it under Command mode in Settings, or switch to the built-in kernel.")
         case let error as RPCError where error != .closed: return L10n.tr("模型服务出错：", "The model service failed: ") + brief(error.message)
         default: return L10n.tr("命令内核未能完成，请重试", "The command kernel could not finish. Try again.")
         }

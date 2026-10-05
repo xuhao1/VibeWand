@@ -1,0 +1,124 @@
+# VibeWand's coordinator for a DeepSeek Harness the user installed themselves.
+# The profile VibeWand keeps in that harness's home names this bundle and
+# nothing else, so this file is the complete tree: the harness's own model
+# providers, credentials and session store, the Agent Client Protocol bridge,
+# and no shell, file, web, skill or subagent tools. The only tools the model
+# sees are the ones VibeWand mounts per session.
+#
+# Rows carry the ids the harness's base bundle gives them, so the model rows of
+# the user's own profile, which VibeWand copies into this profile's patch,
+# land on them. Sessions go to the harness's store, where its desktop and web
+# apps can open them.
+#
+# Left out on purpose, as in the kernel VibeWand ships: session-log-deepseek
+# and plugin-package-inventory-deepseek, which attach the session log and the
+# plugin list to each model request, and the telemetry exporters.
+- insert:
+    - id: acp-app-startup
+      name: '@deepseek-ai/dsh-acp-app'
+
+    # VibeWand names the model: the one the user picked there, or the default
+    # their harness is set to.
+    - id: acp
+      name: '@deepseek-ai/dsh-acp'
+      inject: [acpAppStartup]
+      config: !!js JSON.parse(process.env.VIBEWAND_MODEL ?? "{}")
+
+    - id: timer
+      name: '@deepseek-ai/cordis-plugin-timer'
+
+    - id: credentials
+      name: '@deepseek-ai/dsh-credentials-local'
+
+    - id: authorization
+      name: '@deepseek-ai/dsh-authorization'
+
+    - id: llm
+      name: '@deepseek-ai/dsh-llm'
+
+    - id: llm-retry
+      name: '@deepseek-ai/dsh-llm-retry'
+
+    - id: llm-pi-ai
+      name: '@deepseek-ai/dsh-llm-pi-ai'
+
+    - id: llm-deepseek
+      name: '@deepseek-ai/dsh-llm-deepseek-api-key'
+
+    # Signing in with a DeepSeek account, as the harness's own apps offer it.
+    - id: deepseek-account
+      name: '@deepseek-ai/dsh-deepseek-account-platform'
+      config:
+        desktopPlatform: null
+
+    - id: llm-deepseek-account
+      name: '@deepseek-ai/dsh-llm-deepseek-account'
+
+    - id: session
+      name: '@deepseek-ai/dsh-session'
+
+    - id: session-projection
+      name: '@deepseek-ai/dsh-session-projection'
+
+    - id: session-title
+      name: '@deepseek-ai/dsh-session-title'
+      config:
+        fallbackMaxWords: 5
+        fallbackMaxBytes: 40
+        maxTitleBytes: 80
+
+    - id: session-persistence-jsonl
+      name: '@deepseek-ai/dsh-session-persistence-jsonl'
+      config:
+        root: !!js dshHomePath('sessions')
+
+    # The cache of session summaries the harness's own apps list sessions from.
+    - id: storage
+      name: '@deepseek-ai/dsh-storage'
+
+    - id: storage-json
+      name: '@deepseek-ai/dsh-storage-json'
+      config:
+        root: !!js dshHomePath('storages')
+
+    - id: storage-domain
+      name: '@deepseek-ai/dsh-storage-domain'
+      config:
+        backend: json
+
+    - id: session-projection-cache
+      name: '@deepseek-ai/dsh-session-projection-cache'
+      config:
+        writeEveryEvents: 200
+        writeIntervalMs: 5000
+
+    - id: system-prompt
+      name: '@deepseek-ai/dsh-system-prompt'
+      config:
+        includeHarnessIdentity: false
+        includeRuntimeContext: false
+        personaPrefix: !!js process.env.VIBEWAND_SYSTEM_PROMPT ?? "You operate a desktop through the provided tools."
+
+    - id: tools
+      name: '@deepseek-ai/dsh-tools'
+
+    - id: agent
+      name: '@deepseek-ai/dsh-agent'
+
+    - id: agent-loop
+      name: '@deepseek-ai/dsh-agent-loop'
+      config:
+        agents: []
+
+    - id: jobs
+      name: '@deepseek-ai/dsh-jobs-local'
+
+    - id: token-meter
+      name: '@deepseek-ai/dsh-token-meter'
+
+    # VibeWand's gateway is the one place that asks the user; the kernel has
+    # nothing of its own to ask about.
+    - id: approval
+      name: '@deepseek-ai/dsh-user-approval'
+      config:
+        policy: never

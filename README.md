@@ -18,7 +18,7 @@ The tools keep multiplying, and each has its own chat list, model menu and short
 - **Speak.** Hold the microphone button and talk. When you let go, the text is in the composer, and nothing is sent for you. Use the built-in recognition (macOS dictation or your own speech API), which records from the microphone of the device you are holding and takes your own vocabulary, or keep using an input method such as Typeless.
 - **Switch.** Press once for the chat list, turn to choose, press to confirm. Long-press for reasoning effort and models. Double-press to switch macOS apps.
 - **Remap.** Every button's press, double press and long press can be reassigned in Settings, and each device keeps its own layout.
-- **Command.** Hold the command key and say “switch to the Codex chat about the microphone” or “open the Runtime.swift tab”, and it finds and opens it for you. The model is yours to choose: DeepSeek, OpenAI, Anthropic, a local model or any compatible address. It works as soon as one is set up; see [Command mode](docs/command-mode.en.md).
+- **Command.** Hold the command key and say “switch to the Codex chat about the microphone” or “open the Runtime.swift tab”, and it finds and opens it for you. The model is yours to choose: DeepSeek, OpenAI, Anthropic, a local model or any compatible address. It works as soon as one is set up, and can instead run as a plugin of a DeepSeek Harness you installed yourself, where each conversation can be read and models are set up; see [Command mode](docs/command-mode.en.md).
 
 <p align="center"><img src="docs/images/overlay-v081-screenshot-en.jpg" width="500" alt="Actual VibeWand 0.8.1 overlay and speech bar in Demo mode"></p>
 
@@ -63,7 +63,7 @@ What VibeWand does is computer use: it works out what the front app is showing a
 
 | | Driven by buttons | Driven by a sentence ([command mode](docs/command-mode.en.md)) |
 | --- | --- | --- |
-| Status | Released | Released in 0.8.5; usable once a model is set up |
+| Status | Released | Ships in 0.9.0; usable once a model is set up |
 | Who decides what happens | The button and the current context, by fixed rules; no model is involved | The model you configured, choosing among 13 tools and nothing else |
 | What it looks at | Which app is in front; whether focus is in a field and whether the draft is empty; whether a chat, model or effort list is open and what it offers; input-method candidates and unknown dialogs | App, window and chat titles; the kind, name and state of the controls in the front window |
 | What it does | Presses buttons and adjusts sliders; sends shortcuts and arrow keys; scrolls the conversation; parks the pointer on a candidate or clicks it; writes or pastes text; switches apps | Finds and opens chats; opens an app's own search and types the keywords; switches apps, opens a file or URL; presses a control, sends a shortcut, chooses a menu item, types into a field |
@@ -71,7 +71,7 @@ What VibeWand does is computer use: it works out what the front app is showing a
 
 Both paths keep the same rules:
 
-- **Nothing is sent for you.** Text stays in the field, and Return is yours to press. Command mode asks before every step by default; you can have it ask only about deleting, sending, submitting or paying, or not at all.
+- **Nothing is sent for you.** Text stays in the field, and Return is yours to press. By default command mode asks only before deleting, sending, submitting or paying; you can have it ask at every step, or not at all.
 - **An action goes only to the target that was in front when you pressed.** If the app, window or focus has changed, the action is dropped.
 - **Structure is read, content is not.** A field is known only as empty or not. Conversation text and documents are not read, no screenshot is taken, and nothing is typed into a password field. A terminal has no controls, so only the few rows next to the cursor are read to find the prompt, reduced to a state and dropped.
 - **No shell and no file access.** Configuration runs no scripts, and the model cannot reach anything outside its tool list.
@@ -80,7 +80,7 @@ What each capability covers, which channel each app uses and what has been verif
 
 ## Install
 
-**[Download VibeWand 0.8.5 (Apple Silicon)](https://github.com/xuhao1/VibeWand/releases/download/v0.8.5/VibeWand-0.8.5-macOS-arm64.zip)** · [Release notes](https://github.com/xuhao1/VibeWand/releases/latest)
+**[Download VibeWand 0.9.0 (Apple Silicon)](https://github.com/xuhao1/VibeWand/releases/download/v0.9.0/VibeWand-0.9.0-macOS-arm64.zip)** · [Release notes](https://github.com/xuhao1/VibeWand/releases/latest)
 
 Requires macOS 26 or later on an M-series Mac (0.8.4 is the last version for macOS 13 to 15). Unzip, drag **VibeWand.app** into Applications, open it, then:
 

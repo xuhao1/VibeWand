@@ -2,7 +2,7 @@
 
 [简体中文](core-experience.md) · [Getting started](getting-started.en.md) · [Documentation](README.md)
 
-These are the 0.8.5 template defaults. Saved custom mappings take precedence; reset the active template if you want its defaults. Complete controls and hardware boundaries are in [Device templates](device-templates.en.md).
+These are the 0.9.0 template defaults. Saved custom mappings take precedence; reset the active template if you want its defaults. Complete controls and hardware boundaries are in [Device templates](device-templates.en.md).
 
 ## Navigation follows context
 
@@ -57,7 +57,7 @@ Return can send or insert a newline depending on the target app. Check its prefe
 
 ## The command key
 
-Command mode is on by default and takes effect once a model is set up; until then the keys below do not exist. After that there is a hold-to-speak command key: a long press of the VibeKey dial that you keep holding (the model entry moves to a long press of OK), L2 on a controller, and right ⌘ held on its own on the keyboard. On release the sentence goes to command mode and is not typed into any field. By default every step is put to you on the overlay first: turning chooses, the confirm button confirms and the back button stops, and none of these reach the app in front at that time. See [Command mode](command-mode.en.md).
+Command mode is on by default and takes effect once a model is set up; until then the keys below do not exist. After that there is a hold-to-speak command key: a long press of the VibeKey dial that you keep holding (the model entry moves to a long press of OK), L2 on a controller, and right ⌘ held on its own on the keyboard. On release the sentence goes to command mode and is not typed into any field. When it needs a choice or a confirmation from you it asks on the overlay: turning chooses, the confirm button confirms and the back button stops, and none of these reach the app in front at that time. By default only actions such as deleting and sending need confirming. See [Command mode](command-mode.en.md).
 
 ## Timing and customization
 

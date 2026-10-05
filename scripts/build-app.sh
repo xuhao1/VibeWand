@@ -48,6 +48,8 @@ if [ "${VIBEWAND_SKIP_KERNEL:-0}" != "1" ]; then
   cp -R "$task_kernel" "$task_staged_app/Contents/Resources/kernel"
   rm -f "$task_staged_app/Contents/Resources/kernel/.stamp"
 fi
+# The coordinator as a bundle for a DeepSeek Harness the user installed themselves (plugin mode): a manifest and one patch file.
+cp -R "$task_root/kernel/plugin" "$task_staged_app/Contents/Resources/harness-plugin"
 cp "$task_root/LICENSE" "$task_staged_app/Contents/Resources/LICENSE"
 cp -R "$task_root/third-party" "$task_staged_app/Contents/Resources/third-party"
 cat > "$task_staged_app/Contents/Info.plist" <<'PLIST'
@@ -60,8 +62,8 @@ cat > "$task_staged_app/Contents/Info.plist" <<'PLIST'
 <key>CFBundleExecutable</key><string>VibeWand</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
-<key>CFBundleShortVersionString</key><string>0.8.5</string>
-<key>CFBundleVersion</key><string>26</string>
+<key>CFBundleShortVersionString</key><string>0.9.0</string>
+<key>CFBundleVersion</key><string>27</string>
 <key>LSMinimumSystemVersion</key><string>26.0</string>
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>

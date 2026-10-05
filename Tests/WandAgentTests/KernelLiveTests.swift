@@ -5,7 +5,8 @@ import XCTest
 /// Set DEEPSEEK_VIBEWAND_DEV to a key, and either VIBEWAND_KERNEL_RESOURCES to a
 /// folder holding the assembled `kernel` (as the app bundle does) or
 /// VIBEWAND_KERNEL to a `dsh` launcher. The ordinary suite skips these.
-/// The model is DeepSeek's, reached over each protocol its service speaks.
+/// The model is DeepSeek's, reached over each protocol its service speaks. The plugin-mode tests also need
+/// DeepSeek Harness installed (VIBEWAND_HARNESS_APP names its app when it is not in /Applications).
 final class KernelLiveTests: XCTestCase {
     private var home: URL!
     private static let openAI = ModelRoute(wire: .openAIChat, baseURL: "https://api.deepseek.com", model: "deepseek-flash")
@@ -102,6 +103,140 @@ final class KernelLiveTests: XCTestCase {
             _ = try await ModelListing.fetch(wire: .openAIChat, baseURL: "http://127.0.0.1:9/v1", key: nil)
             XCTFail("nothing listens there")
         } catch { XCTAssertEqual(error as? ModelListing.Failure, .unreachable) }
+    }
+
+    // MARK: Plugin mode
+
+    /// The DeepSeek Harness installed on this Mac, pointed at a home of the test's own so that the user's is never touched.
+    /// The model is a provider row of the kind the harness's apps write, reaching DeepSeek with the test's key.
+    private func harness(peer: String? = nil) throws -> (plugin: HarnessPlugin, key: String) {
+        let environment = ProcessInfo.processInfo.environment
+        let repository = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let app = URL(fileURLWithPath: environment["VIBEWAND_HARNESS_APP"] ?? "/Applications/DeepSeek Harness.app")
+        home = FileManager.default.temporaryDirectory.appendingPathComponent("vw-live-\(UUID().uuidString)")
+        var bundle = repository.appendingPathComponent("kernel/plugin")
+        if let peer {
+            // The same bundle, declaring another harness version than the one installed.
+            let copy = home.appendingPathComponent("bundle")
+            try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+            try FileManager.default.copyItem(at: bundle, to: copy)
+            let manifest = try String(contentsOf: copy.appendingPathComponent("package.json"), encoding: .utf8)
+            try manifest.replacingOccurrences(of: HarnessPlugin.verified.joined(separator: " || "), with: peer)
+                .write(to: copy.appendingPathComponent("package.json"), atomically: true, encoding: .utf8)
+            bundle = copy
+        }
+        guard let key = environment["DEEPSEEK_VIBEWAND_DEV"], !key.isEmpty,
+              let plugin = HarnessPlugin.locate(desktopApp: app, bundle: bundle, home: home.appendingPathComponent("dsh")) else {
+            throw XCTSkip("Set DEEPSEEK_VIBEWAND_DEV and install DeepSeek Harness to run plugin mode against it")
+        }
+        let desktop = plugin.home.appendingPathComponent("profiles/desktop")
+        try FileManager.default.createDirectory(at: desktop, withIntermediateDirectories: true)
+        try """
+            - id: ui-chat
+              name: "@deepseek-ai/dsh-client-ui-chat"
+              config:
+                transcriptView: standard
+            - id: llm-pi-ai
+              name: "@deepseek-ai/dsh-llm-pi-ai"
+              config:
+                providers:
+                  wand-test:
+                    api: openai-completions
+                    baseURL: https://api.deepseek.com
+                    apiKeyEnv: WAND_TEST_API_KEY
+                    models:
+                      - id: deepseek-flash
+                        name: deepseek-flash
+            - id: agent-default-model
+              name: "@deepseek-ai/dsh-agent-default-model"
+              config:
+                provider: wand-test
+                model: deepseek-flash
+
+            """.write(to: desktop.appendingPathComponent("cordis.patch.yml"), atomically: true, encoding: .utf8)
+        return (plugin, key)
+    }
+
+    /// The whole of plugin mode but the app: the installed harness loads VibeWand's bundle, takes the model from
+    /// the user's own profile, runs an instruction through the gateway and keeps the conversation in its store.
+    func testTheCoordinatorRunsAsAPluginOfTheInstalledHarness() async throws {
+        let (plugin, key) = try harness()
+        let reported = await plugin.version()
+        let version = try XCTUnwrap(reported, "the harness did not say its version")
+        XCTAssertTrue(HarnessPlugin.verified.contains(version), "the installed harness is \(version); the plugin declares \(HarnessPlugin.verified)")
+        XCTAssertEqual(plugin.defaultModel, HarnessPlugin.Model(provider: "wand-test", model: "deepseek-flash"))
+        var launch = try plugin.launch(version: version, allowUnverified: false, support: home.appendingPathComponent("support"), model: nil)
+        // In use the harness finds its keys in its own home. Here the key is handed over in the environment and written nowhere.
+        launch.environment["WAND_TEST_API_KEY"] = key
+        let kernel = try await KernelSession.open(launch)
+        defer { kernel.shutdown() }
+        // Starting it opened no conversation: one the user never spoke into would only litter their harness.
+        let store = plugin.home.appendingPathComponent("sessions")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: store.path))
+
+        let host = desktop(), gateway = Gateway(host: host)
+        var tools: [String] = [], usage: KernelEvent?
+        let prompt = CoordinatorPrompt.task("切到 Codex 里讨论 VibeWand 麦克风的那个会话", frontApp: "Visual Studio Code", window: "Runtime.swift")
+        let reason = try await kernel.run(prompt, tools: { await gateway.call($0, $1) }) {
+            if case .toolStarted(_, let name) = $0 { tools.append(name) }
+            if case .usage = $0 { usage = $0 }
+        }
+        XCTAssertEqual(reason, "end_turn")
+        XCTAssertEqual(host.performed.last, "open_session", "\(host.performed)")
+        let ending = await gateway.ending
+        guard case .finished = ending else { return XCTFail("the model did not finish: \(String(describing: ending))") }
+        // Nothing but VibeWand's tools is on offer, on the user's harness as on the built-in kernel.
+        XCTAssertTrue(tools.allSatisfy { $0.hasPrefix("mcp__vibewand__") }, "\(tools)")
+        XCTAssertNotNil(usage, "the harness reported no context use")
+        // The harness lists its own DeepSeek route beside the one copied from the profile.
+        XCTAssertTrue(kernel.options.models.contains { $0.provider == "wand-test" && $0.model == "deepseek-flash" }, "\(kernel.options.models.map(\.id))")
+        XCTAssertTrue(kernel.options.models.contains { $0.provider == "deepseek-official" }, "\(kernel.options.models.map(\.id))")
+
+        // The conversation is in the harness's own store, filed under the folder named VibeWand, where its apps list it.
+        let folders = try FileManager.default.contentsOfDirectory(atPath: store.path)
+        XCTAssertEqual(folders.count, 1)
+        XCTAssertTrue(folders[0].hasSuffix("-support-VibeWand--"), folders[0])
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: store.appendingPathComponent(folders[0]).path).count, 1)
+        XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath: plugin.home.appendingPathComponent("storages/session_projcache/sessions").path).isEmpty)
+    }
+
+    /// The harness itself enforces the versions the bundle declares: a bundle declaring another one is not loaded.
+    func testTheHarnessRefusesABundleThatDeclaresAnotherVersion() async throws {
+        let (plugin, key) = try harness(peer: "0.1.0")
+        let reported = await plugin.version()
+        let version = try XCTUnwrap(reported)
+        var launch = try plugin.launch(version: version, allowUnverified: false, support: home.appendingPathComponent("support"), model: nil)
+        launch.environment["WAND_TEST_API_KEY"] = key
+        do {
+            let kernel = try await KernelSession.open(launch)
+            defer { kernel.shutdown() }
+            _ = try await kernel.run("Reply with the single word: ok", tools: { _, _ in .failure("none") }) { _ in }
+            XCTFail("a bundle declaring another harness version was loaded")
+        } catch {}
+        let log = try String(contentsOf: try XCTUnwrap(launch.log), encoding: .utf8)
+        XCTAssertTrue(log.contains("is incompatible with dsh \(version)"), String(log.prefix(400)))
+    }
+
+    /// Optional: the model rows of a real profile compose on the installed harness. Point VIBEWAND_HARNESS_SETTINGS at
+    /// a profile's cordis.patch.yml; it is read, never written, and no model is called with the user's own keys.
+    func testAProfilesModelRowsComposeOnTheInstalledHarness() async throws {
+        guard let path = ProcessInfo.processInfo.environment["VIBEWAND_HARNESS_SETTINGS"] else { throw XCTSkip("Set VIBEWAND_HARNESS_SETTINGS to a profile's cordis.patch.yml") }
+        let (plugin, _) = try harness()
+        let settings = try String(contentsOfFile: path, encoding: .utf8)
+        try settings.write(to: plugin.home.appendingPathComponent("profiles/desktop/cordis.patch.yml"), atomically: true, encoding: .utf8)
+        let reported = await plugin.version()
+        let version = try XCTUnwrap(reported)
+        let launch = try plugin.launch(version: version, allowUnverified: false, support: home.appendingPathComponent("support"), model: nil)
+        let kernel = try await KernelSession.open(launch)
+        defer { kernel.shutdown() }
+        // The turn itself may fail for want of a key; the conversation it opens first says what the harness can serve.
+        _ = try? await kernel.run("Reply with the single word: ok", tools: { _, _ in .failure("none") }) { _ in }
+        let chosen = plugin.defaultModel
+        print("Harness composition: default \(chosen.provider)/\(chosen.model); serves \(kernel.options.models.map(\.id))")
+        XCTAssertTrue(kernel.options.models.contains { $0.provider == chosen.provider && $0.model == chosen.model },
+                      "the profile's default model is not among the models the harness lists")
+        let log = (try? String(contentsOf: try XCTUnwrap(launch.log), encoding: .utf8)) ?? ""
+        XCTAssertFalse(log.contains("ValidationError") || log.contains("did not activate"), String(log.prefix(600)))
     }
 
     func testAWrongKeyIsReportedInTheServicesOwnWords() async throws {

@@ -101,6 +101,14 @@ struct CommandModel: Codable, Equatable {
     }
 }
 
+/// Which DeepSeek Harness runs the coordinator.
+enum CommandKernelMode: String, CaseIterable {
+    /// The one VibeWand ships, set up on the page below.
+    case builtIn
+    /// One the user installed, running VibeWand's coordinator as a plugin: its models, its sign-ins, its session list.
+    case harness
+}
+
 enum CommandSettingsError: LocalizedError {
     case address, extra
     var errorDescription: String? {
@@ -152,19 +160,31 @@ final class CommandSettings: ObservableObject {
     @Published private(set) var stepLimit: Int
     /// The user's own notes for the coordinator, added after its rules.
     @Published private(set) var instructions: String
+    @Published private(set) var kernelMode: CommandKernelMode
+    /// The model picked for plugin mode. nil follows the default the user's harness is set to.
+    @Published private(set) var harnessModel: HarnessPlugin.Model?
+    @Published private(set) var harnessReasoning: ModelRoute.Reasoning
+    /// The user chose to run on a harness version the plugin has not been verified with.
+    @Published private(set) var harnessUnverified: Bool
     private var remembered: [String: CommandModel]
+    private let locateHarness: () -> HarnessPlugin?
     var onChange: (() -> Void)?
 
     init(defaults: UserDefaults = .standard,
-         credentials: any SpeechCredentialStore = KeychainSpeechCredentials(service: CommandSettings.service)) {
-        self.defaults = defaults; self.credentials = credentials
+         credentials: any SpeechCredentialStore = KeychainSpeechCredentials(service: CommandSettings.service),
+         harness: @escaping () -> HarnessPlugin? = CommandSettings.installedHarness) {
+        self.defaults = defaults; self.credentials = credentials; locateHarness = harness
+        kernelMode = defaults.string(forKey: "commandKernelMode").flatMap(CommandKernelMode.init(rawValue:)) ?? .builtIn
+        harnessModel = defaults.data(forKey: "commandHarnessModel").flatMap { try? JSONDecoder().decode(HarnessPlugin.Model.self, from: $0) }
+        harnessReasoning = defaults.string(forKey: "commandHarnessReasoning").flatMap(ModelRoute.Reasoning.init(rawValue:)) ?? .automatic
+        harnessUnverified = defaults.bool(forKey: "commandHarnessUnverified")
         enabled = defaults.object(forKey: "commandModeEnabled") as? Bool ?? true
         // Right Option is the voice key of some input methods, which take it before any other listener sees it.
         hotkey = defaults.string(forKey: "commandHotkey").flatMap(CommandHotkey.init(rawValue:)) ?? .rightCommand
         remembered = defaults.data(forKey: "commandModels").flatMap { try? JSONDecoder().decode([String: CommandModel].self, from: $0) } ?? [:]
         let endpoint = defaults.string(forKey: "commandEndpoint") ?? CommandEndpoint.all[0].id
         model = remembered[endpoint] ?? CommandModel(CommandEndpoint.all.first { $0.id == endpoint } ?? CommandEndpoint.all[0])
-        permission = defaults.string(forKey: "commandPermission").flatMap(PermissionMode.init(rawValue:)) ?? .ask
+        permission = defaults.string(forKey: "commandPermission").flatMap(PermissionMode.init(rawValue:)) ?? .risky
         historyMinutes = defaults.object(forKey: "commandHistoryMinutes") as? Int ?? 5
         timeLimit = defaults.object(forKey: "commandTimeLimit") as? Int ?? 120
         stepLimit = defaults.object(forKey: "commandStepLimit") as? Int ?? Gateway.stepLimit
@@ -182,8 +202,22 @@ final class CommandSettings: ObservableObject {
     }
     func keySaved(for model: CommandModel) -> Bool { account(model).map(credentials.contains(account:)) ?? false }
     var keySaved: Bool { keySaved(for: model) }
-    /// Enough is set to run a command: an address, a model, and a key where one is needed.
-    var usable: Bool { model.origin != nil && !model.model.isEmpty && (model.keyOptional || keySaved) }
+    /// The user's own DeepSeek Harness, when one is installed and this build carries the plugin for it.
+    var harness: HarnessPlugin? { locateHarness() }
+    nonisolated static func installedHarness() -> HarnessPlugin? {
+        // A direct SwiftPM run has no bundle: the plugin is then the one in the checkout.
+        let checkout = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let bundles = [Bundle.main.resourceURL?.appendingPathComponent("harness-plugin"), checkout.appendingPathComponent("kernel/plugin")]
+        let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.deepseek.dsh")
+        return bundles.lazy.compactMap { $0 }.compactMap { HarnessPlugin.locate(desktopApp: app, bundle: $0) }.first
+    }
+    /// Enough is set to run a command. On the built-in kernel: an address, a model, and a key where one is needed.
+    /// In plugin mode the models and keys are the harness's, so it is enough that one is installed.
+    var usable: Bool {
+        kernelMode == .harness ? harness != nil : model.origin != nil && !model.model.isEmpty && (model.keyOptional || keySaved)
+    }
+    /// The model a command runs on, as the overlay names it.
+    var modelName: String { kernelMode == .harness ? (harnessModel ?? harness?.defaultModel)?.model ?? "" : model.model }
     /// The command key is live. Until then the device's keys keep what they did without command mode.
     var active: Bool { enabled && usable }
 
@@ -201,6 +235,12 @@ final class CommandSettings: ObservableObject {
         defaults.set(try? JSONEncoder().encode(remembered), forKey: "commandModels")
         onChange?()
     }
+    func setKernelMode(_ value: CommandKernelMode) { kernelMode = value; defaults.set(value.rawValue, forKey: "commandKernelMode"); onChange?() }
+    func setHarnessModel(_ value: HarnessPlugin.Model?) {
+        harnessModel = value; defaults.set(value.flatMap { try? JSONEncoder().encode($0) }, forKey: "commandHarnessModel"); onChange?()
+    }
+    func setHarnessReasoning(_ value: ModelRoute.Reasoning) { harnessReasoning = value; defaults.set(value.rawValue, forKey: "commandHarnessReasoning"); onChange?() }
+    func setHarnessUnverified(_ value: Bool) { harnessUnverified = value; defaults.set(value, forKey: "commandHarnessUnverified"); onChange?() }
     func setPermission(_ value: PermissionMode) { permission = value; defaults.set(value.rawValue, forKey: "commandPermission"); onChange?() }
     func setHistoryMinutes(_ value: Int) { historyMinutes = max(0, value); defaults.set(historyMinutes, forKey: "commandHistoryMinutes"); onChange?() }
     func setTimeLimit(_ value: Int) { timeLimit = max(30, value); defaults.set(timeLimit, forKey: "commandTimeLimit"); onChange?() }
@@ -221,9 +261,9 @@ final class CommandSettings: ObservableObject {
         guard let account = account(model) else { return nil }
         return (try? await credentials.readAsync(account: account)) ?? nil
     }
-    /// The model as the kernel is told about it, with its key. nil until enough is set.
+    /// The model as the built-in kernel is told about it, with its key. nil until enough is set.
     func route() async -> ModelRoute? {
-        guard usable else { return nil }
+        guard kernelMode == .builtIn, usable else { return nil }
         return ModelRoute(wire: model.wire, baseURL: model.baseURL, model: model.model, key: await readKey(for: model),
                           contextWindow: model.contextWindow > 0 ? model.contextWindow : nil, reasoning: model.reasoning,
                           extra: model.extraSettings ?? [:])
