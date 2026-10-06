@@ -4,11 +4,11 @@
 
 Hold the command key and say what you want. When you release it, VibeWand finds the app, chat or control for you. It finds, opens, presses and puts text in place; the work itself is still done by the software you chose.
 
-**Ships since 0.9.0. Needs macOS 26.** New in 0.10.0: one coordinator for both kernels, the harness's own tools in plugin mode, letting the model see the window, conversations kept for a day, a week or until you end them, choosing and adjusting in a menu that opens (changing Codex's model and effort, for one), and the [first-run guide](getting-started.en.md#the-first-run-guide). New in 0.10.1: [operating a window that publishes no controls from its picture](#let-the-model-see-the-window-and-click-in-it), NetEase Cloud Music for one.
+**Ships since 0.9.0. Needs macOS 26.** New in 0.10.0: one coordinator for both kernels, the harness's own tools in plugin mode, letting the model see the window, conversations kept for a day, a week or until you end them, choosing and adjusting in a menu that opens (changing Codex's model and effort, for one), and the [first-run guide](getting-started.en.md#the-first-run-guide). New in 0.10.1: [operating a window that publishes no controls from its picture](#let-the-model-see-the-window-and-click-in-it), NetEase Cloud Music for one. In development and not released yet: [hearing and speaking](#hearing-and-speaking), which says results aloud and lets the voice service's Omni model hear the command, call the tools and answer in speech.
 
 ## Set up a model
 
-Command mode is on by default, and does nothing until a model is set up: the command key is inert, the device's keys keep what they did, and nothing leaves this Mac.
+Command mode is on by default, and does nothing until a model is set up: the command key is inert, the device's keys keep what they did, and nothing leaves this Mac. In the build in development, Voice input using Alibaba Qwen Realtime with its key saved counts as a model set up: commands go to its Omni model by default, see [Hearing and speaking](#hearing-and-speaking).
 
 Settings → Command mode → Model starts with the kernel. Both kernels run the same coordinator and are used the same way. **Built in** is a DeepSeek Harness VibeWand installed for you, with its model set up on that page as described here. **Plugin mode** uses the DeepSeek Harness you installed yourself: the models, keys and sign-ins are its own and the conversations are kept there; see [Plugin mode](#plugin-mode). The first time VibeWand opens, the [guide](getting-started.en.md) walks you through the choice.
 
@@ -93,6 +93,29 @@ Off by default. When on, the model has two more tools: `ui_screenshot`, a pictur
 - After an install or an update the system takes about half a minute to get ready the first time text is read. With the switch on, VibeWand spends that at launch instead of at your first command.
 - The pictures the model looked at are kept in that command's Agent record. In plugin mode they are also kept with the conversation in the harness: in the conversation's Trajectory view, select the `ui_screenshot` step and its Result is the picture; in the Chat view that step shows the picture's attachment record.
 
+## Hearing and speaking
+
+**In development, not released yet.** Settings → Command mode → Hearing and speaking holds two settings.
+
+### Say results and questions aloud
+
+On by default. The line a command ends with, what is missing, and a question that waits for your confirmation or choice are read to you as well as shown on the overlay. While commands go to the voice service's model, these lines and its answers are in one and the same voice; otherwise they are read in the macOS system voice, the best one installed for the language the line is written in. Holding the command key again, stop, or answering the question silences it at once, and so does starting a dictation. VibeWand's own notices, “Stopped” or “this took too long”, are not read.
+
+### Let the voice service's model hear the command and act
+
+On by default, and in force when the recognition service under Voice input is Alibaba Qwen Realtime with its key saved: whoever has set that voice service up has a model for commands and need set up no other. Without that service, or with this switched off, a command takes two steps: the voice service turns the recording into text, and the text goes to the model set up under Model. In force, the voice service's Omni model (`qwen3.8-omni-flash-realtime`) does all of it: it listens to your recording itself, calls the tools, and answers in its own voice.
+
+- **It gets the recording and the recogniser's reading.** It listens to the recording itself, and the line the recogniser wrote is a second hearing of the same words: when the recogniser gets a name wrong, the model acts on what was said, and a word the model itself mishears can be checked against the reading. The line on the overlay is that reading, which also titles the conversation and stands as your words in the Agent records; after release only the recogniser's reading is waited for, not the model's rewriting of it.
+- **It talks.** When it is done it tells you the result in one sentence; when you only ask it something (“what time is it”), it answers without calling a tool. A question that needs your confirmation or choice, and a result it did not say itself, are VibeWand's own words and have to be said exactly: those are read by the same voice service's synthesis model (`qwen3-tts-flash-realtime`) in the same voice, so what you hear is always one speaker; when the voice service does not answer in time, that line is read in the macOS voice instead. With “Say results and questions aloud” off it writes and does not speak.
+- **The voice can be changed.** It is Serena by default, a voice both the Omni model and the synthesis model have; Settings takes another by the voice service's name for it, and left empty the model uses its own default. A voice the service does not know makes commands fail.
+- **It is in force when** Alibaba Qwen Realtime is the recognition service under Voice input, with its key saved. Until then the switch has no effect, commands still go to the model set up under Model, and the settings page says so.
+- **The kernel is unchanged.** The model is one more model service on the same kernel: it works built in and in plugin mode, with tools, permission modes, kept conversations and Agent records as before, and in plugin mode the conversation is still kept in your harness. The model set up under Model is not used meanwhile, and in plugin mode the harness's own models are not brought into the conversation.
+- **It takes no pictures.** With [seeing the window and clicking in it](#let-the-model-see-the-window-and-click-in-it) on, it reads a window and clicks by the text read on this Mac; icons and layout it cannot see.
+- **Earlier commands of the same conversation** reach it as the text recognised at the time and what each tool returned; it hears the current one only.
+- **Where it goes.** The recording, the app and window titles a command involves and what the tools return go to the voice service rather than the service under Model, and are billed to the voice service's key. The context is taken as 120,000 tokens: that much was seen to fit, and the service publishes no limit.
+
+How it works is in the [development guide](development.md).
+
 ## Permission
 
 Settings → Command mode → Permission decides how much it asks before it acts:
@@ -119,12 +142,14 @@ Hold to speak, release to run.
 
 | Input | Default |
 | --- | --- |
-| VibeKey | Long-press the dial and keep holding; release when done. While command mode is usable, the model entry is a long press of OK |
+| VibeKey | Long-press the dial and keep holding; release when done. While command mode is usable, the model entry is a long press of OK. In the build in development the recording starts as the dial goes down and counts once the press is known to be a long one; see [Voice input](voice-input.md) |
 | Controller | Hold R1 (since 0.10.2; L2 up to 0.10.1) |
 | Keyboard | Hold right ⌘ on its own for about 0.2 s; Settings offers the other right-hand modifiers, or none. The same key serves the [keyboard layout](device-templates.en.md#keyboard) |
 | Remote | No default; bind one yourself |
 
 Under Devices & inputs you can bind “Command (hold to speak)” to any button, and a binding you made yourself takes precedence over these defaults. On a button that cannot be held, one press starts and the next press ends. With command mode turned off, or no model set up yet, these defaults do not exist and a long press of the VibeKey dial is still the model entry.
+
+**When the release is not received (the build in development).** A wireless device's release does not always arrive: in the log of 2026-10-07 one recording ran on for some ten seconds after the release, until the next press. Now, once the recognised words have not changed for 4 seconds, the key is taken as released and the command is handed over; the real release, when it comes, changes nothing. Dictation is left alone, since stopping to think is ordinary there.
 
 Right ⌘ pressed together with another key is an ordinary modifier and is not taken as a command. A key that an input method or another app has taken never reaches VibeWand: the Doubao input method, for one, uses a held right ⌥ for voice, which is why that key is not the default. If holding the key does nothing, pick another.
 
@@ -189,9 +214,10 @@ Once a model is set up, the model service you chose receives:
 
 - the notes you wrote for the model;
 - with “Let the model see the window and click in it” on, the picture of the window the model asks to see and the text read in it on this Mac: everything the window shows is in them, the text of documents and fields included;
-- when the model has the harness's own tools, the file contents, command output and web pages it reads with them.
+- when the model has the harness's own tools, the file contents, command output and web pages it reads with them;
+- with [the voice service's model hearing the command](#let-the-voice-services-model-hear-the-command-and-act), the recording of the command. All of the above then goes to the voice service instead of the service set up under Model.
 
-With both of those off it does not receive the contents of fields and documents, selected text, the clipboard, or screenshots. Audio is handled as set under Voice input and does not pass through the model service.
+With the first two of those off it does not receive the contents of fields and documents, selected text, the clipboard, or screenshots. Audio is handled as set under Voice input and does not pass through the model service; when the voice service's model hears the command, the voice service is the model service.
 
 With command mode off, or no model set up, VibeWand behaves as before, reads none of this and contacts no model service.
 
@@ -230,6 +256,15 @@ The sixth round, on the development build before 0.10.1:
 
 - **A window that publishes no controls:** the window of NetEase Cloud Music 3.1.7 is empty to accessibility. On “在网易云音乐里搜一个适合编程时听的歌单，打开它并开始播放” the model found the search field in the picture, clicked it, typed, pressed Return, opened a playlist among the results and clicked “播放全部”; what was read back is that the app's process began to sound. On “把这个歌单页面往下翻一页” next, every line of text in the middle of the page had changed its place. Once on the built-in kernel and once on the installed harness with its own tools handed over, with 10 to 12 tool calls and about half a minute each.
 - **The pointer where the model points:** in a real TextEdit window the model found a word of the document in the picture and double-clicked it; what was read back is that the word was selected.
+
+Hearing and speaking, on the build in development (2026-10-07):
+
+- **The voice service's model hearing the command:** with the built-in kernel and `qwen3.8-omni-flash-realtime` in the Model Studio workspace set up on this Mac, commands were spoken in a row to a stand-in desktop, and the “recogniser's reading” handed to the kernel was deliberately wrong (“打开背网路”, “换成体形事项”, “切到扣带思里……”), so getting it right had to come from the recording. “打开备忘录” called for the app to be opened; “不是这个，换成提醒事项” carried on from it and switched to Reminders; “切到 Codex 里讨论麦克风延迟的那个会话” listed the apps, searched the chats and opened the right one; “现在几点了，顺便告诉我今天星期几” called no tool and simply answered. From handing over the recording to the tools being done and the answer complete each took 1.8 to 4.7 s, and each was answered in speech. A wrong key was reported as a 401 within 0.8 s, with no retry.
+- **And the other way round:** given the recording alone, the model twice heard “用命令行执行 date 命令” as git and looked up the Git status, while the recogniser had written it correctly. So it now gets both; with the reading beside it, the same recording ran `date`. This one ran on the DeepSeek Harness 0.2.0-rc.2 installed on this Mac with all of its tools, in a harness home of the test's own.
+- **In the running app (the same day, built-in kernel):** right ⌘ was held with synthetic events while synthetic speech played from the speakers. With the default settings the recording came from the Mac's own microphone; with the keyboard's microphone set to the VibeKey's it came from the VibeKey lying beside the speaker, “打开计算器。” was recognised, the model called for the app to be opened, Calculator came to the front, and its own voice then played from the speakers for about two seconds. With a model that does not listen (DeepSeek), the result was read in the macOS voice. Which device the app recorded from, and whether it was playing, was read from Core Audio by process, not judged by ear.
+- **The default and the voice (changed afterwards):** this route became the default, and the model's answers and VibeWand's own lines were given one voice. Checked on the service: the synthesis model spoke six questions and results, starting 0.5 to 0.7 s after being asked; having the Omni model read such lines itself proved unreliable, since it answered five of fourteen as if they were put to it, so that was not adopted. In this voice the Omni model acted and answered through a real kernel as before. All of this was checked for speech being produced, not listened to in the running app.
+- The author then tried this route by hand on his own devices, speaking himself; there is no measured acceptance record of that.
+- Not covered by a recorded check: a person speaking (the speech above was macOS's synthetic Tingting); whether the two models' voice of the same name sounds the same; the controller's Bluetooth microphone (the controller was not connected during the test); a question read aloud when a confirmation or a choice is waiting; the model that listens on your real harness (plugin mode ran only in a home of the test's own); the new switches being flipped by hand on the settings page.
 
 Worth knowing in use:
 

@@ -6,11 +6,13 @@ import SpeechInput
 struct SpeechAPICheck {
     static func main() async {
         var arguments = Array(CommandLine.arguments.dropFirst())
-        var streamAudio = false, polishText = false, keyFromStdin = false
+        var streamAudio = false, polishText = false, keyFromStdin = false, listen = false
         var vocabulary = SpeechVocabulary()
         while let flag = arguments.first, flag.hasPrefix("--") {
             if flag == "--stream" { streamAudio = true } else if flag == "--polish" { polishText = true }
             else if flag == "--key-stdin" { keyFromStdin = true }
+            // As for a command that goes to the model that listens: only the recogniser's reading is waited for.
+            else if flag == "--listen" { streamAudio = true; listen = true }
             else if flag == "--no-vocabulary" { vocabulary.computing = false }
             else if flag == "--terms", arguments.count > 1 { arguments.removeFirst(); vocabulary.terms = SpeechVocabulary.terms(from: arguments[0]) }
             else { break }
@@ -18,7 +20,7 @@ struct SpeechAPICheck {
         }
         if arguments.first == SpeechProvider.senseVoice.rawValue, arguments.count == 5 { return await senseVoice(Array(arguments.dropFirst())) }
         guard arguments.count == 4, let provider = SpeechProvider(rawValue: arguments[0]), !provider.isLocal else {
-            print("Usage: SpeechAPICheck [--stream] [--polish] [--no-vocabulary] [--terms a,b] qwenRealtime|transcriptionAPI <endpoint> <model> <audio-file>")
+            print("Usage: SpeechAPICheck [--stream | --listen] [--polish] [--no-vocabulary] [--terms a,b] qwenRealtime|transcriptionAPI <endpoint> <model> <audio-file>")
             print("       SpeechAPICheck senseVoice <node> <SenseVoice plug-in folder> <model folder> <audio-file>")
             exit(2)
         }
@@ -34,6 +36,7 @@ struct SpeechAPICheck {
             if streamAudio, provider == .qwenRealtime {
                 guard let key else { throw SpeechInputError.missingAPIKey }
                 let stream = QwenRealtimeStream()
+                stream.listening = listen
                 var released = false, earlyPreviews = 0
                 stream.onPartial = { partial in
                     if !released { earlyPreviews += 1 }
@@ -45,7 +48,9 @@ struct SpeechAPICheck {
                     try await Task.sleep(nanoseconds: 200_000_000)
                 }
                 released = true
+                let release = Date()
                 text = try await stream.finish()
+                print("Text \(String(format: "%.2f", Date().timeIntervalSince(release)))s after release")
                 print("Live previews before release: \(earlyPreviews)")
                 guard earlyPreviews > 0 else { throw SpeechInputError.protocolRejected }
             } else { text = try await SpeechAPIClient().transcribe(audio, configuration: configuration, apiKey: key) }

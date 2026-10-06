@@ -38,6 +38,10 @@ final class CatalogTests: XCTestCase {
         let seeing = CoordinatorPrompt.system(instructions: "", sight: true)
         XCTAssertTrue(seeing.hasPrefix(CoordinatorPrompt.system))
         for name in ["ui_screenshot", "ui_click", "publish no controls", "pagedown"] { XCTAssertTrue(seeing.contains(name), name) }
+        // A model that hears the recording and speaks is told so, and no other model is.
+        XCTAssertFalse(CoordinatorPrompt.system.contains("spoken aloud"))
+        let hearing = CoordinatorPrompt.system(instructions: "", sight: true, hearing: true)
+        XCTAssertTrue(hearing.hasPrefix(seeing) && hearing.contains("the user's own recording") && hearing.contains("spoken aloud"))
         let whole = CoordinatorPrompt.system(instructions: "叫我老徐", tools: .all)
         XCTAssertTrue(whole.contains("this harness's own") && !whole.contains("ui_screenshot") && whole.hasSuffix("叫我老徐"))
     }

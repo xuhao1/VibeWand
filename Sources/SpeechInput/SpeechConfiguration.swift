@@ -68,6 +68,8 @@ public struct SpeechConfiguration: Codable, Equatable {
     public var textStyle: DictationTextStyle?
     public var polishing: SpeechPolishingConfiguration?
     public var microphone: SpeechMicrophone?
+    /// The Core Audio UID of the input the keyboard records from, which has no microphone of its own. nil is the Mac's own.
+    public var keyboardMicrophone: String?
     public var vocabulary: SpeechVocabulary?
     public init() {}
     public var effectiveTextStyle: DictationTextStyle { textStyle ?? .verbatim }
@@ -130,7 +132,8 @@ public struct SpeechConfiguration: Codable, Equatable {
 
     public func validate() throws {
         guard version == 1, !locale.isEmpty, locale.count < 80, endpoint.count < 2048,
-              !model.isEmpty, model.count < 200, !model.contains(where: { $0.isNewline }) else {
+              !model.isEmpty, model.count < 200, !model.contains(where: { $0.isNewline }),
+              (keyboardMicrophone?.count ?? 0) < 512 else {
             throw SpeechInputError.invalidConfiguration
         }
         // Always validate the endpoint, including when exporting system preferences.

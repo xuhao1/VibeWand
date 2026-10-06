@@ -17,6 +17,8 @@ public final class QwenRealtimeStream {
     }
     public var onPartial: ((String) -> Void)?
     public var onFailure: ((SpeechInputError) -> Void)?
+    /// The recording goes on to a model that listens to it itself: the recogniser's reading is all `finish` waits for.
+    public var listening = false
     private let session = URLSession(configuration: .ephemeral, delegate: SpeechRedirectPolicy(), delegateQueue: nil)
     private var socket: URLSessionWebSocketTask?
     private var receiving: Task<Void, Never>?
@@ -46,7 +48,7 @@ public final class QwenRealtimeStream {
                     let event = try await SpeechAPIClient.receive(socket)
                     guard let self, token == self.generation else { return }
                     if self.buffer.accept(event) { self.onPartial?(self.buffer.text) }
-                    if self.buffer.recognised, self.buffer.replied { self.settle(or: SpeechInputError.noSpeech) }
+                    if self.buffer.recognised, self.buffer.replied || self.listening { self.settle(or: SpeechInputError.noSpeech) }
                 }
             } catch {
                 guard let self, token == self.generation, !Task.isCancelled else { return }
@@ -63,7 +65,7 @@ public final class QwenRealtimeStream {
         guard let socket else { throw SpeechInputError.protocolRejected }
         defer { cancel() }
         try await SpeechAPIClient.send(["type": "input_audio_buffer.commit"], socket: socket)
-        try await SpeechAPIClient.send(["type": "response.create"], socket: socket)
+        if !listening { try await SpeechAPIClient.send(["type": "response.create"], socket: socket) }
         if let final { return try final.get() }
         return try await withTaskCancellationHandler(operation: {
             try await withCheckedThrowingContinuation { continuation in

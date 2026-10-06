@@ -49,6 +49,20 @@ public enum CoordinatorPrompt {
         points are always those of the latest picture; after typing or a key, take a screenshot to see the \
         result. A control a snapshot does list is still pressed with ui_press.
         """
+    /// Added when the model hears the user's own recording and what it says in words is spoken to them.
+    static let hearing = """
+        - You hear the user and they hear you, which changes two of the rules above. This turn's command reaches \
+        you as the user's own recording. The message after it holds a recogniser's reading of that same recording \
+        after "VibeWand ·", then when it was spoken and which app and window they were in. The recording and the \
+        reading are two hearings of the same words, and either may have a word wrong: where they differ, go by \
+        the one that fits the apps, chats, controls and tools at hand, and when it matters and you cannot tell, \
+        ask. Commands from earlier in the conversation appear as their readings only.
+        - Whatever you say in words is spoken aloud to the user. Say nothing before or between tool calls. End a \
+        task with finish or need_user as before, since their line is what the overlay shows, and once that call \
+        has returned tell the user the same in one short spoken sentence. A question that asks for nothing to be \
+        done on the Mac you may simply answer aloud, in a sentence or two. Speak the user's language, and never \
+        read out ids, paths or long lists.
+        """
     /// Added when the harness's own tools are mounted beside VibeWand's.
     static let harnessTools = """
         Beside VibeWand's tools you have this harness's own: a shell, files, the web, skills and subagents. Use them \
@@ -60,9 +74,10 @@ public enum CoordinatorPrompt {
         """
 
     /// The rules for what is mounted, then whatever the user wrote for the coordinator to keep in mind.
-    public static func system(instructions: String, tools: Harness.Tools = .own, sight: Bool = false) -> String {
+    public static func system(instructions: String, tools: Harness.Tools = .own, sight: Bool = false, hearing: Bool = false) -> String {
         var text = system
         if sight { text += "\n" + Self.sight }
+        if hearing { text += "\n" + Self.hearing }
         if tools == .all { text += "\n\n" + harnessTools }
         let notes = instructions.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !notes.isEmpty else { return text }

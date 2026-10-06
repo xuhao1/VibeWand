@@ -16,6 +16,8 @@ struct SpeechSettings: View {
     @State private var insertion = TextInserter.method
     /// The terms as typed; `draft` always holds their parsed form.
     @State private var terms: String
+    /// The microphones connected when the page opened.
+    @State private var inputs: [SpeechAudioInput.Input] = []
     init(model: SettingsModel, voice: VoiceInputController) {
         self.model = model; self.voice = voice
         _draft = State(initialValue: voice.configuration)
@@ -154,11 +156,28 @@ struct SpeechSettings: View {
                 Button(tr("打开声音设置…", "Open Sound settings…")) { NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.sound")!) }
             } else {
                 SettingsNote(text: tr("按下哪个设备的听写键，就用那个设备自带的麦克风，不改动系统默认输入。", "Dictation records from the microphone of the device whose key you hold, leaving the macOS default input alone.") + " " +
-                    (model.runtime.deviceMicrophone != nil
+                    (model.runtime.templates.selectedID == .keyboard ? ""
+                        : model.runtime.deviceMicrophone != nil
                         ? tr("当前设备 \(model.runtime.deviceName) 的麦克风可用。", "The current device, \(model.runtime.deviceName), has a microphone.")
                         : tr("当前设备 \(model.runtime.deviceName) 没有可用的麦克风，使用 macOS 默认输入。", "The current device, \(model.runtime.deviceName), has no microphone available; the macOS default input is used.")))
+                Divider()
+                HStack {
+                    Text(tr("键盘用的麦克风", "Microphone for the keyboard"))
+                    Spacer()
+                    Picker(tr("键盘用的麦克风", "Microphone for the keyboard"), selection: Binding(get: { draft.keyboardMicrophone }, set: { draft.keyboardMicrophone = $0; commit() })) {
+                        Text(tr("Mac 内置麦克风", "This Mac's own microphone")).tag(String?.none)
+                        ForEach(inputs.filter { !$0.builtIn }) { Text($0.name).tag(String?.some($0.uid)) }
+                        // One that was chosen and is away now stays chosen.
+                        if let chosen = draft.keyboardMicrophone, !inputs.contains(where: { $0.uid == chosen }) {
+                            Text(tr("未连接的麦克风", "A microphone that is not connected")).tag(String?.some(chosen))
+                        }
+                    }.labelsHidden().frame(width: 310)
+                }
+                SettingsNote(text: tr("键盘没有自己的麦克风。用键盘的命令键或键盘布局说话时，自动换到这里选的麦克风；它没有连接时用 Mac 内置的。",
+                                      "A keyboard has no microphone of its own. Speaking from the keyboard's command key or the keyboard layout switches to the one chosen here, and to this Mac's own while that one is not connected."))
             }
         }
+        .onAppear { inputs = SpeechAudioInput.inputs() }
     }
     private var vocabularySettings: some View {
         SettingsCard(title: tr("词表与领域", "Vocabulary and subject")) {

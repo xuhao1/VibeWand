@@ -31,6 +31,8 @@ final class SpeechOverlayHost: NSView {
     private let bar: SpeechOverlayBar
     var onToggleMode: (() -> Void)?
     var onDragCompleted: (() -> Void)? { didSet { bar.onDragCompleted = onDragCompleted } }
+    /// Writes the last dictation into the text field in front again.
+    var onReinsert: (() -> Void)? { didSet { bar.onReinsert = onReinsert } }
     private(set) var snapshot = HUDSnapshot()
     private var mode = OverlayDisplayMode.full
     private var expanded = false
@@ -80,6 +82,7 @@ final class SpeechOverlayHost: NSView {
 private final class SpeechOverlayBar: NSView {
     var onToggleMode: (() -> Void)?
     var onDragCompleted: (() -> Void)?
+    var onReinsert: (() -> Void)?
     var exporting = false { didSet { glass.exporting = exporting; needsDisplay = true } }
     private var mode = OverlayDisplayMode.full
     private let glass: CompanionBackdrop
@@ -87,7 +90,7 @@ private final class SpeechOverlayBar: NSView {
     private let status = NSTextField(labelWithString: "")
     private let detail = NSTextField(labelWithString: "")
     private let icon = NSImageView()
-    private let style = NSButton(), resizeButton = NSButton(), settings = NSButton(), hide = NSButton()
+    private let style = NSButton(), resizeButton = NSButton(), settings = NSButton(), hide = NSButton(), reinsert = NSButton()
     private let scroll = NSScrollView(), transcript = NSTextView()
     private let onOpenSettings: () -> Void, onHide: () -> Void, onToggleStyle: () -> Void
     private let isPreview: Bool
@@ -106,13 +109,15 @@ private final class SpeechOverlayBar: NSView {
         status.font = .systemFont(ofSize: 12); status.textColor = .secondaryLabelColor; status.lineBreakMode = .byTruncatingTail
         detail.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular); detail.textColor = .tertiaryLabelColor
         detail.lineBreakMode = .byTruncatingMiddle
-        for button in [style, resizeButton, settings, hide] {
+        for button in [style, resizeButton, settings, hide, reinsert] {
             button.isBordered = false; button.bezelStyle = .recessed; button.target = self
             button.refusesFirstResponder = true
             button.font = .systemFont(ofSize: 12, weight: .medium); content.addSubview(button)
         }
         style.action = #selector(toggleStyle); resizeButton.action = #selector(toggleMode)
         settings.action = #selector(openSettings); hide.action = #selector(hideOverlay)
+        reinsert.action = #selector(writeAgain)
+        reinsert.image = NSImage(systemSymbolName: "text.insert", accessibilityDescription: nil)
         style.wantsLayer = true; style.layer?.cornerRadius = 9
         settings.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: nil)
         hide.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: nil)
@@ -146,6 +151,8 @@ private final class SpeechOverlayBar: NSView {
         settings.toolTip = L10n.tr("打开设置", "Open settings"); settings.setAccessibilityLabel(settings.toolTip!)
         hide.toolTip = L10n.tr("隐藏悬浮窗", "Hide overlay"); hide.setAccessibilityLabel(hide.toolTip!)
         resizeButton.isEnabled = !isPreview; settings.isEnabled = !isPreview; hide.isEnabled = !isPreview
+        reinsert.toolTip = L10n.tr("把上一次听写的文字再写入当前输入框", "Write the last dictation into the field in front again")
+        reinsert.setAccessibilityLabel(reinsert.toolTip!)
         scroll.isHidden = !voice.showsText
         let text = voice.text.isEmpty ? voice.state.title : voice.text
         let command = snapshot.command
@@ -157,6 +164,7 @@ private final class SpeechOverlayBar: NSView {
             transcript.scrollRangeToVisible(NSRange(location: (text as NSString).length, length: 0))
         }
         shownCommand = command; style.isHidden = command.active
+        reinsert.isHidden = command.active || !voice.enabled || !voice.kept || isPreview
         detail.stringValue = command.active ? command.detail : ""; detail.toolTip = detail.stringValue
         detail.isHidden = detail.stringValue.isEmpty
         setAccessibilityLabel(L10n.tr("语音输入", "Voice input") + " · " + status.stringValue)
@@ -204,7 +212,8 @@ private final class SpeechOverlayBar: NSView {
         let styleWidth: CGFloat = L10n.shared.language == .english ? 100 : 87
         style.frame = NSRect(x: resizeButton.frame.minX - styleWidth - 6, y: (header - 28) / 2, width: styleWidth, height: 28)
         icon.frame = NSRect(x: 12, y: (header - 19) / 2, width: 19, height: 19)
-        status.frame = NSRect(x: 39, y: (header - 17) / 2, width: max(0, (style.isHidden ? resizeButton : style).frame.minX - 45), height: 17)
+        reinsert.frame = NSRect(x: style.frame.minX - button - 4, y: (header - button) / 2, width: button, height: button)
+        status.frame = NSRect(x: 39, y: (header - 17) / 2, width: max(0, (style.isHidden ? resizeButton : reinsert.isHidden ? style : reinsert).frame.minX - 45), height: 17)
         let footer = detail.isHidden ? 0 : SpeechOverlayLayout.detailHeight
         detail.frame = NSRect(x: 16, y: bounds.height - footer - 6, width: max(1, bounds.width - 32), height: 15)
         scroll.frame = NSRect(x: 14, y: header - 1, width: max(1, bounds.width - 28), height: max(1, bounds.height - header - 10 - footer))
@@ -226,6 +235,7 @@ private final class SpeechOverlayBar: NSView {
     }
     override func mouseDown(with event: NSEvent) { window?.performDrag(with: event); onDragCompleted?() }
     @objc private func toggleStyle() { guard !isPreview else { return }; onToggleStyle() }
+    @objc private func writeAgain() { guard !isPreview else { return }; onReinsert?() }
     @objc private func toggleMode() { guard !isPreview else { return }; onToggleMode?() }
     @objc private func openSettings() { guard !isPreview else { return }; onOpenSettings() }
     @objc private func hideOverlay() { guard !isPreview else { return }; onHide() }

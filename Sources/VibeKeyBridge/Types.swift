@@ -7,6 +7,8 @@ struct VoiceHUDSnapshot {
     var style: DictationTextStyle = .verbatim
     var text = ""
     var status = ""
+    /// A finished dictation is at hand to be written into a text field again.
+    var kept = false
     var showsText: Bool { enabled && (state.active || !text.isEmpty) }
 }
 

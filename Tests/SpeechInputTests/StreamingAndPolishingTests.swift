@@ -134,6 +134,30 @@ final class StreamingAndPolishingTests: XCTestCase {
         XCTAssertEqual(processor.input, "原始测试文字")
         XCTAssertEqual(processor.vocabulary, SpeechVocabulary())
     }
+    func testARecordingForAModelThatListensIsKeptAndItsSessionSpeaksAndCalls() async {
+        let engine = await MainActor.run { PreviewEngine() }
+        let session = await MainActor.run {
+            let session = DictationSession(processor: MemoryPolisher(), credentials: EmptyCredentials()) { _ in engine }
+            session.begin(SpeechConfiguration(), listening: true); return session
+        }
+        await waitFor(session, .recording)
+        await MainActor.run { XCTAssertTrue(engine.listening); XCTAssertNil(session.audio); session.end() }
+        await waitFor(session, .completed)
+        await MainActor.run {
+            XCTAssertEqual(session.audio, engine.audio)
+            session.cancel(); XCTAssertNil(session.audio)
+        }
+        // The session that hears it is told its tools as functions, and speaks only when asked to.
+        let tool: [String: Any] = ["name": "finish", "description": "End the task.", "parameters": ["type": "object"]]
+        let spoken = QwenRealtimeConversation.sessionUpdate(instructions: "rules", tools: [tool], spoken: true)["session"] as? [String: Any]
+        XCTAssertEqual(spoken?["modalities"] as? [String], ["text", "audio"])
+        XCTAssertEqual(spoken?["instructions"] as? String, "rules")
+        XCTAssertTrue(spoken?["turn_detection"] is NSNull)
+        let function = (spoken?["tools"] as? [[String: Any]])?.first
+        XCTAssertEqual(function?["type"] as? String, "function"); XCTAssertEqual(function?["name"] as? String, "finish")
+        let written = QwenRealtimeConversation.sessionUpdate(instructions: "", tools: [], spoken: false)["session"] as? [String: Any]
+        XCTAssertEqual(written?["modalities"] as? [String], ["text"])
+    }
     func testPolishingFailureKeepsTheOriginalTranscript() async {
         let engine = await MainActor.run { PreviewEngine() }
         let processor = MemoryPolisher(); processor.fail = true
@@ -171,6 +195,8 @@ final class StreamingAndPolishingTests: XCTestCase {
 private final class PreviewEngine: DictationEngine {
     var onPartialTranscript: ((String) -> Void)?
     var onFailure: ((SpeechInputError) -> Void)?
+    var listening = false
+    let audio: SpeechAudio? = SpeechAudio(pcm: Data(count: 6400))
     func start() async throws {}
     func finish() async throws -> String { "原始测试文字" }
     func cancel() {}

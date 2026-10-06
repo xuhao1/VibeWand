@@ -81,6 +81,8 @@ public final class SystemDictationEngine: DictationEngine {
 public final class APIDictationEngine: DictationEngine {
     public var onPartialTranscript: ((String) -> Void)?
     public var onFailure: ((SpeechInputError) -> Void)?
+    public var listening = false
+    public private(set) var audio: SpeechAudio?
     private let capture = MicrophoneCapture()
     private let configuration: SpeechConfiguration
     private let credentials: any SpeechCredentialStore
@@ -114,6 +116,7 @@ public final class APIDictationEngine: DictationEngine {
         if configuration.provider == .qwenRealtime {
             guard let key else { throw SpeechInputError.missingAPIKey }
             let stream = QwenRealtimeStream(); self.stream = stream
+            stream.listening = listening
             stream.onPartial = { [weak self] text in
                 guard let self, token == self.generation else { return }
                 self.onPartialTranscript?(text)
@@ -153,6 +156,7 @@ public final class APIDictationEngine: DictationEngine {
     }
     public func finish() async throws -> String {
         let audio = try capture.stop()
+        self.audio = audio
         previewTask?.cancel(); previewTask = nil
         if let stream {
             feed?.finish(); feed = nil

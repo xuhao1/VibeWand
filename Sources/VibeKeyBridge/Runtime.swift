@@ -25,13 +25,23 @@ final class BridgeRuntime {
     /// Tests build the controller with their own settings and kernel, on this runtime's adapter and voice input.
     private let makeCommand: ((AccessibilityAdapter, VoiceInputController) -> CommandController)?
     private(set) lazy var command: CommandController = {
-        let controller = makeCommand?(adapter, voiceInput)
-            ?? CommandController(settings: CommandSettings(), tools: CommandTools(adapter: adapter), voice: voiceInput)
+        let controller = makeCommand?(adapter, voiceInput) ?? {
+            let own = CommandController(settings: CommandSettings(), tools: CommandTools(adapter: adapter), voice: voiceInput)
+            // A controller brought by a test or the film stays silent.
+            own.speech = SpeechOutput()
+            return own
+        }()
         controller.onChange = { [weak self] in self?.updateObservedState() }
         controller.settings.onChange = { [weak self] in self?.applyCommandSettings() }
         return controller
     }()
     private let keyboard = KeyboardCommandInput()
+    /// The keyboard's command key is starting a recording, whichever device is in use.
+    private var keyboardSpeaking = false
+    /// The button whose press opened the microphone ahead of the long hold that may make it a command.
+    private var listeningPress: DeviceControl?
+    /// The last dictation as it was to be written, kept so that it can be written again.
+    private(set) var lastDictation = ""
     /// A command spoken on a long press lasts as long as the press does.
     private var commandHold: (control: DeviceControl, token: UInt64)?
     private(set) var dualSenseVoiceEnabled = UserDefaults.standard.bool(forKey: "dualSenseVoiceEnabled")
@@ -145,7 +155,7 @@ final class BridgeRuntime {
             self.emit(); self.onSettingsChanged?()
         }
         self.voiceInput.microphone = { [weak self] in self?.deviceMicrophone }
-        self.voiceInput.onTranscript = { [weak self] text in self?.deliverDictation(text) }
+        self.voiceInput.onTranscript = { [weak self] text in self?.lastDictation = text; self?.deliverDictation(text) }
         self.voiceInput.onPartialTranscript = { [weak self] text in self?.previewDictation(text) }
         self.voiceInput.onCancel = { [weak self] in
             self?.cancelLiveDraft(); self?.dictationTarget = nil; self?.generation &+= 1
@@ -211,7 +221,11 @@ final class BridgeRuntime {
             catch { device = UnconfiguredHIDSource(template: templates.selectedTemplate) }
         }
         applicationSwitcher.onChange = { [weak self] in self?.refresh() }
-        keyboard.onPress = { [weak self] in self?.command.begin() }
+        keyboard.onPress = { [weak self] in
+            guard let self else { return }
+            self.keyboardSpeaking = true; defer { self.keyboardSpeaking = false }
+            self.command.begin()
+        }
         keyboard.onRelease = { [weak self] in self?.command.end() }
         keyboard.onAbandon = { [weak self] in self?.command.cancelCapture() }
         keyboard.answer = { [weak self] answer in
@@ -278,9 +292,11 @@ final class BridgeRuntime {
     }
 
     /// Built-in dictation records from the device whose key started it, when
-    /// that device has a microphone. nil leaves the macOS default input in place.
+    /// that device has a microphone. The keyboard has none, so it records from the one
+    /// chosen for it. nil leaves the macOS default input in place.
     var deviceMicrophone: String? {
         guard voiceInput.configuration.effectiveMicrophone == .device else { return nil }
+        if keyboardSpeaking || device is KeyboardInputSource { return SpeechAudioInput.resolve(voiceInput.configuration.keyboardMicrophone) }
         if device is DualSenseMicrophoneSource { return DualSenseMicrophoneSource.deviceUID }
         if let match = templates.profile()?.match {
             return SpeechAudioInput.deviceUID(vendorID: match.vendorID, productID: match.productID)
@@ -579,8 +595,17 @@ final class BridgeRuntime {
     func handle(_ control: DeviceControl, phase: InputPhase) {
         guard !captureOnly else { return }
         let observation = demo ? demoObservation() : adapter.observe()
+        let scope = currentScope(observation.context)
+        // A press that a long hold turns into a spoken command is listened to from the moment it begins: the
+        // hold is only known half a second in, and the sentence starts before that. A short press drops it.
+        if phase == .down, !demo, voiceInput.recordsFromMicrophone, command.settings.active,
+           configuration.action(scope, control, .long) == .command, configuration.action(scope, control, .hold) == .none {
+            SpeechAudioInput.arm(deviceMicrophone); listeningPress = control
+        } else if phase != .pulse, listeningPress == control {
+            listeningPress = nil; SpeechAudioInput.disarm()
+        }
         let signals = gestureEngine.receive(control, phase: phase, now: ProcessInfo.processInfo.systemUptime,
-            scope: currentScope(observation.context), config: configuration,
+            scope: scope, config: configuration,
             allowHeldRotation: templates.selectedID == .vibeKey)
         if phase == .down, let token = gestureEngine.token(for: control) {
             gestureOwners[token] = GestureOwner(identity: observation.identity,
@@ -702,8 +727,14 @@ final class BridgeRuntime {
                 } else if signal.phase == .pulse {
                     voiceInput.report(L10n.tr("内置听写需要按住并松开的按键", "Built-in dictation needs a hold-and-release button"))
                 } else if !wasHeld && !dictationHolders.isEmpty {
+                    // The microphone opens at the press; looking at the text field first would cost the first word.
+                    if voiceInput.recordsFromMicrophone { SpeechAudioInput.arm(deviceMicrophone) }
                     beginDictation()
-                } else if wasHeld && dictationHolders.isEmpty { voiceInput.end() }
+                } else if wasHeld && dictationHolders.isEmpty {
+                    // Released before the recording was taken up: what the press heard is dropped.
+                    if !voiceInput.state.active { SpeechAudioInput.disarm() }
+                    voiceInput.end()
+                }
             }
             snapshot.action = signal.phase == .down ? L10n.tr("按住 · 听写", "Hold · dictate") : L10n.tr("松开 · 等待听写文字", "Released · waiting for dictated text")
             if demo && signal.phase == .up { insertDemoVoice() }
@@ -915,7 +946,8 @@ final class BridgeRuntime {
     private func emit() {
         snapshot.voice = VoiceHUDSnapshot(enabled: voiceInput.configuration.mode == .builtIn,
             state: voiceInput.state, style: voiceInput.configuration.effectiveTextStyle,
-            text: voiceInput.liveTranscript, status: voiceInput.displayMessage)
+            text: voiceInput.liveTranscript, status: voiceInput.displayMessage,
+            kept: !lastDictation.isEmpty && !voiceInput.state.active)
         if voiceInput.configuration.mode == .builtIn && !demo && !captureOnly &&
            (voiceInput.state != .idle || !voiceInput.message.isEmpty) {
             snapshot.status = voiceInput.displayMessage
@@ -975,6 +1007,8 @@ final class BridgeRuntime {
                 self.liveDraft = LiveDictationDraft(field: AccessibilityDictationField(element: editor, pid: identity.pid),
                                                     settlementTimeout: 0.6)
             }
+            // What a command was still saying would be recorded with the dictation.
+            self.command.speech?.stop()
             self.voiceInput.begin()
         }
     }
@@ -1120,6 +1154,23 @@ final class BridgeRuntime {
             focus = parent
         }
         return false
+    }
+    /// Writes the last dictation into the text field in front, for when it did not arrive there the first
+    /// time: the field had lost the focus, the app was switched, or the write was refused.
+    func reinsertDictation() {
+        guard !lastDictation.isEmpty, !voiceInput.state.active, adapter.trusted, let app = NSWorkspace.shared.frontmostApplication else { return }
+        let text = lastDictation, pid = app.processIdentifier, bundleID = app.bundleIdentifier ?? ""
+        dictationTargetAdapter.requestRefresh { [weak self] observation in
+            guard let self else { return }
+            guard observation.pid == pid, !observation.secureField else {
+                self.voiceInput.report(L10n.tr("请先点一下要写入的输入框", "Click the field to write into first")); return
+            }
+            let editor = ApplicationProfile.resolve(bundleID: bundleID) == .terminal ? nil : observation.editor
+            self.inserter.insert(text, pid: pid, bundleID: bundleID, editor: editor) { [weak self] outcome in
+                if case .inserted = outcome { self?.voiceInput.report(L10n.tr("已再次写入，请检查后发送", "Written again; review before sending")) }
+                else { self?.voiceInput.report(L10n.tr("文字未能写入，请重新聚焦输入框后重试", "The text could not be inserted; refocus the field and retry")) }
+            }
+        }
     }
     func toggleSpeechTextStyle() {
         do { try voiceInput.toggleTextStyle() }

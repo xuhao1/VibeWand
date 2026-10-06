@@ -92,6 +92,8 @@ final class OverlayController {
         host.update(snapshot, mode: mode, expanded: expanded)
     }
 
+    /// Writes the last dictation into the text field in front again.
+    var onReinsert: (() -> Void)?
     init(onOpenSettings: @escaping () -> Void = {}, onHide: @escaping () -> Void = {}, onToggleStyle: @escaping () -> Void = {}, onControl: @escaping (DeviceControl, InputPhase) -> Void) {
         view = CompanionView(onOpenSettings: onOpenSettings, onHide: onHide, onControl: onControl)
         host = SpeechOverlayHost(fullView: view, onOpenSettings: onOpenSettings, onHide: onHide, onToggleStyle: onToggleStyle)
@@ -111,6 +113,7 @@ final class OverlayController {
         }
         view.onDragCompleted = { [weak self] in self?.captureAnchor() }
         host.onDragCompleted = { [weak self] in self?.captureAnchor() }
+        host.onReinsert = { [weak self] in self?.onReinsert?() }
         host.update(host.snapshot, mode: displayMode, expanded: expanded)
         let defaults = UserDefaults.standard
         deviceBelow = defaults.bool(forKey: belowKey)

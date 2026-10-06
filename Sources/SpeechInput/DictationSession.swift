@@ -4,6 +4,10 @@ import Foundation
 public protocol DictationEngine: AnyObject {
     var onPartialTranscript: ((String) -> Void)? { get set }
     var onFailure: ((SpeechInputError) -> Void)? { get set }
+    /// The recording goes on to a model that listens to it itself, so `finish` waits for no more than a recogniser's reading.
+    var listening: Bool { get set }
+    /// The recording `finish` wrote down, from an engine that keeps one.
+    var audio: SpeechAudio? { get }
     func start() async throws
     func finish() async throws -> String
     func cancel()
@@ -11,6 +15,8 @@ public protocol DictationEngine: AnyObject {
 public extension DictationEngine {
     var onPartialTranscript: ((String) -> Void)? { get { nil } set {} }
     var onFailure: ((SpeechInputError) -> Void)? { get { nil } set {} }
+    var listening: Bool { get { false } set {} }
+    var audio: SpeechAudio? { nil }
 }
 
 public enum DictationState: Equatable {
@@ -27,6 +33,8 @@ public final class DictationSession {
     public var onPartialTranscript: ((String) -> Void)?
     public var onNotice: ((SpeechInputError) -> Void)?
     public private(set) var preview = ""
+    /// The recording behind the transcript just delivered, when the engine kept it.
+    public private(set) var audio: SpeechAudio?
     public var textStyle: DictationTextStyle = .verbatim
     private var configuration = SpeechConfiguration()
     private let processor: any SpeechTextProcessing
@@ -42,7 +50,7 @@ public final class DictationSession {
         self.factory = factory; self.processor = processor; self.credentials = credentials
     }
 
-    public func begin(_ configuration: SpeechConfiguration) {
+    public func begin(_ configuration: SpeechConfiguration, listening: Bool = false) {
         cancel()
         self.configuration = configuration; textStyle = configuration.effectiveTextStyle
         let token = generation
@@ -56,6 +64,7 @@ public final class DictationSession {
                 try configuration.validate()
                 let engine = try factory(configuration)
                 self.engine = engine
+                engine.listening = listening
                 engine.onPartialTranscript = { text in
                     guard let owner = callbackOwner, owner.generation == token, owner.state.active else { return }
                     owner.preview = text; owner.onPartialTranscript?(text)
@@ -106,7 +115,7 @@ public final class DictationSession {
                 }
                 guard token == generation, !Task.isCancelled else { return }
                 preview = text; onPartialTranscript?(text)
-                self.engine = nil
+                audio = engine.audio; self.engine = nil
                 state = .completed; onTranscript?(text)
             } catch {
                 guard token == generation, !Task.isCancelled else { return }
@@ -118,7 +127,7 @@ public final class DictationSession {
     public func cancel() {
         generation &+= 1
         task?.cancel(); task = nil; limitTask?.cancel(); limitTask = nil
-        engine?.cancel(); engine = nil
+        engine?.cancel(); engine = nil; audio = nil
         preview = ""; onPartialTranscript?("")
         state = .idle
     }

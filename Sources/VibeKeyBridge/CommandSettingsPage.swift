@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import SpeechInput
 import WandAgent
 
 private func tr(_ zh: String, _ en: String) -> String { L10n.tr(zh, en) }
@@ -11,6 +12,7 @@ struct CommandSettingsPage: View {
     @State private var busy = false
     @State private var checked: (ok: Bool, detail: String)?
     @State private var notes = ""
+    @State private var voice = ""
     @State private var askingBypass = false
     @State private var showingHistory = false
     @State private var conversation = ""
@@ -29,6 +31,10 @@ struct CommandSettingsPage: View {
         } else {
             text += tr("输入框和文档的内容、选中的文字、截图不会发给它。", " The contents of fields and documents, selected text and screenshots are not sent to it.")
         }
+        if settings.listening {
+            text += tr("你让语音服务的模型直接听命令：这些内容连同命令的录音发给语音服务，而不是下面“模型”里的服务。",
+                       " You let the voice service's model hear the command itself: all of this, and the recording of the command, goes to the voice service rather than the service under Model below.")
+        }
         if settings.tools == .all {
             text += tr("你打开了 Harness 的全部工具：模型用它们读到的文件内容、命令输出和网页内容也会发给它。",
                        " You turned on the harness's own tools: what the model reads with them, file contents, command output and web pages, is sent to it as well.")
@@ -41,10 +47,10 @@ struct CommandSettingsPage: View {
                      subtitle: tr("按住命令键说一句话，VibeWand 替你找到应用、会话或控件。", "Hold the command key and say what you want. VibeWand finds the app, chat or control.")) {
             HStack(alignment: .top, spacing: 16) {
                 VStack(spacing: 16) { switchCard; modelCard; notesCard; keyCard }.frame(maxWidth: .infinity, alignment: .topLeading)
-                VStack(spacing: 16) { reachCard; permissionCard; conversationCard; recordsCard }.frame(maxWidth: .infinity, alignment: .topLeading)
+                VStack(spacing: 16) { reachCard; voiceCard; permissionCard; conversationCard; recordsCard }.frame(maxWidth: .infinity, alignment: .topLeading)
             }
         }
-        .onAppear { draft = settings.model; notes = settings.instructions; conversation = conversationLine }
+        .onAppear { draft = settings.model; notes = settings.instructions; voice = settings.voice; conversation = conversationLine }
         .task(id: settings.kernelMode) {
             guard settings.kernelMode == .harness, let harness = settings.harness else { harnessVersion = nil; return }
             harnessVersion = await command.version(of: harness)
@@ -66,13 +72,15 @@ struct CommandSettingsPage: View {
             SettingsToggleRow(title: tr("开启命令模式", "Turn on command mode"), isOn: Binding(get: { settings.enabled }, set: { settings.setEnabled($0) }))
             Label(readiness.text, systemImage: readiness.ready ? "checkmark.circle" : "exclamationmark.circle")
                 .font(.system(size: 14, weight: .medium)).foregroundStyle(readiness.ready ? Color.primary : Color.orange)
-            SettingsNote(text: tr("默认开启。模型没配好之前，命令键不起作用，设备上的按键也保持原样。", "On by default. Until a model is set up the command key does nothing, and the device's keys keep what they did."))
+            SettingsNote(text: tr("默认开启。模型没配好之前，命令键不起作用，设备上的按键也保持原样。“语音输入”用阿里 Qwen 实时语音时，它的模型就是命令的模型，不用另配。",
+                                  "On by default. Until a model is set up the command key does nothing, and the device's keys keep what they did. When Voice input uses Alibaba Qwen Realtime, its model is the model for commands and nothing else needs setting up."))
             SettingsNote(text: disclosure)
         }
     }
     private var readiness: (ready: Bool, text: String) {
         if !settings.enabled { return (false, tr("已关闭", "Turned off")) }
         if settings.kernelMode == .builtIn, !kernelReady { return (false, tr("此版本未包含命令内核", "This build does not include the command kernel")) }
+        if let heard = settings.listenModel, settings.usable { return (true, tr("已就绪：语音服务的模型直接听命令，", "Ready: the voice service's model hears the command itself, ") + heard) }
         if settings.kernelMode == .harness {
             return settings.usable ? (true, tr("已就绪：经 DeepSeek Harness 使用 ", "Ready: through DeepSeek Harness, on ") + settings.modelName)
                                    : (false, tr("没有找到已安装的 DeepSeek Harness", "No installed DeepSeek Harness found"))
@@ -90,11 +98,19 @@ struct CommandSettingsPage: View {
             }
             SettingsNote(text: tr("两种内核跑的是同一个协调器，用法相同。内置的那份只是替你装好了，模型在下面配置；插件模式用你自己那份里的模型、密钥和登录，对话也存在它那里。",
                                   "Both kernels run the same coordinator and are used the same way. The built-in one is simply installed for you, with its model set up below; plugin mode uses the models, keys and sign-ins of your own harness, which also keeps the conversations."))
-            if settings.kernelMode == .harness { harnessSettings } else { builtInSettings }
-            if let checked {
-                Label(checked.detail, systemImage: checked.ok ? "checkmark.circle" : "xmark.octagon").font(.system(size: 13))
-                    .foregroundStyle(checked.ok ? Color.green : Color.red).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+            if let heard = settings.listenModel {
+                Label(tr("命令现在交给语音服务的 \(heard)，下面配置的模型暂时不用", "Commands now go to the voice service's \(heard); the model set up below is not in use"),
+                      systemImage: "waveform").font(.system(size: 14, weight: .medium)).fixedSize(horizontal: false, vertical: true)
             }
+            if settings.kernelMode == .harness { harnessSettings } else { builtInSettings }
+            if !settings.listening { testResult }
+        }
+    }
+    /// How the last test went, shown on the card of the model it ran on.
+    @ViewBuilder private var testResult: some View {
+        if let checked {
+            Label(checked.detail, systemImage: checked.ok ? "checkmark.circle" : "xmark.octagon").font(.system(size: 13))
+                .foregroundStyle(checked.ok ? Color.green : Color.red).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -192,6 +208,42 @@ struct CommandSettingsPage: View {
         guard draft == settings.model else { return }
         busy = true; checked = nil
         Task { checked = await command.probe(); busy = false }
+    }
+
+    /// Hearing and speaking: whether results are said aloud, and whether the voice service's own model takes the command.
+    private var voiceCard: some View {
+        SettingsCard(title: tr("听与说", "Hearing and speaking")) {
+            SettingsToggleRow(title: tr("把结果和问题说出来", "Say results and questions aloud"), isOn: Binding(get: { settings.speaks }, set: { settings.setSpeaks($0) }))
+            SettingsNote(text: tr("命令做完后的那一句、缺什么、要你确认或挑选的问题，除了显示在悬浮窗上也读给你听。命令交给语音服务的模型时（下面一项），回答和这些话是同一个音色；否则用 macOS 自带的语音朗读。再按命令键或按停止，立刻安静。",
+                                  "The line a command ends with, what is missing, and a question that waits for your confirmation or choice are read to you as well as shown on the overlay. While commands go to the voice service's model (the switch below), its answers and these lines are in one and the same voice; otherwise they are read in the macOS system voice. Holding the command key again, or stop, silences it at once."))
+            Divider()
+            SettingsToggleRow(title: tr("让语音服务的模型直接听命令并执行", "Let the voice service's model hear the command and act"),
+                              isOn: Binding(get: { settings.listens }, set: { settings.setListens($0); checked = nil }))
+            if settings.listens {
+                let heard = settings.listenModel
+                Label(heard.map { tr("正在使用 ", "In use: ") + $0 } ?? tr("需要“语音输入”里选用阿里 Qwen 实时语音并保存密钥；在那之前仍用上面配置的模型", "Needs Alibaba Qwen Realtime chosen under Voice input, with its key saved; until then the model set up above is used"),
+                      systemImage: heard != nil ? "checkmark.circle" : "exclamationmark.circle")
+                    .font(.system(size: 14, weight: .medium)).foregroundStyle(heard != nil ? Color.primary : Color.orange).fixedSize(horizontal: false, vertical: true)
+                HStack {
+                    Button(tr("测试", "Test"), action: testHarness).disabled(busy || heard == nil)
+                    if heard == nil { Button(tr("语音输入…", "Voice input…")) { model.section = .speech } }
+                    if busy, heard != nil { ProgressView().controlSize(.small) }
+                }
+                if heard != nil { testResult }
+                HStack {
+                    Text(tr("音色", "Voice"))
+                    TextField(QwenRealtimeReader.voice, text: $voice).textFieldStyle(.roundedBorder).frame(width: 140)
+                        .onSubmit { settings.setVoice(voice); voice = settings.voice }
+                    Button(tr("保存", "Save")) { settings.setVoice(voice); voice = settings.voice }.disabled(voice.trimmingCharacters(in: .whitespacesAndNewlines) == settings.voice)
+                }
+                SettingsNote(text: tr("模型回答用的音色，按语音服务里的名字填。确认问题这类 VibeWand 自己的话，由同一个语音服务的合成模型（\(QwenRealtimeReader.model)）用同一个音色读，所以要填两个模型都有的；默认的 \(QwenRealtimeReader.voice) 是。留空则模型用它自己的默认音色。服务不认识这个音色时，命令会报错。",
+                                      "The voice the model answers in, by the voice service's name for it. VibeWand's own lines, such as a question to confirm, are read in the same voice by the same service's synthesis model (\(QwenRealtimeReader.model)), so name one that both models have; the default, \(QwenRealtimeReader.voice), is one. Left empty, the model uses its own default voice. A voice the service does not know makes commands fail."))
+            }
+            SettingsNote(text: tr("默认开启，“语音输入”用的是阿里 Qwen 实时语音并保存了密钥时生效；没有配这个服务时，命令交给上面“模型”里配置的模型。生效后，它的 Omni 模型（qwen3.8-omni-flash-realtime）自己听你的录音，直接调用工具，再用语音回答：命令不再只以文字交给另一个模型：它同时拿到录音和识别出的那行字，识别认错了字它也能照录音里说的做。它接在同一个内核上，内置和插件模式都能用，权限、对话保留和 Agent 记录照常；上面“模型”里配置的模型在这期间不用。",
+                                  "On by default, and in force when Voice input uses Alibaba Qwen Realtime with its key saved; without that service, commands go to the model set up under Model above. In force, its Omni model (qwen3.8-omni-flash-realtime) listens to your recording itself, calls the tools and answers in speech: the command no longer reaches a model as text alone. It gets the recording and the line the recogniser wrote, so a word the recogniser got wrong can still be acted on as it was spoken. It runs on the same kernel, built in or plugin mode, with permission, kept conversations and agent records as before; the model set up under Model above is not used meanwhile."))
+            SettingsNote(text: tr("这时录音和上面列出的内容都发给语音服务，而不是“模型”里的那个服务，费用记在语音服务的密钥上。它不能看图：打开了看截图时，它靠在本机认出的文字来读窗口和点击。同一段对话里更早的命令，它看到的是当时识别出的文字。",
+                                  "The recording and everything listed above then go to the voice service instead of the service under Model, and are billed to the voice service's key. It takes no pictures: with seeing turned on it reads a window and clicks by the text read on this Mac. Earlier commands of the same conversation reach it as the text recognised at the time."))
+        }
     }
 
     private var notesCard: some View {

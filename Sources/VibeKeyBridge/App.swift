@@ -57,6 +57,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self, self.runtime.demo else { return }
             self.runtime.handle(control, phase: phase)
         }
+        overlay.onReinsert = { [weak self] in self?.runtime.reinsertDictation() }
         overlay.setScale(UserDefaults.standard.object(forKey: "hudScale") as? Double ?? 1)
         overlay.setOpacity(UserDefaults.standard.object(forKey: "hudOpacity") as? Double ?? 0.95)
         overlay.setExpanded(UserDefaults.standard.bool(forKey: "hudExpanded"))

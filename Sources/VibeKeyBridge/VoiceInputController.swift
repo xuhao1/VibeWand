@@ -20,19 +20,24 @@ final class VoiceInputController: ObservableObject {
     var onChange: (() -> Void)?
     var onTranscript: ((String) -> Void)?
     var onPartialTranscript: ((String) -> Void)?
-    var onCommandTranscript: ((String) -> Void)?
+    /// A spoken command as it was recognised, with the recording itself when the command asked for it to be kept.
+    var onCommandTranscript: ((String, SpeechAudio?) -> Void)?
     var onCancel: (() -> Void)?
     /// Chooses the recording device for each session; nil is the macOS default input.
     var microphone: (() -> String?)?
     private let preferences: SpeechPreferences
     private let credentials: any SpeechCredentialStore
     private let session: DictationSession
+    /// Recordings are made with the microphone, which may then be opened as a button goes down. Not so when
+    /// the recogniser was put in from outside, as a film or a test replaying a transcript does.
+    let recordsFromMicrophone: Bool
     /// The recogniser that runs on this Mac, and the state of its models for the settings to show.
     let senseVoice: SenseVoice
 
     init(preferences: SpeechPreferences = SpeechPreferences(), credentials: any SpeechCredentialStore = KeychainSpeechCredentials(),
          senseVoice: SenseVoice? = nil, engineFactory: ((SpeechConfiguration) throws -> any DictationEngine)? = nil) {
         self.preferences = preferences; self.credentials = credentials
+        recordsFromMicrophone = engineFactory == nil
         configuration = preferences.load()
         let local = senseVoice ?? .shipped()
         self.senseVoice = local
@@ -50,6 +55,8 @@ final class VoiceInputController: ObservableObject {
         local.onChange = { [weak self] in self?.objectWillChange.send() }
         session.onState = { [weak self] state in
             guard let self else { return }
+            // A recording that could not start leaves no microphone open behind it.
+            if case .failed = state { SpeechAudioInput.disarm() }
             self.state = state; self.message = ""; self.onChange?()
         }
         session.onPartialTranscript = { [weak self] text in
@@ -62,7 +69,7 @@ final class VoiceInputController: ObservableObject {
         session.onTranscript = { [weak self] text in
             guard let self else { return }
             if self.testing { self.testTranscript = text; self.testing = false }
-            else if self.commanding { self.commanding = false; self.onCommandTranscript?(text) }
+            else if self.commanding { self.commanding = false; self.onCommandTranscript?(text, self.session.audio) }
             else { self.onTranscript?(text) }
             self.previewTimer?.invalidate()
             self.previewTimer = Timer.scheduledTimer(withTimeInterval: 8, repeats: false) { [weak self] _ in
@@ -76,13 +83,30 @@ final class VoiceInputController: ObservableObject {
     }
     func begin() { resetPreview(); testing = false; commanding = false; message = ""; record(configuration) }
     func beginTest() { cancel(); resetPreview(); testing = true; testTranscript = ""; record(configuration) }
-    /// A command is taken down as spoken: polishing could change what was asked for.
-    func beginCommand() {
+    /// A command is taken down as spoken: polishing could change what was asked for. `listening` says the
+    /// command goes to a model that hears the recording itself, which is then kept for it.
+    func beginCommand(listening: Bool = false) {
         cancel(); resetPreview(); commanding = true; message = ""
         var verbatim = configuration; verbatim.textStyle = .verbatim
-        record(verbatim)
+        record(verbatim, listening: listening)
     }
-    private func record(_ configuration: SpeechConfiguration) { SpeechAudioInput.deviceUID = microphone?(); session.begin(configuration) }
+    private func record(_ configuration: SpeechConfiguration, listening: Bool = false) {
+        SpeechAudioInput.deviceUID = microphone?()
+        // The microphone opens now, unless the button's press already opened it: what the recogniser needs
+        // first, a key or a connection, no longer costs the start of the sentence.
+        if recordsFromMicrophone { SpeechAudioInput.arm(SpeechAudioInput.deviceUID) }
+        session.begin(configuration, listening: listening)
+    }
+    /// The model of the voice service that can hear a command and act on it itself, when that service is the
+    /// one in use and its key is saved.
+    var listeningModel: String? { configuration.provider == .qwenRealtime && keySaved ? configuration.model : nil }
+    /// That service's settings and key, for a session with the model.
+    func listeningService() async throws -> (SpeechConfiguration, String) {
+        let configuration = self.configuration
+        guard configuration.provider == .qwenRealtime,
+              let key = try await credentials.readAsync(account: configuration.credentialAccount) else { throw SpeechInputError.missingAPIKey }
+        return (configuration, key)
+    }
     func end() { session.end() }
     func cancel() { onCancel?(); testing = false; commanding = false; resetPreview(); session.cancel() }
     private func resetPreview() { previewTimer?.invalidate(); previewTimer = nil; liveTranscript = ""; processingNotice = nil }

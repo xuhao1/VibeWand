@@ -19,6 +19,20 @@ final class CommandController {
     /// Adjusts how the kernel process is started. Live tests hand a key over in its environment.
     var prepare: ((inout KernelLaunch) -> Void)?
     var onChange: (() -> Void)?
+    /// Says results and questions aloud. The app provides it; without it command mode is silent.
+    var speech: SpeechOutput?
+    /// The voice service's model as the command model, for when the user chose it.
+    private let listener: ListeningModel
+    /// The model said its answer itself during this command.
+    private var modelSpoke = false
+    /// Whether the running kernel was started on the model that listens.
+    private var kernelListens = false
+    /// A line of VibeWand's own on its way to being said in that model's voice.
+    private var saying: Task<Void, Never>?
+    /// Ends the listening once the words have stopped coming. A handset's release does not always arrive,
+    /// and the microphone must not stay open until the next press.
+    private var quiet: Timer?
+    static var quiet: TimeInterval = 4
     private(set) var hud = CommandHUDSnapshot() { didSet { if hud != oldValue { onChange?() } } }
 
     private var kernel: (any CommandKernel)?
@@ -55,8 +69,16 @@ final class CommandController {
 
     init(settings: CommandSettings, tools: CommandTools, voice: VoiceInputController, support: URL = CommandController.applicationSupport) {
         self.settings = settings; self.tools = tools; self.voice = voice; self.support = support
+        listener = ListeningModel(service: { [voice] in try await voice.listeningService() })
+        settings.listeningModel = { [voice] in voice.listeningModel }
+        listener.speaks = { [weak self] in self?.speech != nil && self?.settings.speaks == true }
+        listener.voice = { [settings] in settings.voice }
+        listener.onSound = { [weak self] sound in
+            self?.modelSpoke = true
+            self?.speech?.play(sound, sampleRate: QwenRealtimeConversation.sampleRate)
+        }
         tools.ask = { [weak self] in await self?.ask($0) }
-        voice.onCommandTranscript = { [weak self] in self?.heard($0) }
+        voice.onCommandTranscript = { [weak self] in self?.heard($0, $1) }
         // What the last run left of the conversation is shown before the next command takes it up.
         if let kept = carried { turns = kept.turns; usage = kept.usage }
         if settings.sight { InterfaceTools.warm() }
@@ -74,16 +96,17 @@ final class CommandController {
         // Speaking again interrupts at once, before the new words are known.
         halt()
         tools.captureSource()
-        voice.beginCommand()
+        voice.beginCommand(listening: settings.listening)
         steps = 0
         // The kernel starts while the user is still speaking, and so does what reads a picture.
         warm()
         if settings.sight { InterfaceTools.warm() }
         hud = CommandHUDSnapshot(phase: .listening, status: L10n.tr("命令 · 正在听", "Command · listening"), detail: detail())
     }
-    func end() { if hud.phase == .listening { voice.end() } }
+    func end() { quiet?.invalidate(); if hud.phase == .listening { voice.end() } }
     func cancelCapture() {
         guard hud.phase == .listening else { return }
+        quiet?.invalidate()
         voice.cancel(); hud = CommandHUDSnapshot()
     }
 
@@ -95,19 +118,27 @@ final class CommandController {
         // Released before recording began.
         case .idle: hud = CommandHUDSnapshot()
         case .transcribing: hud.status = L10n.tr("命令 · 识别中", "Command · transcribing")
-        default: hud.text = voice.liveTranscript
+        default:
+            guard hud.text != voice.liveTranscript else { return }
+            hud.text = voice.liveTranscript
+            quiet?.invalidate()
+            guard !hud.text.isEmpty else { return }
+            quiet = Timer.scheduledTimer(withTimeInterval: Self.quiet, repeats: false) { [weak self] _ in
+                MainActor.assumeIsolated { if self?.hud.phase == .listening, self?.voice.state == .recording { self?.voice.end() } }
+            }
         }
     }
 
-    private func heard(_ text: String) {
+    private func heard(_ text: String, _ audio: SpeechAudio?) {
         let words = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard hud.phase == .listening, !words.isEmpty else { hud = CommandHUDSnapshot(); return }
-        run(words)
+        run(words, audio: audio)
     }
 
     // MARK: One instruction
 
-    func run(_ words: String) {
+    /// `audio` is the recording the words were recognised in, for a model that hears it itself.
+    func run(_ words: String, audio: SpeechAudio? = nil) {
         // Whatever was running or being asked gives way to the new instruction.
         halt()
         let token = generation, previous = turn
@@ -125,13 +156,13 @@ final class CommandController {
         // The kernel takes one turn at a time; an interrupted one settles before the next begins.
         turn = Task { [weak self] in
             await previous?.value
-            await self?.execute(words, token)
+            await self?.execute(words, audio, token)
         }
     }
 
-    private func execute(_ words: String, _ token: Int) async {
+    private func execute(_ words: String, _ audio: SpeechAudio?, _ token: Int) async {
         guard token == generation else { return }
-        defer { if runningTurn == token { runningTurn = nil }; armIdle() }
+        defer { if runningTurn == token { runningTurn = nil }; listener.settle(); armIdle() }
         var journal: TaskJournal?
         do {
             let kernel = try await ready()
@@ -149,6 +180,8 @@ final class CommandController {
                                   stepLimit: settings.stepLimit, journal: journal)
             self.gateway = gateway; runningTurn = token
             let prompt = CoordinatorPrompt.task(words, frontApp: tools.source?.name ?? "", window: tools.source?.window ?? "")
+            modelSpoke = false
+            if kernelListens, let audio { listener.hear(prompt, audio) }
             let reason = try await kernel.run(prompt, tools: { await gateway.call($0, $1) }) { [weak self, journal] event in
                 journal?.note(event)
                 Task { @MainActor in self?.note(event, token) }
@@ -162,6 +195,8 @@ final class CommandController {
             guard token == generation else { return }
             limit?.invalidate(); limit = nil
             show(result.phase, result.text, for: result.phase == .done ? 5 : 10, detail: detail(ended: true))
+            // A model that speaks has said it already; otherwise the line is read out.
+            if !modelSpoke { say(result.text) }
             // A conversation the user wants no memory of, or one near the end of its window, is not carried on.
             if settings.historyMinutes == 0 || usage.map({ $0.used * 5 >= $0.size * 4 }) == true { endConversation() }
             else if let session = kernel.session {
@@ -202,9 +237,10 @@ final class CommandController {
         case .finished(let summary): return (.done, summary + (unverified ? L10n.tr("（结果未能核对）", " (result not verified)") : ""))
         case .needsUser(let reason): return (.attention, reason)
         case nil:
-            // The model stopped without saying how it ended; its last words are all there is.
+            // The model stopped without saying how it ended; its last words are all there is. From a model
+            // that talks with the user they are an answer.
             let said = lastMessage.trimmingCharacters(in: .whitespacesAndNewlines)
-            return (.attention, said.isEmpty ? L10n.tr("没有得到结果", "No result") : String(said.prefix(160)))
+            return (kernelListens && !said.isEmpty ? .done : .attention, said.isEmpty ? L10n.tr("没有得到结果", "No result") : String(said.prefix(160)))
         }
     }
 
@@ -233,6 +269,7 @@ final class CommandController {
         case .confirm(let text):
             hud = CommandHUDSnapshot(phase: .confirming, status: L10n.tr("命令 · 请确认", "Command · confirm"), text: text, detail: detail())
         }
+        say(hud.text)
         // Shorter than the kernel's own limit on a tool call, so an unanswered question ends as a refusal.
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 45, repeats: false) { [weak self] _ in MainActor.assumeIsolated { self?.resolve(nil) } }
@@ -243,6 +280,8 @@ final class CommandController {
     }
     private func resolve(_ value: Int?) {
         timer?.invalidate(); timer = nil
+        // An answered question need not be read to its end.
+        if answer != nil { hush() }
         answer?.resume(returning: value); answer = nil
     }
     func move(_ direction: Int) {
@@ -266,8 +305,22 @@ final class CommandController {
         if let gateway { Task { await gateway.stop() } }
         if runningTurn != nil { kernel?.cancel() }
         gateway = nil
-        limit?.invalidate(); limit = nil
+        limit?.invalidate(); limit = nil; quiet?.invalidate()
+        listener.settle(); hush()
     }
+    /// Says a line of VibeWand's own, a result or a question: in the voice of the model that listens while
+    /// commands go to it, so that everything sounds like one speaker, and in the system's voice otherwise.
+    private func say(_ line: String) {
+        guard settings.speaks, let speech else { return }
+        saying?.cancel()
+        guard kernelListens else { speech.say(line); return }
+        saying = Task { [weak self, listener] in
+            do { try await listener.read(line) { speech.play($0, sampleRate: QwenRealtimeConversation.sampleRate) } }
+            // The service did not answer: the line is still worth hearing.
+            catch { if !Task.isCancelled, self != nil { speech.say(line) } }
+        }
+    }
+    private func hush() { saying?.cancel(); saying = nil; speech?.stop() }
 
     private func show(_ phase: CommandHUDSnapshot.Phase, _ text: String, for seconds: TimeInterval, detail: String = "") {
         hud = CommandHUDSnapshot(phase: phase, status: phase == .done ? L10n.tr("命令 · 完成", "Command · done") : L10n.tr("命令", "Command"),
@@ -298,8 +351,10 @@ final class CommandController {
     private func warm() {
         armIdle()
         let kept = carried
-        // A kernel still holding a conversation that is over gives way to a fresh one.
+        // A kernel still holding a conversation that is over gives way to a fresh one, and so does one started
+        // on another model than commands now go to. That one's conversation is carried on.
         if let held = kernel?.session, held != kept?.session { rest() }
+        if kernel != nil, kernelListens != settings.listening { rest() }
         guard kernel == nil, opening == nil else { return }
         turns = kept?.turns ?? 0; usage = kept?.usage
         if kept == nil { settings.conversation = nil }
@@ -320,11 +375,15 @@ final class CommandController {
     /// installed are started the same way; the settings say where the models come from.
     private func open(resume: String?) async throws -> KernelSession {
         guard let harness = settings.harness else { throw settings.kernelMode == .harness ? Failure.harnessMissing : Failure.kernelMissing }
-        guard let models = await settings.models() else { throw Failure.modelMissing }
+        // The model that listens is one more route, served by this app; either harness is started on it the same way.
+        let listening = settings.listenModel
+        let models: Harness.Models?
+        if let listening { models = .route(try await listener.route(model: listening)) } else { models = await settings.models() }
+        guard let models else { throw Failure.modelMissing }
         guard let version = await version(of: harness) else { throw Failure.harnessMissing }
         var launch = try harness.launch(version: version, allowUnverified: settings.harnessUnverified, support: folder, models: models,
                                         tools: settings.tools, permission: settings.permission, instructions: settings.instructions,
-                                        sight: settings.sight, keeping: resume)
+                                        sight: settings.sight, hearing: listening != nil, keeping: resume)
         prepare?(&launch)
         let session = try await KernelSession.open(launch, tools: ToolCatalog.mounted(sight: settings.sight), resume: resume)
         // A harness's own tools ask through the same gateway as VibeWand's.
@@ -335,6 +394,7 @@ final class CommandController {
         session.onExit = { [weak self, weak session] in
             Task { @MainActor in if let session, self?.kernel === session { self?.kernel = nil } }
         }
+        kernelListens = listening != nil
         return session
     }
     /// A harness's version. Asking takes a moment, so the answer is kept while its command is unchanged.

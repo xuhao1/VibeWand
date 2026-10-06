@@ -96,6 +96,13 @@ final class RuntimeTests: XCTestCase {
             configuration.microphone = .system
             try runtime.updateSpeechConfiguration(configuration)
             XCTAssertNil(runtime.deviceMicrophone)
+
+            // A keyboard has no microphone: it records from the one chosen for it, and from this Mac's own
+            // while that one is away.
+            let keyboard = BridgeRuntime(source: KeyboardInputSource(), templates: DeviceTemplateStore(defaults: defaults), voiceInput: voice)
+            configuration.microphone = .device; configuration.keyboardMicrophone = "a-microphone-that-is-away"
+            try keyboard.updateSpeechConfiguration(configuration)
+            XCTAssertEqual(keyboard.deviceMicrophone, SpeechAudioInput.inputs().first(where: \.builtIn)?.uid)
         }
     }
 }

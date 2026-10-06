@@ -153,8 +153,10 @@ public struct Harness: Sendable {
     /// `VibeWand` subfolder is the working directory, which is no project of the user's, so an installed
     /// harness's apps file the conversations under no project. `keeping` names the conversation that may be
     /// taken up again; in the shipped harness's store, which nothing else reads, the others are spent and removed.
+    /// `hearing` says the model is one that hears the user's recording and speaks its answers.
     public func launch(version: String, allowUnverified: Bool = false, support: URL, models: Models, tools: Tools = .own,
-                       permission: PermissionMode = .risky, instructions: String = "", sight: Bool = false, keeping: String? = nil) throws -> KernelLaunch {
+                       permission: PermissionMode = .risky, instructions: String = "", sight: Bool = false, hearing: Bool = false,
+                       keeping: String? = nil) throws -> KernelLaunch {
         guard Self.verified.contains(version) || allowUnverified else { throw Failure.unverified(version) }
         guard let bundle = tools == .all ? overlay : coordinator else { throw Failure.noTools }
         let files = FileManager.default
@@ -200,7 +202,7 @@ public struct Harness: Sendable {
         if Self.verified.contains(version) { try? files.removeItem(at: exemption) }
         else { try Data(JSONValue.object(["\(package)@\(release)": [.string(version)]]).text.utf8).write(to: exemption) }
 
-        environment["VIBEWAND_SYSTEM_PROMPT"] = CoordinatorPrompt.system(instructions: instructions, tools: tools, sight: sight)
+        environment["VIBEWAND_SYSTEM_PROMPT"] = CoordinatorPrompt.system(instructions: instructions, tools: tools, sight: sight, hearing: hearing)
         environment["VIBEWAND_MODEL"] = JSONValue.object(["provider": .string(chosen.provider), "model": .string(chosen.model)]).text
         // The harness's own tools run inside its sandbox, and it asks before a step leaves it.
         if tools == .all { environment["DSH_PERMISSION_MODE"] = permission.sandbox }

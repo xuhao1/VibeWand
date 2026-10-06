@@ -114,7 +114,7 @@ final class SpeechInputTests: XCTestCase {
         var config = SpeechConfiguration()
         XCTAssertEqual(config.effectiveMicrophone, .device)
         XCTAssertEqual(config.effectiveVocabulary, SpeechVocabulary())
-        config.microphone = .system
+        config.microphone = .system; config.keyboardMicrophone = "a-desk-microphone"
         var vocabulary = SpeechVocabulary(); vocabulary.domain = "机器人"; vocabulary.terms = ["灵巧手"]
         config.vocabulary = vocabulary
         let data = try SpeechPreferences().export(config)

@@ -256,6 +256,26 @@ final class CommandTests: XCTestCase {
 
     // MARK: One instruction
 
+    /// A handset's release does not always arrive. The command is then taken once the words have stopped
+    /// coming, instead of the microphone staying open until the next press.
+    func testACommandWhoseReleaseNeverArrivesIsTakenWhenTheWordsStop() async throws {
+        let (runtime, kernel, _) = try await MainActor.run { try makeRuntime(script: [("finish", ["summary": "好了"])]) }
+        await MainActor.run {
+            CommandController.quiet = 0.3
+            runtime.command.begin()
+            XCTAssertEqual(runtime.command.hud.phase, .listening)
+        }
+        addTeardownBlock { await MainActor.run { CommandController.quiet = 4 } }
+        await wait("the command ran without a release") { runtime.command.hud.phase == .done }
+        await MainActor.run {
+            XCTAssertEqual(kernel.prompts.count, 1)
+            XCTAssertTrue(kernel.prompts[0].hasPrefix("VibeWand · 切到 Codex"), kernel.prompts[0])
+            // The release that comes after all changes nothing.
+            runtime.command.end()
+            XCTAssertEqual(runtime.command.hud.phase, .done)
+        }
+    }
+
     func testFinishedInstructionIsReportedFromTheGatewayAndRecorded() async throws {
         let (runtime, kernel, support) = try await MainActor.run { try makeRuntime(script: [("finish", ["summary": "已切到 Codex"])]) }
         await MainActor.run { runtime.command.run("切到 Codex") }
