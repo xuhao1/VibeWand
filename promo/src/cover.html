@@ -83,7 +83,8 @@
   <div id="grain" class="abs"></div>
 </div>
 <script>
-  // One design, laid out for the shape and written in the language asked for: cover.html?shape=16x9|4x3&lang=zh|en.
+  // One design, laid out for the shape and written in the language asked for: cover.html?shape=16x9|4x3|og&lang=zh|en.
+  // `og` is the 1.91:1 picture a shared link shows; it is drawn at 1920 x 1008 and photographed at 1200 x 630.
   const asked = new URLSearchParams(location.search), shape = asked.get('shape') || '16x9', lang = asked.get('lang') || 'zh';
   const words = {
     zh: { name: '如意魔棒', headline: '<div>一根魔棒</div><div class="hot">号令所有 <i>AI</i></div>', size: 174, chips: ['不摸键盘 Vibe Coding', '一句话操作电脑'],
@@ -96,7 +97,8 @@
   put('brand-name', words.name); put('headline', words.headline); put('chip-1', words.chips[0]); put('chip-2', words.chips[1]);
   put('badge-text', words.badge); put('devices-line', words.devices); put('say-text', words.say);
   const layout = {
-    '16x9': { size: [1920, 1080], glow: ['72%', '52%'], brand: [84, 58], headline: [80, 196, 1], chips: [84, 640, 'row'], badge: [84, 790], line: [88, 968, 900], picture: [946, 196, 0.98], say: [540, 640] },
+    '16x9': { size: [1920, 1080], glow: ['72%', '52%'], brand: [84, 58], headline: [80, 196, 1], chips: [84, 640, 'row'], badge: [84, 790], line: [88, 968, 900], picture: [946, 196, 0.98], say: [540, 640], en: { badge: [84, 826] } },
+    'og': { size: [1920, 1008], glow: ['72%', '52%'], brand: [84, 42], headline: [80, 164, 1], chips: [84, 606, 'row'], badge: [84, 750], line: [88, 912, 900], picture: [946, 150, 0.98], say: [540, 640], en: { badge: [84, 786] } },
     '4x3': { size: [1600, 1200], glow: ['64%', '68%'], brand: [70, 52], headline: [66, 172, 0.92], chips: [70, 576, 'column'], badge: [70, 1046], line: [72, 912, 460], picture: [566, 474, 1.0], say: [580, 628] },
   }[shape];
   const cover = document.getElementById('cover'), at = (id, [x, y]) => Object.assign(document.getElementById(id).style, { left: x + 'px', top: y + 'px' });
@@ -106,7 +108,7 @@
   Object.assign(document.getElementById('devices-line').style, { width: layout.line[2] + 'px', whiteSpace: 'normal', lineHeight: 1.7 });
   document.getElementById('headline').style.fontSize = words.size * layout.headline[2] + 'px';
   Object.assign(document.getElementById('chips').style, { flexDirection: lang === 'en' ? 'column' : layout.chips[2], alignItems: 'flex-start' });
-  if (lang === 'en') { document.body.classList.add('en'); if (shape === '16x9') at('badge', [84, 826]); }
+  if (lang === 'en') { document.body.classList.add('en'); if (layout.en) at('badge', layout.en.badge); }
   document.getElementById('picture').style.transform = `scale(${layout.picture[2]})`;
   // The apps on an arc over the devices, each joined to the controller by a line of light.
   const apps = ['codex', 'claude', 'deepseek-harness', 'iterm2', 'chrome', 'wechat', 'feishu'], holder = document.getElementById('apps'), rays = document.getElementById('rays');

@@ -35,9 +35,9 @@ To look at single moments: `node promo/tools/render.mjs --stills 12.5,48 --scale
 
 ## Cover / 封面
 
-`node promo/tools/cover.mjs` renders `src/cover.html` in Chinese and English, 16:9 and 4:3, into `output/promo/cover/`. The 16:9 pictures are also the title picture of the READMEs and the site; `docs/images/README.md` says how those copies are made.
+`node promo/tools/cover.mjs` renders `src/cover.html` in Chinese and English, in 16:9, 4:3 and the 1.91:1 of a shared link, into `output/promo/cover/`. The 16:9 pictures are also the title picture of the READMEs and the site, and the English 1.91:1 one is the site's sharing picture; `docs/images/README.md` says how those copies are made.
 
-`node promo/tools/cover.mjs` 把 `src/cover.html` 渲染成中英文、16:9 和 4:3 共四张封面，放在 `output/promo/cover/`。16:9 的两张同时是 README 和项目主页的题图，副本的生成方式见 `docs/images/README.md`。
+`node promo/tools/cover.mjs` 把 `src/cover.html` 渲染成中英文各三种比例的封面：16:9、4:3，以及分享链接用的 1.91:1，放在 `output/promo/cover/`。16:9 的两张同时是 README 和项目主页的题图，英文的 1.91:1 那张是主页的分享图；副本的生成方式见 `docs/images/README.md`。
 
 ## What is real / 哪些是真实画面
 
