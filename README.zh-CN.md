@@ -1,7 +1,5 @@
 # VibeWand
 
-**One wand to command them all.**
-
 [![VibeWand 如意魔棒：一根魔棒，号令所有 AI。点击观看三分钟宣传片](docs/images/cover-zh.jpg)](https://www.bilibili.com/video/BV169Hf6oEeq/)
 
 <p align="center"><a href="https://www.bilibili.com/video/BV169Hf6oEeq/">▶ 观看三分钟宣传片</a></p>

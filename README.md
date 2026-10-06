@@ -1,7 +1,5 @@
 # VibeWand
 
-**One wand to command them all.**
-
 [![VibeWand: one wand to command them all. Watch the three-minute film](docs/images/cover-en.jpg)](https://youtu.be/8eKGw3LD_aI)
 
 <p align="center"><a href="https://youtu.be/8eKGw3LD_aI">▶ Watch the three-minute film</a></p>
