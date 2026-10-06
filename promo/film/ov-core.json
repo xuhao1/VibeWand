@@ -1,0 +1,21 @@
+[
+ {"at":0.4,"expanded":true,"note":"reading"},
+ {"at":1.5,"turn":"right","count":8,"every":0.11,"note":"scroll-down"},
+ {"at":3.2,"turn":"right","count":8,"every":0.11},
+ {"at":5.0,"turn":"left","count":5,"every":0.12,"note":"scroll-up"},
+ {"at":6.8,"press":"voice","hold":3.2,"note":"dictate"},
+ {"at":11.4,"press":"dial","note":"sessions"},
+ {"at":12.6,"turn":"right","count":1},
+ {"at":13.3,"turn":"right","count":1},
+ {"at":14.4,"press":"ok","note":"session-confirm"},
+ {"at":16.0,"press":"dial","hold":0.95,"note":"models"},
+ {"at":18.0,"turn":"right","count":1},
+ {"at":19.0,"press":"ok","note":"model-confirm"},
+ {"at":20.2,"turn":"right","count":1},
+ {"at":21.2,"press":"ok","note":"effort-confirm"},
+ {"at":23.0,"press":"dial","hold":0.06,"note":"switcher"},
+ {"at":23.22,"press":"dial","hold":0.06},
+ {"at":24.6,"turn":"right","count":1},
+ {"at":25.6,"press":"ok","note":"app-confirm"},
+ {"at":27.5,"quit":true}
+]

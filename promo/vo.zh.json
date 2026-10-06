@@ -1,0 +1,47 @@
+{
+  "narrator": { "voice": "zh-CN-YunxiNeural", "rate": "-10%", "pitch": "+0Hz" },
+  "tagline": { "voice": "en-US-ChristopherNeural", "rate": "-8%", "pitch": "-2Hz" },
+  "user": { "voice": "zh-CN-YunxiNeural", "rate": "-8%", "pitch": "+0Hz" },
+  "lines": [
+    { "id": "hook1", "role": "narrator", "text": "我花了几百块，买了一个旋钮。" },
+    { "id": "hook2", "role": "narrator", "text": "听说，它是 Vibe Coding 的神器。" },
+    { "id": "hook3", "role": "narrator", "text": "结果它的驱动，只会一件事——" },
+    { "id": "hook4", "role": "narrator", "text": "假装自己是几个键盘按键。" },
+    { "id": "hook5", "role": "narrator", "text": "那我为什么，不直接按键盘呢？" },
+
+    { "id": "turn1", "role": "narrator", "text": "所以，我给它换了个灵魂。" },
+    { "id": "title", "role": "tagline", "text": "One wand, to command them all." },
+
+    { "id": "insight1", "role": "narrator", "text": "Vibe Coding 的时候，你其实很少打字。" },
+    { "id": "insight2", "role": "narrator", "text": "你在读，在等，在切换，偶尔，说一句话。" },
+    { "id": "insight3", "role": "narrator", "text": "这些事，一只手就够了。" },
+
+    { "id": "core1", "role": "narrator", "text": "转一下，读回复。" },
+    { "id": "core2a", "role": "narrator", "text": "按住，说话。" },
+    { "id": "core2b", "role": "narrator", "text": "松手，字已经在输入框里。" },
+    { "id": "core3", "role": "narrator", "text": "按一下，换对话。长按，换模型。" },
+    { "id": "core4", "role": "narrator", "text": "人往后一靠，活儿照样在干。" },
+
+    { "id": "apps1", "role": "narrator", "text": "可是，工具越来越多。Codex，Claude，DeepSeek Harness，终端里的 Claude Code，还有浏览器，微信，飞书。" },
+    { "id": "apps2", "role": "narrator", "text": "每一个，都有自己的一套快捷键。" },
+    { "id": "apps3", "role": "narrator", "text": "VibeWand 不替代它们。它把它们，收进同一套手势里。" },
+    { "id": "apps4", "role": "narrator", "text": "一根魔棒，号令所有。" },
+
+    { "id": "cmd1", "role": "narrator", "text": "后来我想：它都能听我说话了，为什么不干脆，听我号令？" },
+    { "id": "cmd2", "role": "narrator", "text": "背后，是 DeepSeek Harness 驱动的 Agent。模型，你来选。" },
+    { "id": "cmd3", "role": "narrator", "text": "它默认不截屏，读的是系统给出的界面结构。要发送，要删除之前，先问你。" },
+    { "id": "cmd4", "role": "narrator", "text": "如意魔棒。一句话，如你所意。" },
+
+    { "id": "dev1", "role": "narrator", "text": "魔棒，也不止一根。" },
+    { "id": "dev2", "role": "narrator", "text": "VibeKey 旋钮。PS5 手柄，连它的麦克风都能用。小米遥控器。或者，你手边的键盘。" },
+    { "id": "dev3", "role": "narrator", "text": "手上有什么，就用什么。" },
+
+    { "id": "end1", "role": "narrator", "text": "VibeWand，如意魔棒。还在开发中，欢迎来玩。" },
+    { "id": "end2", "role": "narrator", "text": "对了。这支视频，也是我说了几句话，Claude Code 做出来的。" },
+
+    { "id": "say_dictate", "role": "user", "text": "登录页的报错帮我修一下，顺便把单元测试补上。" },
+    { "id": "say_music", "role": "user", "text": "来点适合写代码的音乐。" },
+    { "id": "say_keynote", "role": "user", "text": "新建一份 Keynote，标题写上 One wand to command them all。" },
+    { "id": "say_harness", "role": "user", "text": "切到 DeepSeek Harness，开一个新对话。" }
+  ]
+}

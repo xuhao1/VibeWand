@@ -1,0 +1,15 @@
+[
+ {"at":0.4,"expanded":true,"note":"vibeKey"},
+ {"at":1.4,"turn":"right","count":4,"every":0.12},
+ {"at":2.6,"press":"voice","hold":0.9},
+ {"at":4.4,"template":"dualSense","note":"dualSense"},
+ {"at":5.8,"press":"voice","hold":1.4},
+ {"at":7.8,"press":"ok","hold":0.25},
+ {"at":8.6,"press":"escape","hold":0.25},
+ {"at":10.0,"template":"xiaomiRemote","note":"xiaomiRemote"},
+ {"at":11.4,"press":"voice","hold":1.2},
+ {"at":13.2,"press":"ok","hold":0.25},
+ {"at":14.6,"template":"keyboard","note":"keyboard"},
+ {"at":18.6,"template":"vibeKey"},
+ {"at":20.0,"quit":true}
+]

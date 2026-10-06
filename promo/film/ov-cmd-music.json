@@ -1,0 +1,51 @@
+[
+ {
+  "at": 1.2,
+  "say": [
+   "来点",
+   "来点适合",
+   "来点适合写代码的",
+   "来点适合写代码的音乐"
+  ],
+  "command": true,
+  "simulate": [
+   {
+    "after": 1.0,
+    "tool": "list_targets"
+   },
+   {
+    "after": 0.9,
+    "tool": "activate_app"
+   },
+   {
+    "after": 1.0,
+    "tool": "search_in_app"
+   },
+   {
+    "after": 1.0,
+    "tool": "ui_type"
+   },
+   {
+    "after": 1.1,
+    "tool": "ui_snapshot"
+   },
+   {
+    "after": 1.0,
+    "tool": "ui_press"
+   }
+  ],
+  "summary": "已在网易云音乐里播放“编程专注”歌单"
+ },
+ {
+  "at": 1.4,
+  "settle": 30
+ },
+ {
+  "at": 1.5,
+  "note": "linger"
+ },
+ {
+  "at": 60,
+  "quit": true
+ }
+]

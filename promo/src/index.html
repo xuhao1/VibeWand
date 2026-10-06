@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<title>VibeWand promo</title>
+<link rel="stylesheet" href="vendor/noto-sans-sc/chinese-simplified-500.css">
+<link rel="stylesheet" href="vendor/noto-sans-sc/chinese-simplified-700.css">
+<link rel="stylesheet" href="vendor/noto-sans-sc/chinese-simplified-900.css">
+<link rel="stylesheet" href="vendor/sora/400.css">
+<link rel="stylesheet" href="vendor/sora/600.css">
+<link rel="stylesheet" href="vendor/sora/800.css">
+<link rel="stylesheet" href="vendor/jetbrains-mono/400.css">
+<link rel="stylesheet" href="vendor/jetbrains-mono/700.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="stage">
+  <canvas id="backdrop" width="1920" height="1080"></canvas>
+  <div id="scenes"></div>
+  <div id="captions"></div>
+  <div id="grain"></div>
+  <div id="fade"></div>
+</div>
+<script src="vendor/gsap.min.js"></script>
+<script src="data.js"></script>
+<script src="stage.js"></script>
+<script src="mock.js"></script>
+<script src="scenes/hook.js"></script>
+<script src="scenes/title.js"></script>
+<script src="scenes/insight.js"></script>
+<script src="scenes/core.js"></script>
+<script src="scenes/apps.js"></script>
+<script src="scenes/command.js"></script>
+<script src="scenes/devices.js"></script>
+<script src="scenes/end.js"></script>
+<script>Film.ready();</script>
+</body>
+</html>

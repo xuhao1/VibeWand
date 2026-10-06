@@ -1,0 +1,54 @@
+[
+ {
+  "at": 1.2,
+  "say": [
+   "新建",
+   "新建一份",
+   "新建一份 Keynote",
+   "新建一份 Keynote，标题写",
+   "新建一份 Keynote，标题写上 One wa",
+   "新建一份 Keynote，标题写上 One wand to command ",
+   "新建一份 Keynote，标题写上 One wand to command them all"
+  ],
+  "command": true,
+  "simulate": [
+   {
+    "after": 1.0,
+    "tool": "list_targets"
+   },
+   {
+    "after": 0.9,
+    "tool": "activate_app"
+   },
+   {
+    "after": 1.0,
+    "tool": "ui_snapshot"
+   },
+   {
+    "after": 1.0,
+    "tool": "ui_menu"
+   },
+   {
+    "after": 1.1,
+    "tool": "ui_snapshot"
+   },
+   {
+    "after": 1.0,
+    "tool": "ui_type"
+   }
+  ],
+  "summary": "已新建演示文稿，标题是 One wand to command them all"
+ },
+ {
+  "at": 1.4,
+  "settle": 30
+ },
+ {
+  "at": 1.5,
+  "note": "linger"
+ },
+ {
+  "at": 60,
+  "quit": true
+ }
+]

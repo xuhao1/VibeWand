@@ -1,0 +1,43 @@
+[
+ {
+  "at": 1.2,
+  "say": [
+   "切到",
+   "切到 DeepSeek",
+   "切到 DeepSeek Harness，",
+   "切到 DeepSeek Harness，开一个新对话"
+  ],
+  "command": true,
+  "simulate": [
+   {
+    "after": 1.0,
+    "tool": "list_targets"
+   },
+   {
+    "after": 0.9,
+    "tool": "activate_app"
+   },
+   {
+    "after": 1.0,
+    "tool": "ui_snapshot"
+   },
+   {
+    "after": 1.0,
+    "tool": "ui_press"
+   }
+  ],
+  "summary": "已切到 DeepSeek Harness，新对话开好了"
+ },
+ {
+  "at": 1.4,
+  "settle": 30
+ },
+ {
+  "at": 1.5,
+  "note": "linger"
+ },
+ {
+  "at": 60,
+  "quit": true
+ }
+]
