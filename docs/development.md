@@ -130,10 +130,31 @@ VIBEWAND_COMMAND_LIVE=textedit,keyboard,code,codex,search-claude DEEPSEEK_VIBEWA
 | `Tests` | Protocol, lifecycle, gesture, adapter, and interaction tests |
 | `profiles` | Gesture and generic HID examples |
 | `docs` | Experience guide, design decisions, device setup, and engineering history |
+| `site` | The project site at [vibewand.xuhao1.me](https://vibewand.xuhao1.me): one static page in both languages, published by `scripts/publish-site.sh` |
 
 The internal `VibeKeyBridge` target and bundle identifier `org.vibekey.bridge` remain stable to preserve module references and existing preferences. The app and executable are named VibeWand.
 
 For repeatable signing, set `VIBEWAND_SIGNING_IDENTITY` (the legacy `VIBEKEY_SIGNING_IDENTITY` is also accepted). The script otherwise selects the sole Apple Development identity or uses ad-hoc signing. Ad-hoc updates can require Accessibility permission to be registered again. A successful build replaces the app and preserves the previous bundle under `dist/.previous-build.*`.
+
+## Project site / 项目主页
+
+`site/` is the whole site: `index.html`, `style.css` and `img/`, with no build step. Both languages are in the one page as `lang="zh"` and `lang="en"` twins, so a change to the text is made twice. The images are `cwebp` conversions of files in `assets/` and `docs/images/`; the four-scene strip and the device pictures are illustrations, the overlay is an actual window capture, and the app icons come from `assets/apps/` (see its README for where they are from and whose they are). Preview with `python3 -m http.server --directory site`.
+
+`bash scripts/publish-site.sh` copies `site/` into the public repository [`xuhao1/vibewand-site`](https://github.com/xuhao1/vibewand-site), which GitHub Pages serves as vibewand.xuhao1.me (`site/CNAME`). It publishes the working tree as it is, committed or not, and does nothing when the published copy is already the same.
+
+**While this repository is private, the page links to nothing in it.** The download is a release of the site's repository, not of this one, because a visitor cannot reach this one; the package goes there as a release asset rather than into `site/`, since Git refuses a file over 100 MB and the package is close to that. The page states the released version in its download links and size, so with each release:
+
+```sh
+gh release create v0.9.0 -R xuhao1/vibewand-site VibeWand-0.9.0-macOS-arm64.zip SHA256SUMS-0.9.0.txt
+```
+
+then update the version, links and size in `site/index.html` and publish. When this repository is opened, point the download back at its own releases and bring back the links to the documentation and the source.
+
+`site/` 就是整个网站：`index.html`、`style.css` 和 `img/`，没有构建步骤。两种语言写在同一页里，分别标 `lang="zh"` 和 `lang="en"`，改文字要改两处。图片是 `assets/` 和 `docs/images/` 里的文件用 `cwebp` 转出来的；四联场景图和设备图是示意图，悬浮面板是实际窗口截图，应用图标来自 `assets/apps/`（来源和归属见那里的 README）。预览用 `python3 -m http.server --directory site`。
+
+`bash scripts/publish-site.sh` 把 `site/` 复制到公开仓库 [`xuhao1/vibewand-site`](https://github.com/xuhao1/vibewand-site)，GitHub Pages 把它作为 vibewand.xuhao1.me 提供（`site/CNAME`）。它发布的是工作区当前的样子，不管有没有提交；已发布的内容相同时什么都不做。
+
+**本仓库还是私有的时候，页面不链接到这里的任何东西。**下载用的是网站仓库的 Release，而不是本仓库的，因为访客打不开本仓库；安装包作为 Release 附件上传，而不是放进 `site/`，因为 Git 拒绝超过 100 MB 的文件，而安装包已经接近这个大小。页面的下载链接和大小写着已发布的版本号，所以每次发布先执行上面的 `gh release create`，再改 `site/index.html` 里的版本号、链接和大小并发布。本仓库公开以后，把下载改回本仓库自己的 Release，并恢复指向文档和源码的链接。
 
 ## Implementation model / 实现分层
 

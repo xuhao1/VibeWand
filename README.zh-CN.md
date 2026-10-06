@@ -6,6 +6,20 @@
 
 [English](README.md) · [快速开始](docs/getting-started.md) · [支持的应用](#支持的应用) · [Computer use](#computer-use) · [文档目录](docs/README.md) · [项目主页](https://vibewand.xuhao1.me)
 
+<table align="center">
+<tr>
+<td align="center"><img src="assets/apps/codex.png" width="48" alt=""><br><sub>Codex</sub></td>
+<td align="center"><img src="assets/apps/claude.png" width="48" alt=""><br><sub>Claude</sub></td>
+<td align="center"><img src="assets/apps/deepseek-harness.png" width="48" alt=""><br><sub>DeepSeek<br>Harness</sub></td>
+<td align="center"><img src="assets/apps/workbuddy.png" width="48" alt=""><br><sub>WorkBuddy</sub></td>
+<td align="center"><img src="assets/apps/iterm2.png" width="48" alt=""><br><sub>iTerm2</sub></td>
+<td align="center"><img src="assets/apps/safari.png" width="48" alt=""><br><sub>Safari</sub></td>
+<td align="center"><img src="assets/apps/chrome.png" width="48" alt=""><br><sub>Chrome</sub></td>
+<td align="center"><img src="assets/apps/wechat.png" width="48" alt=""><br><sub>微信</sub></td>
+<td align="center"><img src="assets/apps/feishu.png" width="48" alt=""><br><sub>飞书</sub></td>
+</tr>
+</table>
+
 ![用旋钮阅读、用手柄编辑与听写、用遥控器确认执行](docs/images/workflow-hero-v2.png)
 
 Vibe coding 的大部分时间其实不在打字：读回复、翻会话、换模型、说一句话，然后等。这些事一只手就够了。VibeWand 把它们放到一个旋钮或手柄上，人可以靠在椅背上干活。
@@ -43,20 +57,28 @@ Vibe coding 的大部分时间其实不在打字：读回复、翻会话、换�
 
 ## 支持的应用
 
-| 类别 | 程序 | 会话 | 模型 / 强度 | 听写 |
-| --- | --- | --- | --- | --- |
-| AI 桌面应用 | Codex | ⌘K 面板 | 强度滑块，再按一次进模型列表 | ✓ |
-| | Claude | ⌘K 面板 | 模型菜单，确认后进强度滑块 | ✓ |
-| | DeepSeek Harness | 侧边栏会话列表 | 模型菜单及其子菜单 | ✓ |
-| | WorkBuddy | 侧边栏搜索任务；⌘K 回退 | 模型菜单 | 松开后粘贴 |
-| 命令行 agent | iTerm2 里的 Claude Code、Codex、OpenCode | 输入 `/resume` | 输入 `/model` | 松开后粘贴 |
-| 浏览器 | Safari、Chrome、Edge、Brave、Firefox、Opera、Vivaldi | 切换标签页 | 地址栏 | ✓ |
-| 聊天 | 微信、飞书 / Lark | 搜索 / 切换聊天 | — | ✓ |
-| 其他应用 | 在设置里按 bundle ID 添加 | 你指定的快捷键 | 你指定的快捷键 | ✓ |
+| 程序 | 滚动阅读 | 切换会话 | 换模型 | 调推理强度 | 听写 |
+| --- | :-: | :-: | :-: | :-: | :-: |
+| <img src="assets/apps/codex.png" width="20" align="top" alt=""> Codex | ✓ | ✓ | ✓ | ✓ | ✓ |
+| <img src="assets/apps/claude.png" width="20" align="top" alt=""> Claude | ✓ | ✓ | ✓ | ✓ | ✓ |
+| <img src="assets/apps/deepseek-harness.png" width="20" align="top" alt=""> DeepSeek Harness | ✓ | ✓ | ✓ | ✓ | ✓ |
+| <img src="assets/apps/workbuddy.png" width="20" align="top" alt=""> WorkBuddy | ✓ | ✓ 任务 | ✓ | — | ✓ |
+| <img src="assets/apps/iterm2.png" width="20" align="top" alt=""> iTerm2 里的 Claude Code、Codex、OpenCode | ✓ | ✓ | ✓ | 仅 Codex | ✓ |
+| <img src="assets/apps/safari.png" width="20" align="top" alt=""> <img src="assets/apps/chrome.png" width="20" align="top" alt=""> 浏览器：Safari、Chrome、Edge、Brave、Firefox、Opera、Vivaldi | ✓ | ✓ 标签页 | — | — | ✓ |
+| <img src="assets/apps/wechat.png" width="20" align="top" alt=""> <img src="assets/apps/feishu.png" width="20" align="top" alt=""> 微信、飞书 / Lark | ✓ | ✓ 聊天 | — | — | ✓ |
 
-前五行 AI 工具均在本机实测过。终端一行在 iTerm2 3.7.3 里对 Codex CLI 0.160.0、Claude Code 2.1.289、OpenCode 1.18.34 逐步读回屏幕验收：提示符里有草稿时转动移动光标、ESC 删除，空提示符下才输入命令，工具正在工作时按键照常响应，见[验收记录](docs/terminal-acceptance.md)。WorkBuddy 5.6.2 已通过原生界面回读验收：搜索并打开任务、切换模型、编辑草稿，以及用转录回放验证听写写入。微信只有 `⌘F` 的兼容映射，它的聊天控件读不到。
+✓ 是你在这个应用里能做的事；每个应用里具体怎么操作、实测版本和已知边界见[应用适配](docs/applications.md)。几处说明：
 
-不在表里的应用也有三件事能用：听写跟着键盘焦点走，原生输入框边说边写，其他应用在松开后粘贴一次，剪贴板随后恢复原样；双击切换 macOS 应用；手柄触摸板移动指针和点击。会话、模型这类应用动作只发给表里的应用和你自己加的规则，按完整的 bundle ID 匹配，不看窗口标题，每一项都能在设置里单独关掉。各应用的细节、实测版本和已知边界见[应用适配](docs/applications.md)。
+- WorkBuddy 里切换的是任务；它的思考开关和更细的推理设置还得在它自己的菜单里调。
+- 终端里的三个工具都能切换会话和换模型，推理强度目前只有 Codex 能用旋钮调。
+- 浏览器里切换的是标签页；没有模型可换，同一个键改为跳到地址栏。
+- 微信和飞书里切换的是聊天。微信的聊天控件读不到，会话键只是打开它自己的搜索，选择结果还没有在真实应用里验证过。
+
+前五行 AI 工具均在本机实测过。终端一行在 iTerm2 3.7.3 里对 Codex CLI 0.160.0、Claude Code 2.1.289、OpenCode 1.18.34 逐步读回屏幕验收，见[验收记录](docs/terminal-acceptance.md)；WorkBuddy 5.6.2 已通过原生界面回读验收：搜索并打开任务、切换模型、编辑草稿，以及用转录回放验证听写写入。
+
+不在表里的应用也有三件事能用：听写跟着键盘焦点走，原生输入框边说边写，其他应用在松开后粘贴一次，剪贴板随后恢复原样；双击切换 macOS 应用；手柄触摸板移动指针和点击。想让别的应用也响应切换会话和换模型这两个键，在设置里按 bundle ID 添加它并指定快捷键。这类应用动作只发给表里的应用和你自己加的规则，按完整的 bundle ID 匹配，不看窗口标题，每一项都能在设置里单独关掉。
+
+应用的名称和图标是各自所有者的商标，这里只用来说明兼容性；VibeWand 与它们没有隶属、赞助或背书关系。
 
 ## Computer use
 

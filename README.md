@@ -6,6 +6,20 @@ A dial, a game controller, a remote or just the keyboard, plus a spoken sentence
 
 [简体中文](README.zh-CN.md) · [Get started](docs/getting-started.en.md) · [Apps](#apps) · [Computer use](#computer-use) · [Documentation](docs/README.md) · [Project site](https://vibewand.xuhao1.me)
 
+<table align="center">
+<tr>
+<td align="center"><img src="assets/apps/codex.png" width="48" alt=""><br><sub>Codex</sub></td>
+<td align="center"><img src="assets/apps/claude.png" width="48" alt=""><br><sub>Claude</sub></td>
+<td align="center"><img src="assets/apps/deepseek-harness.png" width="48" alt=""><br><sub>DeepSeek<br>Harness</sub></td>
+<td align="center"><img src="assets/apps/workbuddy.png" width="48" alt=""><br><sub>WorkBuddy</sub></td>
+<td align="center"><img src="assets/apps/iterm2.png" width="48" alt=""><br><sub>iTerm2</sub></td>
+<td align="center"><img src="assets/apps/safari.png" width="48" alt=""><br><sub>Safari</sub></td>
+<td align="center"><img src="assets/apps/chrome.png" width="48" alt=""><br><sub>Chrome</sub></td>
+<td align="center"><img src="assets/apps/wechat.png" width="48" alt=""><br><sub>WeChat</sub></td>
+<td align="center"><img src="assets/apps/feishu.png" width="48" alt=""><br><sub>Feishu</sub></td>
+</tr>
+</table>
+
 ![Read with a dial, edit and dictate with a controller, confirm with a remote](docs/images/workflow-hero-v2.png)
 
 Most of vibe coding is not typing. You read a reply, flip between chats, change the model, say a sentence, and wait. One hand is enough for all of that. VibeWand puts it on a dial or a controller so you can lean back while you work.
@@ -43,20 +57,28 @@ Per-model details are in the [hardware guide](docs/device-templates.en.md).
 
 ## Apps
 
-| Kind | Program | Chats | Model / effort | Dictation |
-| --- | --- | --- | --- | --- |
-| AI desktop apps | Codex | ⌘K palette | Effort slider; press again for the model list | ✓ |
-| | Claude | ⌘K palette | Model menu, then the effort slider | ✓ |
-| | DeepSeek Harness | Sidebar chat list | Model menu and its submenu | ✓ |
-| | WorkBuddy | Sidebar task search; ⌘K fallback | Model menu | Pasted on release |
-| Command-line agents | Claude Code, Codex and OpenCode in iTerm2 | Types `/resume` | Types `/model` | Pasted on release |
-| Browsers | Safari, Chrome, Edge, Brave, Firefox, Opera, Vivaldi | Next tab | Address bar | ✓ |
-| Messaging | WeChat, Feishu / Lark | Search / switch chats | — | ✓ |
-| Any other app | Added in Settings by bundle ID | The shortcut you assign | The shortcut you assign | ✓ |
+| Program | Scroll and read | Switch chats | Change model | Set reasoning effort | Dictate |
+| --- | :-: | :-: | :-: | :-: | :-: |
+| <img src="assets/apps/codex.png" width="20" align="top" alt=""> Codex | ✓ | ✓ | ✓ | ✓ | ✓ |
+| <img src="assets/apps/claude.png" width="20" align="top" alt=""> Claude | ✓ | ✓ | ✓ | ✓ | ✓ |
+| <img src="assets/apps/deepseek-harness.png" width="20" align="top" alt=""> DeepSeek Harness | ✓ | ✓ | ✓ | ✓ | ✓ |
+| <img src="assets/apps/workbuddy.png" width="20" align="top" alt=""> WorkBuddy | ✓ | ✓ tasks | ✓ | — | ✓ |
+| <img src="assets/apps/iterm2.png" width="20" align="top" alt=""> Claude Code, Codex and OpenCode in iTerm2 | ✓ | ✓ | ✓ | Codex only | ✓ |
+| <img src="assets/apps/safari.png" width="20" align="top" alt=""> <img src="assets/apps/chrome.png" width="20" align="top" alt=""> Browsers: Safari, Chrome, Edge, Brave, Firefox, Opera, Vivaldi | ✓ | ✓ tabs | — | — | ✓ |
+| <img src="assets/apps/wechat.png" width="20" align="top" alt=""> <img src="assets/apps/feishu.png" width="20" align="top" alt=""> WeChat, Feishu / Lark | ✓ | ✓ chats | — | — | ✓ |
 
-The first five rows, the AI tools, were exercised on a real machine. The terminal row was accepted in iTerm2 3.7.3 against Codex CLI 0.160.0, Claude Code 2.1.289 and OpenCode 1.18.34 with the screen read back after every step: with a draft at the prompt turning moves the cursor and ESC deletes, a command is typed only at an empty prompt, and buttons keep answering while the agent works; see the [acceptance record](docs/terminal-acceptance.md). WorkBuddy 5.6.2 passed native UI readback checks for task search and opening, model switching, draft editing and dictation delivery with transcript replay. WeChat has only a `⌘F` compatibility mapping, because its chat controls cannot be read.
+A ✓ is something you can do in that app. How each app is operated, the versions tested and the known limits are in [Applications](docs/applications.en.md). A few notes:
 
-Three things work in apps that are not in the table. Dictation follows the keyboard focus: native fields fill in as you speak, and everything else gets a single paste when you release, after which your clipboard is put back. A double press switches macOS apps. The controller's touchpad moves the pointer and clicks. App actions such as chats and models go only to the apps in the table and to rules you added yourself, matched by full bundle ID and never by window title, and each one can be turned off in Settings. Per-app details, tested versions and known limits are in [Applications](docs/applications.en.md).
+- In WorkBuddy what you switch between is tasks. Its thinking switch and finer reasoning settings are still set in its own menu.
+- All three terminal tools switch chats and change the model. Reasoning effort can be set from the dial only in Codex for now.
+- In a browser what you switch between is tabs. There is no model to change, so the same button jumps to the address bar.
+- In WeChat and Feishu what you switch between is chats. WeChat's chat controls cannot be read, so the chat button only opens WeChat's own search, and choosing a result there has not been verified in the real app.
+
+The first five rows, the AI tools, were exercised on a real machine. The terminal row was accepted in iTerm2 3.7.3 against Codex CLI 0.160.0, Claude Code 2.1.289 and OpenCode 1.18.34 with the screen read back after every step; see the [acceptance record](docs/terminal-acceptance.md). WorkBuddy 5.6.2 passed native UI readback checks for task search and opening, model switching, draft editing and dictation delivery with transcript replay.
+
+Three things work in apps that are not in the table. Dictation follows the keyboard focus: native fields fill in as you speak, and everything else gets a single paste when you release, after which your clipboard is put back. A double press switches macOS apps. The controller's touchpad moves the pointer and clicks. To make another app answer the chat and model buttons, add it in Settings by bundle ID and assign the shortcuts. These app actions go only to the apps in the table and to rules you added yourself, matched by full bundle ID and never by window title, and each one can be turned off in Settings.
+
+App names and icons are trademarks of their owners and are shown only to indicate compatibility. VibeWand is not affiliated with, sponsored by or endorsed by them.
 
 ## Computer use
 

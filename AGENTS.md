@@ -8,7 +8,8 @@ VibeWand is a native macOS Swift package. Keep device decoding, gesture mapping,
 - `Sources/VibeKeyBridge/`: SwiftUI/AppKit interface, gestures, application adapters, overlays, dictation delivery, the first-run guide, and the keyboard as a device. Preserve the internal target name and `org.vibekey.bridge` bundle identifier.
 - `Sources/SpeechInput/`: recording, speech providers, the SenseVoice recogniser that runs on this Mac and its models, credentials, and dictation lifecycle; `Sources/SpeechAPICheck/`: audio-file checks of a speech API and of that recogniser.
 - `Sources/WandAgent/`: UI-independent command mode: the harness and the profile written for it, the kernel process and its protocol, the coordinator's prompt, the model route and model listing, the tool catalog and socket, the gateway with its permission modes, task records. `kernel/coordinator` is the one coordinator bundle that both the shipped DeepSeek Harness and one the user installed (plugin mode) run; it declares the harness versions it was verified on. `kernel/overlay` sets VibeWand on an installed harness's own agent when the user hands over its tools. The rest of `kernel/` is the shipped kernel's locked package set and boot check; that set includes the harness's SenseVoice plug-in, which no row loads: dictation runs its recogniser, and `Harness` says where it is.
-- `Tests/`: matching XCTest targets. `assets/` contains artwork; `profiles/` contains JSON examples; `docs/` contains bilingual guides; `tools/dualsense-mic/` contains microphone experiments and the bridge.
+- `site/`: the project site, one static page in Chinese and English with no build step, served as vibewand.xuhao1.me from the public repository `xuhao1/vibewand-site`. Its text follows the README of the released version, and it states that version in its download links. While this repository is private the page links to nothing in it, and the download is a release of `xuhao1/vibewand-site`; see `docs/development.md`.
+- `Tests/`: matching XCTest targets. `assets/` contains artwork, and under `assets/apps/` the icons of supported apps, which belong to their owners; `profiles/` contains JSON examples; `docs/` contains bilingual guides; `tools/dualsense-mic/` contains microphone experiments and the bridge.
 
 ## Build, Test, and Development Commands
 
@@ -18,6 +19,7 @@ Use full Xcode 26+ for the current SDK APIs. The package targets macOS 26 on arm
 - `swift test`: run all XCTest suites.
 - `bash scripts/build-app.sh`: assemble and sign `dist/VibeWand.app`. It runs `scripts/build-kernel.sh`, which downloads the pinned Node.js and DeepSeek Harness packages for command mode; `VIBEWAND_SKIP_KERNEL=1` skips that.
 - `bash scripts/run.sh`: launch the bundle, building it if absent; rebuild explicitly after source changes.
+- `bash scripts/publish-site.sh`: publish `site/` to `xuhao1/vibewand-site`; `python3 -m http.server --directory site` previews it first.
 
 For toolchain issues, set `DEVELOPER_DIR` to the installed Xcode developer directory; see `docs/development.md`.
 
