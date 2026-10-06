@@ -726,7 +726,7 @@ td.no {
 
 footer {
     border-top: 1px solid var(--line);
-    padding: 56px 0 72px;
+    padding: 40px 0 56px;
     font-size: 15px;
     color: var(--muted);
 }
@@ -739,18 +739,7 @@ footer p + p {
     margin-top: 12px;
 }
 
-footer h3 {
-    font-size: 13px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--ink);
-    margin-bottom: 12px;
-}
-
 footer .credit {
-    margin-top: 40px;
-    padding-top: 24px;
-    border-top: 1px solid var(--line);
     font-size: 14px;
 }
 
