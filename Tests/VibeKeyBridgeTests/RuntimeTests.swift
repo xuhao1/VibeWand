@@ -105,4 +105,38 @@ final class RuntimeTests: XCTestCase {
             XCTAssertEqual(keyboard.deviceMicrophone, SpeechAudioInput.inputs().first(where: \.builtIn)?.uid)
         }
     }
+    /// A dictation that fails is given up once, when it fails. The next one begins as its own: whoever follows
+    /// it is told nothing while the failure before still stands, or the text field it was to write into
+    /// would be given up with it.
+    @MainActor
+    func testAFailedDictationIsGivenUpOnceAndTheNextOneBeginsAsItsOwn() async throws {
+        let name = "vibewand-failed-dictation-tests-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let voice = VoiceInputController(preferences: SpeechPreferences(defaults: defaults), engineFactory: { _ in UnheardEngine() })
+        var givenUp = 0, toldAsFailed = false
+        voice.onCancel = { givenUp += 1 }
+        voice.begin()
+        try await Task.sleep(nanoseconds: 20_000_000)
+        XCTAssertEqual(voice.state, .recording)
+        voice.end()
+        try await Task.sleep(nanoseconds: 20_000_000)
+        XCTAssertEqual(voice.state, .failed(.noSpeech))
+        XCTAssertEqual(givenUp, 1)
+
+        voice.onChange = { if case .failed = voice.state { toldAsFailed = true } }
+        voice.begin()
+        XCTAssertEqual(voice.state, .preparing)
+        XCTAssertFalse(toldAsFailed)
+        XCTAssertEqual(givenUp, 1)
+        voice.cancel()
+    }
+}
+
+/// A recogniser that hears nothing in what was recorded.
+@MainActor
+private final class UnheardEngine: DictationEngine {
+    func start() async throws {}
+    func finish() async throws -> String { throw SpeechInputError.noSpeech }
+    func cancel() {}
 }

@@ -148,9 +148,6 @@ final class BridgeRuntime {
         deviceName = templates.profile()?.name ?? templates.selectedTemplate.title
         self.voiceInput.onChange = { [weak self] in
             guard let self else { return }
-            if case .failed = self.voiceInput.state {
-                self.cancelLiveDraft(); self.dictationTarget = nil; self.generation &+= 1
-            }
             self.command.voiceChanged()
             self.emit(); self.onSettingsChanged?()
         }

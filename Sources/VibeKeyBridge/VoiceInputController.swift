@@ -22,6 +22,7 @@ final class VoiceInputController: ObservableObject {
     var onPartialTranscript: ((String) -> Void)?
     /// A spoken command as it was recognised, with the recording itself when the command asked for it to be kept.
     var onCommandTranscript: ((String, SpeechAudio?) -> Void)?
+    /// The recording under way will bring no text: it was cancelled, or it failed. Told once, as it happens.
     var onCancel: (() -> Void)?
     /// Chooses the recording device for each session; nil is the macOS default input.
     var microphone: (() -> String?)?
@@ -55,8 +56,8 @@ final class VoiceInputController: ObservableObject {
         local.onChange = { [weak self] in self?.objectWillChange.send() }
         session.onState = { [weak self] state in
             guard let self else { return }
-            // A recording that could not start leaves no microphone open behind it.
-            if case .failed = state { SpeechAudioInput.disarm() }
+            // A recording that failed leaves no microphone open behind it, and nothing waiting for its text.
+            if case .failed = state { SpeechAudioInput.disarm(); self.onCancel?() }
             self.state = state; self.message = ""; self.onChange?()
         }
         session.onPartialTranscript = { [weak self] text in

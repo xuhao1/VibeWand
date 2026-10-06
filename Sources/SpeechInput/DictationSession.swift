@@ -128,8 +128,9 @@ public final class DictationSession {
         generation &+= 1
         task?.cancel(); task = nil; limitTask?.cancel(); limitTask = nil
         engine?.cancel(); engine = nil; audio = nil
-        preview = ""; onPartialTranscript?("")
+        // The state is left first: what is told next belongs to no recording, not to the one before.
         state = .idle
+        preview = ""; onPartialTranscript?("")
     }
     public static func safeError(_ error: Error) -> SpeechInputError {
         if let error = error as? SpeechInputError { return error }
