@@ -116,6 +116,8 @@ final class FilmDirector {
     }
 
     func start(_ runtime: BridgeRuntime) {
+        // The film is dark; the overlay is drawn dark whatever the system's appearance is at the hour of the take.
+        NSApp.appearance = NSAppearance(named: .darkAqua)
         let began = Date()
         note("start", ["steps": steps.count])
         watcher = Timer.scheduledTimer(withTimeInterval: 0.03, repeats: true) { [weak self] _ in
