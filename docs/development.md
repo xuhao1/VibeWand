@@ -145,7 +145,7 @@ For repeatable signing, set `VIBEWAND_SIGNING_IDENTITY` (the legacy `VIBEKEY_SIG
 **While this repository is private, the page links to nothing in it.** The download is a release of the site's repository, not of this one, because a visitor cannot reach this one; the package goes there as a release asset rather than into `site/`, since Git refuses a file over 100 MB and the package is close to that. The page states the released version in its download links and size, so with each release:
 
 ```sh
-gh release create v0.9.0 -R xuhao1/vibewand-site VibeWand-0.9.0-macOS-arm64.zip SHA256SUMS-0.9.0.txt
+gh release create v0.10.0 -R xuhao1/vibewand-site VibeWand-0.10.0-macOS-arm64.zip SHA256SUMS-0.10.0.txt
 ```
 
 then update the version, links and size in `site/index.html` and publish. When this repository is opened, point the download back at its own releases and bring back the links to the documentation and the source.
