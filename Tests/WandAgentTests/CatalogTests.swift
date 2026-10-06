@@ -8,7 +8,7 @@ final class CatalogTests: XCTestCase {
             "list_targets", "find_sessions", "open_session", "search_in_app", "activate_app", "choose", "finish", "need_user",
             "ui_snapshot", "ui_press", "ui_key", "ui_menu", "ui_type"
         ])
-        for tool in ToolCatalog.all {
+        for tool in ToolCatalog.mounted(sight: true) {
             XCTAssertEqual(tool.schema["type"]?.string, "object", tool.name)
             let properties = tool.schema["properties"] ?? [:]
             for required in tool.schema["required"]?.array ?? [] {
@@ -19,17 +19,25 @@ final class CatalogTests: XCTestCase {
         XCTAssertFalse(ToolCatalog.all.contains { $0.effect == .submit })
     }
 
-    /// Seeing the window is one more tool, mounted only when the user has turned it on.
-    func testThePictureOfTheWindowIsMountedOnlyWhenTheUserLetsTheModelSee() {
+    /// Seeing the window is two more tools, mounted only when the user has turned it on: the window's picture,
+    /// and the pointer at a place in it. Without it no point is ever clicked.
+    func testThePictureOfTheWindowAndThePointerAreMountedOnlyWhenTheUserLetsTheModelSee() {
         XCTAssertEqual(ToolCatalog.mounted(sight: false), ToolCatalog.all)
-        XCTAssertEqual(ToolCatalog.mounted(sight: true).map(\.name), ToolCatalog.all.map(\.name) + ["ui_screenshot"])
-        XCTAssertEqual(ToolCatalog.screenshot.effect, .read)
-        XCTAssertFalse(ToolCatalog.all.contains(ToolCatalog.screenshot))
-        // The model is told of it only then, and of a harness's own tools only when they are mounted.
-        XCTAssertFalse(CoordinatorPrompt.system.contains("ui_screenshot") || CoordinatorPrompt.system.contains("harness"))
+        XCTAssertEqual(ToolCatalog.mounted(sight: true).map(\.name), ToolCatalog.all.map(\.name) + ["ui_screenshot", "ui_click"])
+        XCTAssertEqual(ToolCatalog.seeing.map(\.effect), [.read, .navigate])
+        XCTAssertFalse(ToolCatalog.all.contains { ToolCatalog.seeing.contains($0) })
+        // A place is an id or a point of the picture, so neither is required.
+        XCTAssertNotNil(ToolCatalog.click.schema["properties"]?["id"])
+        XCTAssertEqual(ToolCatalog.click.schema["properties"]?["x"]?["type"], "integer")
+        XCTAssertEqual(ToolCatalog.click.schema["properties"]?["y"]?["type"], "integer")
+        XCTAssertEqual(ToolCatalog.click.schema["properties"]?["count"]?["maximum"], 2)
+        XCTAssertEqual(ToolCatalog.click.schema["required"], [])
+        // The model is told of them only then, and of a harness's own tools only when they are mounted.
+        for name in ["ui_screenshot", "ui_click", "harness"] { XCTAssertFalse(CoordinatorPrompt.system.contains(name), name) }
         XCTAssertEqual(CoordinatorPrompt.system(instructions: " "), CoordinatorPrompt.system)
         let seeing = CoordinatorPrompt.system(instructions: "", sight: true)
-        XCTAssertTrue(seeing.hasPrefix(CoordinatorPrompt.system) && seeing.contains("ui_screenshot"))
+        XCTAssertTrue(seeing.hasPrefix(CoordinatorPrompt.system))
+        for name in ["ui_screenshot", "ui_click", "publish no controls", "pagedown"] { XCTAssertTrue(seeing.contains(name), name) }
         let whole = CoordinatorPrompt.system(instructions: "叫我老徐", tools: .all)
         XCTAssertTrue(whole.contains("this harness's own") && !whole.contains("ui_screenshot") && whole.hasSuffix("叫我老徐"))
     }

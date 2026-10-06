@@ -1,5 +1,6 @@
 import AppKit
 import ApplicationServices
+import CoreAudio
 import XCTest
 import AU05Device
 import SpeechInput
@@ -118,6 +119,8 @@ final class CommandLiveTests: XCTestCase {
             var range = CFRange()
             return AXValueGetValue(value as! AXValue, .cfRange, &range) ? range.length : 0
         }
+        /// The words that are selected in the document.
+        var selection: String { first("AXTextArea", in: element).flatMap { attribute($0, kAXSelectedTextAttribute) as? String } ?? "" }
         func close() {
             guard let button = attribute(element, kAXCloseButtonAttribute) else { return }
             _ = AXUIElementPerformAction(button as! AXUIElement, kAXPressAction as CFString)
@@ -520,6 +523,114 @@ final class CommandLiveTests: XCTestCase {
             try? FileManager.default.copyItem(at: home, to: URL(fileURLWithPath: copy))
         }
         try await bench.hold()
+    }
+
+    /// The pointer goes where the model points in the picture: a word it finds there is double-clicked, which
+    /// selects it. The selection is read back from the document this test opened.
+    @MainActor
+    func testLiveModelPointsAtWhatItSeesInTheWindow() async throws {
+        try Self.enabled("pointer")
+        guard CGPreflightScreenCaptureAccess() else { throw Self.stopped("The test process may not record the screen") }
+        let bench = try Bench(sight: true)
+        defer { bench.leave() }
+        let (window, _) = try await document(bench, "alpha\n\nbravo\n\ncharlie\n")
+        defer { window.close() }
+        // The pointer is the user's: it goes back where it was.
+        let pointer = CGEvent(source: nil)?.location
+        defer { if let pointer { SystemPointer.move(to: pointer) } }
+        let spoken = try await bench.say("看一眼这个窗口，用指针双击文档里 bravo 这个词")
+        XCTAssertTrue(spoken.calls.contains("ui_screenshot") && spoken.calls.contains("ui_click"), "\(spoken.calls)")
+        try await bench.wait("the word selected by the double click") { window.selection == "bravo" }
+        try await bench.hold()
+    }
+
+    /// Whether an app is sounding: one of its processes is sending audio out.
+    private static func sounding(_ app: NSRunningApplication) -> Bool {
+        func read<T>(_ object: AudioObjectID, _ selector: AudioObjectPropertySelector, _ value: inout T) -> Bool {
+            var address = AudioObjectPropertyAddress(mSelector: selector, mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+            var size = UInt32(MemoryLayout<T>.size)
+            return AudioObjectGetPropertyData(object, &address, 0, nil, &size, &value) == noErr
+        }
+        var address = AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyProcessObjectList, mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+        var size: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size) == noErr else { return false }
+        var processes = [AudioObjectID](repeating: 0, count: Int(size) / MemoryLayout<AudioObjectID>.size)
+        guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &processes) == noErr else { return false }
+        return processes.contains { process in
+            var pid: pid_t = 0, running: UInt32 = 0
+            guard read(process, kAudioProcessPropertyPID, &pid), read(process, kAudioProcessPropertyIsRunningOutput, &running), running != 0 else { return false }
+            // A browser-built app plays through a helper process of its own.
+            return pid == app.processIdentifier || ProcessTree.descends(pid, from: app.processIdentifier)
+        }
+    }
+
+    /// A window that publishes no controls. NetEase Cloud Music draws its whole window itself, so a snapshot of it
+    /// is empty and it is operated from its picture: the text read there, the pointer and the keyboard. What is
+    /// read back is that the app is sounding. It is the user's own app and account: music plays for a moment and
+    /// its queue changes; playback is stopped again when it was silent before, and the app is quit when the test started it.
+    @MainActor
+    private func playInNetEaseCloudMusic(_ bench: Bench) async throws {
+        guard CGPreflightScreenCaptureAccess() else { throw Self.stopped("The test process may not record the screen") }
+        guard let location = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.netease.163music") else {
+            throw Self.stopped("NetEase Cloud Music is not installed")
+        }
+        let launched = NSRunningApplication.runningApplications(withBundleIdentifier: "com.netease.163music").isEmpty
+        let pointer = CGEvent(source: nil)?.location
+        defer { if let pointer { SystemPointer.move(to: pointer) } }
+        try await bench.idle()
+        let app = try await NSWorkspace.shared.openApplication(at: location, configuration: NSWorkspace.OpenConfiguration())
+        defer { if launched { app.terminate() } }
+        let element = AXUIElementCreateApplication(app.processIdentifier)
+        try await bench.wait("NetEase Cloud Music in front with a window", seconds: 30) {
+            NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier && Self.attribute(element, kAXFocusedWindowAttribute) != nil
+        }
+        // A window that has just opened is still loading its page.
+        try await bench.pause(launched ? 8 : 1)
+        let silent = !Self.sounding(app)
+        let spoken = try await bench.say(Self.environment["VIBEWAND_COMMAND_LIVE_SAY"] ?? "在网易云音乐里搜一个适合编程时听的歌单，打开它并开始播放")
+        Self.report("overlay detail: \(spoken.hud.detail)")
+        XCTAssertTrue(spoken.calls.contains("ui_screenshot") && spoken.calls.contains("ui_click"), "\(spoken.calls)")
+        XCTAssertEqual(spoken.hud.phase, .done, spoken.hud.text)
+        try await bench.wait("NetEase Cloud Music sounding", seconds: 20) { Self.sounding(app) }
+        // More of a page is brought into view with the keyboard. The page cannot be asked where it stands, so
+        // it is looked at: lines in the middle of it that are still where they were say it did not move.
+        let eye = InterfaceTools()
+        func page() async -> Set<String> {
+            Set((await eye.picture(pid: app.processIdentifier)).text.split(separator: "\n").filter { line in
+                guard line.hasPrefix("t"), let place = line.split(separator: " ").last?.split(separator: ","), place.count == 2,
+                      let x = Int(place[0]), let y = Int(place[1]) else { return false }
+                return x > 400 && (250...800).contains(y)
+            }.map(String.init))
+        }
+        let before = await page()
+        let paged = try await bench.say("把这个歌单页面往下翻一页")
+        XCTAssertTrue(paged.calls.contains("ui_key"), "\(paged.calls)")
+        let after = await page(), stayed = before.intersection(after).count
+        Self.report("of \(before.count) lines in the middle of the page, \(stayed) are where they were a page further down")
+        XCTAssertGreaterThan(before.count, 5)
+        XCTAssertLessThan(stayed * 3, before.count, "the page did not move: \(before.intersection(after).prefix(5))")
+        try await bench.hold()
+        guard silent, NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier else { return }
+        // Space is the app's own key for play and pause; it is sent to the app alone.
+        KeyStroke.parse("space")?.post(to: app.processIdentifier)
+        try await bench.wait("playback stopped again", seconds: 10) { !Self.sounding(app) }
+    }
+
+    @MainActor
+    func testLiveAWindowWithoutControlsIsOperatedFromItsPicture() async throws {
+        try Self.enabled("netease")
+        let bench = try Bench(sight: true)
+        defer { bench.leave() }
+        try await playInNetEaseCloudMusic(bench)
+    }
+
+    /// The same on the installed harness with its own tools handed over, which is how the owner runs it.
+    @MainActor
+    func testLivePluginModeOperatesAWindowWithoutControlsFromItsPicture() async throws {
+        try Self.enabled("plugin-netease")
+        let bench = try Bench(harness: true, tools: .all, sight: true)
+        defer { bench.leave() }
+        try await playInNetEaseCloudMusic(bench)
     }
 
     /// Plugin mode with the harness's own tools handed over: one command uses a tool of the harness and a tool of

@@ -142,10 +142,10 @@ extension PermissionMode {
     }
     var summary: String {
         switch self {
-        case .ask: return L10n.tr("切换应用、打开会话、按下控件、发送按键、输入文字，每一步都先显示要做什么，等你按确认键。读取界面和查找不用确认。",
-                                  "Switching apps, opening a chat, pressing a control, sending keys and typing each show what is about to happen and wait for your confirm key. Reading and searching do not.")
-        case .risky: return L10n.tr("导航和输入直接执行。删除、发送、提交这类控件和按键，每次等你按确认键。",
-                                    "Navigation and typing run at once. Controls and keys that delete, send or submit wait for your confirm key every time.")
+        case .ask: return L10n.tr("切换应用、打开会话、按下或点击控件、发送按键、输入文字，每一步都先显示要做什么，等你按确认键。读取界面和查找不用确认。",
+                                  "Switching apps, opening a chat, pressing or clicking a control, sending keys and typing each show what is about to happen and wait for your confirm key. Reading and searching do not.")
+        case .risky: return L10n.tr("导航和输入直接执行。删除、发送、提交这类控件、按键和点击，每次等你按确认键。",
+                                    "Navigation and typing run at once. Controls, keys and clicks that delete, send or submit wait for your confirm key every time.")
         case .bypass: return L10n.tr("什么都不问，包括删除、发送和提交。模型认错控件或听错话时，这些操作也会直接执行。",
                                      "Nothing is asked, deleting, sending and submitting included. When the model picks the wrong control or mishears you, those happen too.")
         }
@@ -193,9 +193,11 @@ final class CommandSettings: ObservableObject {
     @Published private(set) var harnessUnverified: Bool
     /// How much the model may reach for on an installed harness: VibeWand's tools, or the harness's own as well.
     @Published private(set) var harnessTools: Harness.Tools
-    /// The model may ask for a picture of the window it is operating. Off until the user turns it on:
-    /// what the window shows then leaves this Mac.
+    /// The model may ask for a picture of the window it is operating, and click where it points in it.
+    /// Off until the user turns it on: what the window shows then leaves this Mac.
     @Published private(set) var sight: Bool
+    /// What that switch is called, in Settings and wherever the user is pointed to it.
+    nonisolated static var sightTitle: String { L10n.tr("让模型看窗口截图并点击", "Let the model see the window and click in it") }
     private var remembered: [String: CommandModel]
     private let locate: (CommandKernelMode) -> Harness?
     var onChange: (() -> Void)?

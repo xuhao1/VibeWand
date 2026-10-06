@@ -1,7 +1,8 @@
 import Foundation
 
 /// One tool the coordinator model may call. The catalog is the whole of what
-/// VibeWand lets a model do: there is no shell, file access or coordinate click behind it.
+/// VibeWand lets a model do: there is no shell or file access behind it, and the
+/// pointer goes where the model points only once the user has let it see the window.
 public struct ToolDefinition: Equatable, Sendable {
     public enum Effect: Sendable {
         /// Reads state or talks to the user through the overlay.
@@ -39,8 +40,8 @@ public struct ToolOutcome: Equatable, Sendable {
 
 public enum ToolCatalog {
     public static let all: [ToolDefinition] = navigation + interface
-    /// What a session mounts: the catalog, with the window's picture when the user lets the model see.
-    public static func mounted(sight: Bool) -> [ToolDefinition] { sight ? all + [screenshot] : all }
+    /// What a session mounts: the catalog, with the window's picture and the pointer when the user lets the model see.
+    public static func mounted(sight: Bool) -> [ToolDefinition] { sight ? all + seeing : all }
 
     /// Finding and opening apps and chats, and talking to the user.
     public static let navigation: [ToolDefinition] = [
@@ -90,6 +91,7 @@ public enum ToolCatalog {
     ]
 
     /// Operating the window in front through its accessibility tree. No screenshots, no coordinates.
+    /// ui_press and ui_type know nothing of a picture: what one shows is pressed with ui_click.
     public static let interface: [ToolDefinition] = [
         tool("ui_snapshot", .read, """
             List the controls in the front window of the app being operated: id, role, label and state. What is new or \
@@ -119,12 +121,29 @@ public enum ToolCatalog {
              required: ["text"])
     ]
 
-    /// Mounted only when the user has turned on letting the model see: a picture of the window leaves this Mac.
+    /// Mounted only when the user has turned on letting the model see: a picture of the window leaves this Mac,
+    /// and the pointer goes where the model points in it. That is how a window that publishes no controls is operated.
+    public static let seeing: [ToolDefinition] = [screenshot, click]
+
     public static let screenshot = tool("ui_screenshot", .read, """
         See the front window of the app being operated as a picture, with the ids of the latest ui_snapshot marked \
-        on its controls. Use it to read what the window shows, to tell look-alike controls apart, or to check a \
-        result that only shows visually. It needs a model that takes pictures.
+        on its controls. The answer also lists the text read in the picture line by line: an id such as t7, the \
+        words, and the x,y of their middle in the picture's pixels. Use it for a window whose snapshot lists no \
+        controls, to read what the window shows, to tell look-alike controls apart, or to check a result that only \
+        shows visually. Text ids are valid until the next screenshot.
         """)
+    public static let click = tool("ui_click", .navigate, """
+        Click a place in the window with the pointer: a line of text by its id from the latest ui_screenshot, a \
+        control by its id from the latest ui_snapshot, or a point by its x and y in the latest picture's pixels, \
+        for an icon or anything else without words. Pass count 2 for a double click. The answer shows the window \
+        as it stands after the click, the way ui_screenshot does. A control a snapshot lists is pressed more \
+        surely with ui_press.
+        """, [
+            "id": string("A text id from the latest ui_screenshot, such as t7, or a control id from the latest ui_snapshot."),
+            "x": ["type": "integer", "description": "Pixels from the left edge of the latest picture."],
+            "y": ["type": "integer", "description": "Pixels from the top edge of the latest picture."],
+            "count": ["type": "integer", "minimum": 1, "maximum": 2]
+        ])
 
     private static func tool(_ name: String, _ effect: ToolDefinition.Effect, _ summary: String,
                              _ properties: [String: JSONValue] = [:], required: [String] = []) -> ToolDefinition {

@@ -2,9 +2,9 @@
 
 [文档目录 / Documentation](README.md) · [第三方记录 / Third-party notices](../third-party/README.md) · [许可证 / License](../LICENSE)
 
-截至 2026-10-06，VibeWand 0.10.0。仓库目前是私有的，0.10.0 带着下面这些没有处理的项发布在这个私有仓库里。作者当天的决定：这些问题留到正式开源之前处理。处理完一项，就在这里改掉它的状态，并同步修改[第三方记录](../third-party/README.md)。本文是工程上的盘点，不是法律意见。
+截至 2026-10-06，VibeWand 0.10.0。仓库目前是私有的，0.10.0 带着下面这些没有处理的项发布在这个私有仓库里；0.10.1 的内核包没有变，带着同样的这些项。作者当天的决定：这些问题留到正式开源之前处理。处理完一项，就在这里改掉它的状态，并同步修改[第三方记录](../third-party/README.md)。本文是工程上的盘点，不是法律意见。
 
-As of 2026-10-06, VibeWand 0.10.0. The repository is private, and 0.10.0 is published there with the items below still open. The owner decided that day to settle them before the project is opened. When an item is settled, change its status here and bring the [third-party notice](../third-party/README.md) in line. This is an engineering inventory, not legal advice.
+As of 2026-10-06, VibeWand 0.10.0. The repository is private, and 0.10.0 is published there with the items below still open; 0.10.1 has the same kernel packages and carries the same items. The owner decided that day to settle them before the project is opened. When an item is settled, change its status here and bring the [third-party notice](../third-party/README.md) in line. This is an engineering inventory, not legal advice.
 
 | # | 遗留项 / Item | 要定的事 / What has to be decided | 状态 / Status |
 | --- | --- | --- | --- |

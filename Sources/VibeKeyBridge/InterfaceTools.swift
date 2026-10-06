@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import ScreenCaptureKit
+import Vision
 import WandAgent
 
 /// The size of a text control's contents and its selection, never the contents themselves.
@@ -20,16 +21,59 @@ struct InterfaceControl {
     var role = ""
 }
 
+/// What the latest picture of a window showed: where the window stood on screen, how large the picture
+/// was, and the lines of text read in it, each with its box in the picture in pixels from the top left.
+struct WindowPicture {
+    struct Line: Equatable { var text: String; var box: CGRect }
+    var pid: pid_t
+    var frame: CGRect
+    var size: CGSize
+    var lines: [Line]
+
+    /// A point of the picture as a point of the screen.
+    func screen(_ point: CGPoint) -> CGPoint {
+        CGPoint(x: frame.minX + point.x * frame.width / size.width, y: frame.minY + point.y * frame.height / size.height)
+    }
+    /// The words standing at a point of the picture.
+    func text(at point: CGPoint) -> String? { lines.first { $0.box.insetBy(dx: -3, dy: -3).contains(point) }?.text }
+    /// How many lines hold these words, whatever their case and spacing.
+    func count(of words: String) -> Int {
+        func plain(_ text: String) -> String { text.lowercased().filter { !$0.isWhitespace } }
+        let wanted = plain(words)
+        return wanted.isEmpty ? 0 : lines.filter { plain($0.text).contains(wanted) }.count
+    }
+    /// The lines as the model reads them: an id, the words, and the middle of their box.
+    var listing: String {
+        guard !lines.isEmpty else { return "(no text could be read in the picture)" }
+        var listed = ["text read in the picture, each line with the x,y of its middle:"]
+        for (index, line) in lines.prefix(InterfaceTools.shownLimit).enumerated() {
+            listed.append("t\(index + 1) \"\(line.text)\" \(Int(line.box.midX)),\(Int(line.box.midY))")
+        }
+        if lines.count > InterfaceTools.shownLimit { listed.append("(\(lines.count - InterfaceTools.shownLimit) more lines not shown)") }
+        return listed.joined(separator: "\n")
+    }
+}
+
+/// A place in a window that the model named: where it is on screen, and what stands there.
+struct WindowPlace: Equatable {
+    var point: CGPoint
+    var label: String
+}
+
 /// Reads and operates the front window of one app through its accessibility
-/// tree, the same structure a screen reader is given. No coordinate is clicked.
+/// tree, the same structure a screen reader is given.
 /// Field contents and document text are left out of what is read: a field is
 /// reported as empty or not, never by what it holds. The one text read that is
 /// not a control's name is what the app itself announces to a screen reader,
 /// such as the level a control stands at. A picture of the window is taken
 /// only through `picture`, which is offered to the model only when the user
-/// has let it see.
+/// has let it see; the text in it is read on this Mac. A place in that
+/// picture is all there is to press in a window that publishes no controls:
+/// `place` says where it is on screen, and the pointer is the caller's.
 final class InterfaceTools: @unchecked Sendable {
     static let shownLimit = 150
+    /// A picture is sent no larger than this along its longer side: sharp enough to read, small enough to send.
+    static let pictureSide: CGFloat = 1600
     private let worker = DispatchQueue(label: "vibewand.interface", qos: .userInitiated)
     // All are touched on `worker` only.
     private var controls: [InterfaceControl] = []
@@ -37,20 +81,21 @@ final class InterfaceTools: @unchecked Sendable {
     private var known: Set<String> = []
     /// The positions the latest snapshot printed, for a picture to mark.
     private var shown: [Int] = []
+    /// The latest picture the model was shown.
+    private var seen: WindowPicture?
     private var prepared: Set<pid_t> = []
 
     /// `landmark` names a control the app's adapter knows by more than its label, from its role and label.
-    func snapshot(pid: pid_t, filter: String?, landmark: @escaping (String, String) -> String? = { _, _ in nil }) async -> ToolOutcome {
+    /// `seeing` says whether the model may look at a window that publishes no controls.
+    func snapshot(pid: pid_t, filter: String?, seeing: Bool = false,
+                  landmark: @escaping (String, String) -> String? = { _, _ in nil }) async -> ToolOutcome {
         await run {
             let application = AXUIElementCreateApplication(pid)
             AXUIElementSetMessagingTimeout(application, 0.4)
             // An Electron app publishes its web content to accessibility only when asked.
             let first = self.prepared.insert(pid).inserted
             if first { AXUIElementSetAttributeValue(application, "AXManualAccessibility" as CFString, kCFBooleanTrue) }
-            guard let window = Self.element(Self.attribute(application, kAXFocusedWindowAttribute))
-                    ?? Self.element(Self.attribute(application, kAXMainWindowAttribute)) else {
-                return .failure("This app has no window to read.")
-            }
+            guard let window = Self.window(of: application) else { return .failure("This app has no window to read.") }
             var found = Self.walk(window)
             if first, found.controls.count < 4 {
                 // The tree is built after the request; give it a moment once.
@@ -71,35 +116,173 @@ final class InterfaceTools: @unchecked Sendable {
             let fresh = Set(marks.indices.filter { !self.known.isEmpty && !self.known.contains(marks[$0]) })
             self.controls = found.controls; self.known = Set(marks)
             let title = Self.attribute(window, kAXTitleAttribute) as? String ?? ""
-            let listing = Self.describe(found.controls, window: title, filter: filter, truncated: found.truncated, fresh: fresh)
+            let listing = Self.describe(found.controls, window: title, filter: filter, truncated: found.truncated, fresh: fresh, seeing: seeing)
             self.shown = listing.shown
             return .ok(.string(listing.text))
         }
     }
 
     /// A picture of the app's front window, with the ids of the latest snapshot marked on the controls they
-    /// name. Nothing but that one window is in it.
+    /// name, and the text read in it. Nothing but that one window is in it.
     func picture(pid: pid_t) async -> ToolOutcome {
-        guard CGPreflightScreenCaptureAccess() else {
-            return .failure("VibeWand is not allowed to record the screen. The user can allow it in System Settings, under Privacy & Security, Screen & System Audio Recording.")
+        let look = await look(pid: pid)
+        guard let layout = look.layout, let image = look.image, let seen = look.seen, let picture = Self.mark(image, layout: layout) else {
+            return .failure(look.error.isEmpty ? "The window could not be captured." : look.error)
         }
-        guard let layout = await run({ self.layout(pid: pid) }) else { return .failure("This app has no window to look at.") }
+        await run { self.seen = seen }
+        let marked = layout.marks.isEmpty ? "" : ", \(layout.marks.count) controls of the latest snapshot marked with their ids"
+        return ToolOutcome(text: "window \"\(layout.title)\", \(Int(seen.size.width))×\(Int(seen.size.height)) px\(marked)\n\(seen.listing)", image: picture)
+    }
+
+    /// Whether more lines of the window show these words now than in the latest picture: how text typed into
+    /// a field that cannot be read is known to have arrived. The picture taken for it stays on this Mac.
+    func shows(_ words: String, pid: pid_t) async -> Bool {
+        guard let before = await run({ self.seen }), before.pid == pid, let now = await look(pid: pid).seen else { return false }
+        return now.count(of: words) > before.count(of: words)
+    }
+
+    /// The window as it stands: where it is, its picture as captured, and what is read in it.
+    private func look(pid: pid_t) async -> (layout: Layout?, image: CGImage?, seen: WindowPicture?, error: String) {
+        guard CGPreflightScreenCaptureAccess() else {
+            return (nil, nil, nil, "VibeWand is not allowed to record the screen. The user can allow it in System Settings, under Privacy & Security, Screen & System Audio Recording.")
+        }
+        guard let layout = await run({ self.layout(pid: pid) }) else { return (nil, nil, nil, "This app has no window to look at.") }
         func apart(_ frame: CGRect) -> CGFloat {
             abs(frame.minX - layout.frame.minX) + abs(frame.minY - layout.frame.minY) + abs(frame.width - layout.frame.width) + abs(frame.height - layout.frame.height)
         }
         // The window server's record of the window the tree described: same app, same place.
         guard let content = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true),
               let window = content.windows.filter({ $0.owningApplication?.processID == pid && $0.windowLayer == 0 }).min(by: { apart($0.frame) < apart($1.frame) }),
-              apart(window.frame) < 40 else { return .failure("The window could not be found on screen.") }
-        // Sharp enough to read, small enough to send: at most 1600 pixels along the longer side.
-        let scale = min(2, 1600 / max(layout.frame.width, layout.frame.height))
+              apart(window.frame) < 40 else { return (layout, nil, nil, "The window could not be found on screen.") }
+        // Captured as sharp as the display shows it: small text does not survive a picture made small enough to send.
+        let filter = SCContentFilter(desktopIndependentWindow: window), sharpness = CGFloat(filter.pointPixelScale)
         let configuration = SCStreamConfiguration()
-        configuration.width = Int(layout.frame.width * scale); configuration.height = Int(layout.frame.height * scale)
+        configuration.width = Int(layout.frame.width * sharpness); configuration.height = Int(layout.frame.height * sharpness)
         configuration.showsCursor = false; configuration.ignoreShadowsSingleWindow = true
-        guard let image = try? await SCScreenshotManager.captureImage(contentFilter: SCContentFilter(desktopIndependentWindow: window), configuration: configuration),
-              let picture = Self.mark(image, layout: layout) else { return .failure("The window could not be captured.") }
-        let marked = layout.marks.isEmpty ? "no snapshot to mark yet" : "\(layout.marks.count) controls of the latest snapshot marked with their ids"
-        return ToolOutcome(text: "window \"\(layout.title)\", \(image.width)×\(image.height) px, \(marked)", image: picture)
+        guard let image = try? await SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration) else {
+            return (layout, nil, nil, "The window could not be captured.")
+        }
+        let size = Self.pictureSize(image)
+        let lines = await run { Self.read(image, size: size) }
+        return (layout, image, WindowPicture(pid: pid, frame: layout.frame, size: size, lines: lines), "")
+    }
+
+    /// Reads the text a picture shows, on this Mac, in Chinese and English. Each line comes with its box in the
+    /// picture as it is sent, `size` pixels counted from the top left, in the order a page is read.
+    static func read(_ image: CGImage, size: CGSize) -> [WindowPicture.Line] {
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.recognitionLanguages = ["zh-Hans", "zh-Hant", "en-US"]
+        guard (try? VNImageRequestHandler(cgImage: image).perform([request])) != nil else { return [] }
+        return rows((request.results ?? []).flatMap { found -> [WindowPicture.Line] in
+            guard let read = found.topCandidates(1).first else { return [] }
+            // Vision's boxes are parts of the picture counted from its bottom left.
+            func placed(_ box: CGRect) -> CGRect {
+                CGRect(x: box.minX * size.width, y: (1 - box.maxY) * size.height, width: box.width * size.width, height: box.height * size.height)
+            }
+            var words: [WindowPicture.Line] = []
+            for word in read.string.split(separator: " ") {
+                guard let box = try? read.boundingBox(for: word.startIndex..<word.endIndex)?.boundingBox else { words = []; break }
+                words.append(.init(text: String(word), box: placed(box)))
+            }
+            if words.isEmpty { words = [.init(text: read.string, box: placed(found.boundingBox))] }
+            // An icon is often read as a stray mark; a line with no letter or digit says nothing.
+            return apart(words).filter { $0.text.contains(where: { $0.isLetter || $0.isNumber }) }.map { .init(text: String($0.text.prefix(80)), box: $0.box) }
+        })
+    }
+
+    /// Words read as one line are one thing to press only when they stand together. The tabs of a row are read
+    /// as a line too, and each is its own: words nearly a line's height apart, or more, are listed apart.
+    static func apart(_ words: [WindowPicture.Line]) -> [WindowPicture.Line] {
+        words.reduce(into: []) { parts, word in
+            if let last = parts.last, word.box.minX - last.box.maxX < last.box.height * 0.8 {
+                parts[parts.count - 1] = .init(text: last.text + " " + word.text, box: last.box.union(word.box))
+            } else { parts.append(word) }
+        }
+    }
+
+    /// The recogniser takes a long moment the first time an app uses it, half a minute on some Macs. This
+    /// spends that moment before the first picture is asked for.
+    static func warm() { _ = warmed }
+    private static let warmed: Void = DispatchQueue.global(qos: .utility).async {
+        let blank = CGContext(data: nil, width: 64, height: 64, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                              bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)?.makeImage()
+        if let blank { _ = read(blank, size: CGSize(width: 64, height: 64)) }
+    }
+
+    /// Orders lines as a page is read: row by row from the top, and from the left within a row.
+    static func rows(_ lines: [WindowPicture.Line]) -> [WindowPicture.Line] {
+        var rows: [[WindowPicture.Line]] = []
+        for line in lines.sorted(by: { $0.box.midY < $1.box.midY }) {
+            if let head = rows.last?.first, line.box.midY - head.box.midY < head.box.height * 0.6 { rows[rows.count - 1].append(line) }
+            else { rows.append([line]) }
+        }
+        return rows.flatMap { $0.sorted { $0.box.minX < $1.box.minX } }
+    }
+
+    /// Where a place the model named is on screen, and what stands there: a line of the latest picture, a control
+    /// of the latest snapshot, or a point of the latest picture. On a miss, says what to do instead.
+    func place(pid: pid_t, id: String?, x: Int?, y: Int?) async -> (place: WindowPlace?, error: String) {
+        await run {
+            let application = AXUIElementCreateApplication(pid)
+            AXUIElementSetMessagingTimeout(application, 0.4)
+            if let id, id.hasPrefix("e") {
+                guard let index = Int(id.dropFirst()), self.controls.indices.contains(index - 1) else {
+                    return (nil, "No such control in the latest snapshot. Take a new snapshot.")
+                }
+                let control = self.controls[index - 1]
+                guard let frame = Self.frame(control.element), frame.width > 2, frame.height > 2 else {
+                    return (nil, "\(control.kind) \"\(control.label)\" has no place on screen.")
+                }
+                return (WindowPlace(point: CGPoint(x: frame.midX, y: frame.midY), label: control.label), "")
+            }
+            guard let seen = self.seen, seen.pid == pid else { return (nil, "There is no picture of this window yet. Take ui_screenshot first.") }
+            // A picture says where things were. Once the window has moved, its points are somewhere else.
+            guard let window = Self.window(of: application), Self.frame(window) == seen.frame else {
+                return (nil, "The window has moved or changed size since the picture. Take a new ui_screenshot.")
+            }
+            var spot: CGPoint, label: String
+            if let id {
+                guard id.hasPrefix("t"), let index = Int(id.dropFirst()), seen.lines.indices.contains(index - 1) else {
+                    return (nil, "No such text in the latest picture. Take a new ui_screenshot.")
+                }
+                spot = CGPoint(x: seen.lines[index - 1].box.midX, y: seen.lines[index - 1].box.midY); label = seen.lines[index - 1].text
+            } else if let x, let y {
+                spot = CGPoint(x: x, y: y); label = seen.text(at: spot) ?? ""
+                guard CGRect(origin: .zero, size: seen.size).contains(spot) else {
+                    return (nil, "That point is outside the picture, which is \(Int(seen.size.width))×\(Int(seen.size.height)) px.")
+                }
+            } else { return (nil, "Name a place: an id, or both x and y.") }
+            let point = seen.screen(spot)
+            // A button without words still has a name where the app publishes its controls, and that name says what a click does.
+            let named = Self.name(at: point, in: application)
+            return (WindowPlace(point: point, label: [label, named].filter { !$0.isEmpty }.joined(separator: " · ")), "")
+        }
+    }
+
+    /// The app whose window is on top at a point of the screen: the one a click there reaches.
+    func owner(at point: CGPoint) async -> pid_t? {
+        await run {
+            let screen = AXUIElementCreateSystemWide()
+            AXUIElementSetMessagingTimeout(screen, 0.4)
+            var hit: AXUIElement?, pid: pid_t = 0
+            guard AXUIElementCopyElementAtPosition(screen, Float(point.x), Float(point.y), &hit) == .success, let hit,
+                  AXUIElementGetPid(hit, &pid) == .success else { return nil }
+            return pid
+        }
+    }
+
+    /// What accessibility calls the control at a point of the screen, or the one holding it.
+    private static func name(at point: CGPoint, in application: AXUIElement) -> String {
+        var hit: AXUIElement?
+        guard AXUIElementCopyElementAtPosition(application, Float(point.x), Float(point.y), &hit) == .success, var node = hit else { return "" }
+        for _ in 0..<2 {
+            let values = read(node)
+            if let name = [values[2], values[3]].compactMap({ $0 as? String }).first(where: { !$0.isEmpty }) { return String(name.prefix(80)) }
+            guard let parent = element(attribute(node, kAXParentAttribute)) else { break }
+            node = parent
+        }
+        return ""
     }
 
     /// Where a window is and where the controls of the latest snapshot are in it, in screen points from the top left.
@@ -111,19 +294,25 @@ final class InterfaceTools: @unchecked Sendable {
     private func layout(pid: pid_t) -> Layout? {
         let application = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(application, 0.4)
-        guard let window = Self.element(Self.attribute(application, kAXFocusedWindowAttribute)) ?? Self.element(Self.attribute(application, kAXMainWindowAttribute)),
-              let frame = Self.frame(window), frame.width > 1, frame.height > 1 else { return nil }
+        guard let window = Self.window(of: application), let frame = Self.frame(window), frame.width > 1, frame.height > 1 else { return nil }
         let marks = shown.compactMap { index in
             Self.frame(controls[index].element).flatMap { $0.width > 2 && $0.height > 2 && frame.intersects($0) ? (id: "e\(index + 1)", frame: $0) : nil }
         }
         return Layout(title: Self.attribute(window, kAXTitleAttribute) as? String ?? "", frame: frame, marks: marks)
     }
 
-    /// Draws each control's outline and id over the picture and returns it as a JPEG.
+    /// The size a captured window is sent at.
+    static func pictureSize(_ image: CGImage) -> CGSize {
+        let shrink = min(1, pictureSide / CGFloat(max(image.width, image.height)))
+        return CGSize(width: (CGFloat(image.width) * shrink).rounded(), height: (CGFloat(image.height) * shrink).rounded())
+    }
+
+    /// Draws each control's outline and id over the picture and returns it as a JPEG of the size it is sent at.
     static func mark(_ image: CGImage, layout: Layout) -> Data? {
-        let size = CGSize(width: image.width, height: image.height), scale = size.width / layout.frame.width
-        guard let context = CGContext(data: nil, width: image.width, height: image.height, bitsPerComponent: 8, bytesPerRow: 0,
+        let size = pictureSize(image), scale = size.width / layout.frame.width
+        guard let context = CGContext(data: nil, width: Int(size.width), height: Int(size.height), bitsPerComponent: 8, bytesPerRow: 0,
                                       space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        context.interpolationQuality = .high
         context.draw(image, in: CGRect(origin: .zero, size: size))
         // Controls are placed from the window's top left; the picture is drawn from its bottom left.
         context.translateBy(x: 0, y: size.height); context.scaleBy(x: 1, y: -1)
@@ -264,7 +453,11 @@ final class InterfaceTools: @unchecked Sendable {
             }
             let application = AXUIElementCreateApplication(pid)
             AXUIElementSetMessagingTimeout(application, 0.3)
-            guard let focused = Self.element(Self.attribute(application, kAXFocusedUIElementAttribute)) else { return "Nothing has keyboard focus." }
+            // An app that publishes no controls names no focus either. In a window the model is working from a
+            // picture of, the keyboard is where its last click put it.
+            guard let focused = Self.element(Self.attribute(application, kAXFocusedUIElementAttribute)) else {
+                return self.seen?.pid == pid ? nil : "Nothing has keyboard focus."
+            }
             return Self.attribute(focused, kAXSubroleAttribute) as? String == "AXSecureTextField" ? "Password fields are never typed into." : nil
         }
     }
@@ -339,8 +532,9 @@ final class InterfaceTools: @unchecked Sendable {
 
     /// The listing the model reads, and which positions it printed. `fresh` are the positions that are new or
     /// changed since the snapshot before: they lead, so that what a press opened is not lost below a long window.
+    /// A window with nothing to list is one to look at instead, when `seeing` says the model may.
     static func describe(_ controls: [InterfaceControl], window: String, filter: String?, truncated: Bool,
-                         fresh: Set<Int> = []) -> (text: String, shown: [Int]) {
+                         fresh: Set<Int> = [], seeing: Bool = false) -> (text: String, shown: [Int]) {
         let needle = filter?.trimmingCharacters(in: .whitespaces).lowercased() ?? ""
         let matching = controls.indices.filter {
             needle.isEmpty || controls[$0].label.lowercased().contains(needle) || controls[$0].kind == needle || controls[$0].state.lowercased().contains(needle)
@@ -355,7 +549,11 @@ final class InterfaceTools: @unchecked Sendable {
             let control = controls[index]
             lines.append("e\(index + 1) \(control.kind) \"\(control.label)\"" + (control.state.isEmpty ? "" : " \(control.state)"))
         }
-        if matching.isEmpty { lines.append(needle.isEmpty ? "(no controls readable in this window)" : "(no control matches \"\(needle)\")") }
+        if controls.isEmpty {
+            // Some apps draw their whole window themselves and tell accessibility nothing of it.
+            lines.append(seeing ? "(this window publishes no controls. Take ui_screenshot and operate it from its picture with ui_click)"
+                : "(this window publishes no controls. It can only be operated from its picture, which the user has to allow: \"\(CommandSettings.sightTitle)\" under Command mode in VibeWand's settings. Call need_user and say so)")
+        } else if matching.isEmpty { lines.append("(no control matches \"\(needle)\")") }
         if matching.count > shownLimit { lines.append("(\(matching.count - shownLimit) more not shown; pass filter to narrow)") }
         if truncated { lines.append("(the window was too large to read completely; pass filter or use a shortcut)") }
         return (lines.joined(separator: "\n"), shown)
@@ -395,6 +593,10 @@ final class InterfaceTools: @unchecked Sendable {
     private static func attribute(_ node: AXUIElement, _ name: String) -> CFTypeRef? {
         var value: CFTypeRef?
         return AXUIElementCopyAttributeValue(node, name as CFString, &value) == .success ? value : nil
+    }
+    /// The window of an app that has the keyboard, or its main one.
+    private static func window(of application: AXUIElement) -> AXUIElement? {
+        element(attribute(application, kAXFocusedWindowAttribute)) ?? element(attribute(application, kAXMainWindowAttribute))
     }
     private static func element(_ value: CFTypeRef?) -> AXUIElement? {
         guard let value, CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }

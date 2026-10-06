@@ -494,6 +494,114 @@ final class CommandTests: XCTestCase {
         }
     }
 
+    /// A captured window is sent no larger than a model reads well, and its marks land where the controls are in what is sent.
+    func testALargeWindowIsSentSmallerWithItsMarksInPlace() throws {
+        let canvas = try XCTUnwrap(CGContext(data: nil, width: 3200, height: 2000, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        canvas.setFillColor(CGColor(gray: 0.5, alpha: 1)); canvas.fill(CGRect(x: 0, y: 0, width: 3200, height: 2000))
+        let image = try XCTUnwrap(canvas.makeImage())
+        XCTAssertEqual(InterfaceTools.pictureSize(image), CGSize(width: 1600, height: 1000))
+        // The window is 1600×1000 points, captured at twice that: one point is one pixel of what is sent.
+        let layout = InterfaceTools.Layout(title: "", frame: CGRect(x: 0, y: 30, width: 1600, height: 1000),
+                                           marks: [(id: "e1", frame: CGRect(x: 800, y: 530, width: 200, height: 60))])
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(data: try XCTUnwrap(InterfaceTools.mark(image, layout: layout))))
+        XCTAssertEqual(bitmap.pixelsWide, 1600)
+        XCTAssertEqual(bitmap.pixelsHigh, 1000)
+        // The tag's top edge, above the letters of the id: (800, 530−30) points is the same pixel of what is sent.
+        let tag = try XCTUnwrap(bitmap.colorAt(x: 806, y: 501)?.usingColorSpace(.sRGB))
+        XCTAssertGreaterThan(tag.redComponent - tag.greenComponent, 0.3, "\(tag)")
+        let plain = try XCTUnwrap(bitmap.colorAt(x: 806, y: 480)?.usingColorSpace(.sRGB))
+        XCTAssertEqual(plain.redComponent, plain.greenComponent, accuracy: 0.03, "\(plain)")
+    }
+
+    /// What a window shows is read off its picture on this Mac. No window is captured here: the words are drawn.
+    func testTextIsReadOffAPictureWithWhereItStands() throws {
+        // 800×300 points drawn at twice that, as a display would show them.
+        let canvas = try XCTUnwrap(CGContext(data: nil, width: 1600, height: 600, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        canvas.setFillColor(.white); canvas.fill(CGRect(x: 0, y: 0, width: 1600, height: 600))
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(cgContext: canvas, flipped: false)
+        func draw(_ words: String, x: CGFloat, fromTop y: CGFloat) {
+            NSAttributedString(string: words, attributes: [.font: NSFont.systemFont(ofSize: 44), .foregroundColor: NSColor.black]).draw(at: CGPoint(x: x, y: 600 - y - 54))
+        }
+        draw("Search 搜索歌单", x: 80, fromTop: 60)
+        draw("推荐", x: 80, fromTop: 360)
+        draw("Play all 播放全部", x: 900, fromTop: 364)
+        NSGraphicsContext.restoreGraphicsState()
+        let lines = InterfaceTools.read(try XCTUnwrap(canvas.makeImage()), size: CGSize(width: 800, height: 300))
+        // Read as a page is: the upper line first, then the lower row from the left.
+        XCTAssertEqual(lines.count, 3, "\(lines)")
+        guard lines.count == 3 else { return }
+        XCTAssertTrue(lines[0].text.contains("搜索歌单") && lines[0].text.contains("Search"), lines[0].text)
+        XCTAssertEqual(lines[1].text, "推荐")
+        XCTAssertTrue(lines[2].text.contains("播放全部"), lines[2].text)
+        // Boxes are in the picture as it is sent, 800×300, from its top left.
+        XCTAssertEqual(lines[0].box.midY, 44, accuracy: 12)
+        XCTAssertEqual(lines[1].box.minX, 40, accuracy: 10)
+        XCTAssertEqual(lines[2].box.midY, 195, accuracy: 12)
+        XCTAssertEqual(lines[2].box.minX, 450, accuracy: 12)
+
+        // The window stood at (200, 100) on screen and was 1600×600 points: a point of the picture is twice as far in.
+        let seen = WindowPicture(pid: 1, frame: CGRect(x: 200, y: 100, width: 1600, height: 600), size: CGSize(width: 800, height: 300), lines: lines)
+        XCTAssertEqual(seen.screen(CGPoint(x: 400, y: 150)), CGPoint(x: 1000, y: 400))
+        XCTAssertEqual(seen.text(at: CGPoint(x: lines[1].box.midX, y: lines[1].box.midY)), "推荐")
+        XCTAssertNil(seen.text(at: CGPoint(x: 700, y: 20)))
+        XCTAssertEqual(seen.count(of: "播放 全部"), 1)
+        XCTAssertEqual(seen.count(of: "SEARCH"), 1)
+        XCTAssertEqual(seen.count(of: "lofi"), 0)
+        let listed = seen.listing.components(separatedBy: "\n")
+        XCTAssertEqual(listed.count, 4)
+        XCTAssertEqual(listed[2], "t2 \"推荐\" \(Int(lines[1].box.midX)),\(Int(lines[1].box.midY))")
+        XCTAssertTrue(WindowPicture(pid: 1, frame: .zero, size: .zero, lines: []).listing.contains("no text"))
+    }
+
+    /// A row of tabs is read as one line of words. Each tab is a thing of its own to press, so words that stand
+    /// apart are listed apart, while the words of a sentence stay together.
+    func testWordsThatStandApartInALineAreListedApart() {
+        func word(_ text: String, _ x: CGFloat, _ width: CGFloat) -> WindowPicture.Line { .init(text: text, box: CGRect(x: x, y: 130, width: width, height: 20)) }
+        let tabs = InterfaceTools.apart([word("综合", 229, 32), word("单曲", 289, 32), word("歌单", 349, 32)])
+        XCTAssertEqual(tabs.map(\.text), ["综合", "单曲", "歌单"])
+        XCTAssertEqual(tabs[2].box.midX, 365)
+        let sentence = InterfaceTools.apart([word("Why", 100, 34), word("You", 140, 30), word("Go", 176, 22), word("Away...", 204, 60)])
+        XCTAssertEqual(sentence.map(\.text), ["Why You Go Away..."])
+        XCTAssertEqual(sentence[0].box, CGRect(x: 100, y: 130, width: 164, height: 20))
+        XCTAssertEqual(InterfaceTools.apart([]), [])
+    }
+
+    /// Lines come from the recogniser in no order a reader would follow: they are put row by row, left to right.
+    func testLinesReadOffAPictureAreOrderedAsAPageIsRead() {
+        func line(_ text: String, _ x: CGFloat, _ y: CGFloat) -> WindowPicture.Line { .init(text: text, box: CGRect(x: x, y: y, width: 80, height: 20)) }
+        let ordered = InterfaceTools.rows([line("sidebar 2", 10, 100), line("title", 300, 12), line("sidebar 1", 10, 60), line("card", 300, 104), line("logo", 10, 8)])
+        XCTAssertEqual(ordered.map(\.text), ["logo", "title", "sidebar 1", "sidebar 2", "card"])
+    }
+
+    /// A command names an app as the user calls it. The system reports the name in its own language only, so the
+    /// names an app gives itself in the user's other languages are read from the app.
+    func testAnAppIsKnownByItsNameInEachLanguageTheUserReads() throws {
+        let app = FileManager.default.temporaryDirectory.appendingPathComponent("wand-alias-\(UUID().uuidString.prefix(6))/NeteaseMusic.app")
+        defer { try? FileManager.default.removeItem(at: app.deletingLastPathComponent()) }
+        for (language, name) in [("en", "NetEaseMusic"), ("zh-Hans", "网易云音乐")] {
+            let folder = app.appendingPathComponent("Contents/Resources/\(language).lproj")
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try "\"CFBundleDisplayName\" = \"\(name)\";\n\"CFBundleName\" = \"\(name)\";\n".write(to: folder.appendingPathComponent("InfoPlist.strings"), atomically: true, encoding: .utf8)
+        }
+        try #"<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>test.wand.alias</string></dict></plist>"#
+            .write(to: app.appendingPathComponent("Contents/Info.plist"), atomically: true, encoding: .utf8)
+        XCTAssertEqual(CommandTools.aliases(app, languages: ["en-CN", "zh-Hans-CN"]), ["NetEaseMusic", "网易云音乐"])
+        XCTAssertEqual(CommandTools.aliases(app, languages: ["en-US"]), ["NetEaseMusic"])
+        XCTAssertEqual(CommandTools.aliases(app.deletingLastPathComponent().appendingPathComponent("Missing.app")), [])
+    }
+
+    /// A window that tells accessibility nothing is not a dead end: the model is sent to its picture, or told what the user has to allow.
+    func testAWindowThatPublishesNoControlsIsOneToLookAt() {
+        let seeing = InterfaceTools.describe([], window: "", filter: "搜索", truncated: false, seeing: true)
+        XCTAssertTrue(seeing.text.contains("ui_screenshot") && seeing.text.contains("ui_click"), seeing.text)
+        XCTAssertEqual(seeing.shown, [])
+        let blind = InterfaceTools.describe([], window: "", filter: nil, truncated: false).text
+        XCTAssertTrue(blind.contains(CommandSettings.sightTitle) && blind.contains("need_user") && !blind.contains("ui_screenshot"), blind)
+    }
+
     func testSettingsCanCheckTheModelAndFailuresAreSaidInTheServicesWords() async throws {
         let (runtime, kernel, _) = try await MainActor.run { try makeRuntime() }
         kernel.usage = (36, 64_000)

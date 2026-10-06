@@ -59,6 +59,7 @@ final class CommandController {
         voice.onCommandTranscript = { [weak self] in self?.heard($0) }
         // What the last run left of the conversation is shown before the next command takes it up.
         if let kept = carried { turns = kept.turns; usage = kept.usage }
+        if settings.sight { InterfaceTools.warm() }
     }
 
     // MARK: The command key
@@ -75,8 +76,9 @@ final class CommandController {
         tools.captureSource()
         voice.beginCommand()
         steps = 0
-        // The kernel starts while the user is still speaking.
+        // The kernel starts while the user is still speaking, and so does what reads a picture.
         warm()
+        if settings.sight { InterfaceTools.warm() }
         hud = CommandHUDSnapshot(phase: .listening, status: L10n.tr("命令 · 正在听", "Command · listening"), detail: detail())
     }
     func end() { if hud.phase == .listening { voice.end() } }
@@ -142,6 +144,7 @@ final class CommandController {
             journal = try? TaskJournal(root: records)
             journal?.record("instruction", ["text": .string(words), "app": .string(tools.source?.name ?? ""),
                                             "model": .string(settings.modelName), "turn": .number(Double(turns))])
+            tools.sight = settings.sight
             let gateway = Gateway(tools: ToolCatalog.mounted(sight: settings.sight), host: tools, permission: settings.permission,
                                   stepLimit: settings.stepLimit, journal: journal)
             self.gateway = gateway; runningTurn = token
@@ -439,7 +442,7 @@ final class CommandController {
         case "ui_snapshot": return L10n.tr("读取界面", "reading the window")
         case "ui_screenshot": return L10n.tr("查看窗口", "looking at the window")
         case "ui_type": return L10n.tr("输入文字", "typing")
-        case "ui_press", "ui_key", "ui_menu": return L10n.tr("操作界面", "operating the window")
+        case "ui_press", "ui_key", "ui_menu", "ui_click": return L10n.tr("操作界面", "operating the window")
         // A harness's own tools, when the user has let the model use them.
         case "bash": return L10n.tr("运行命令", "running a command")
         case "read", "read_image", "glob", "grep": return L10n.tr("读取文件", "reading files")

@@ -82,16 +82,30 @@ final class GatewayTests: XCTestCase {
         XCTAssertEqual(ending, .needsUser("步数用完了，只找到两个"))
     }
 
-    /// Only the tools a gateway was given exist for it: the window's picture is one more when the user allows it.
+    /// Only the tools a gateway was given exist for it: the window's picture and the pointer in it are there
+    /// when the user allows them.
     func testAToolThatWasNotMountedIsUnknown() async {
         let host = FakeHost(), closed = Gateway(host: host)
-        let refused = await closed.call("ui_screenshot", [:])
-        XCTAssertTrue(refused.isError)
+        for tool in ["ui_screenshot", "ui_click"] {
+            let refused = await closed.call(tool, ["x": 10, "y": 10])
+            XCTAssertTrue(refused.isError, tool)
+        }
+        XCTAssertTrue(host.performed.isEmpty)
         let seeing = Gateway(tools: ToolCatalog.mounted(sight: true), host: host)
         let shown = await seeing.call("ui_screenshot", [:])
         XCTAssertFalse(shown.isError)
         XCTAssertEqual(host.performed, ["ui_screenshot"])
         XCTAssertTrue(host.confirmations.isEmpty, "looking changes nothing and is never asked about")
+        // A click is an action like a press: the host is asked what stands there, and every one waits when the user asks for that.
+        _ = await seeing.call("ui_click", ["id": "t3"])
+        XCTAssertTrue(host.confirmations.isEmpty)
+        host.risky = ["ui_click"]
+        _ = await seeing.call("ui_click", ["id": "t4"])
+        host.risky = []
+        let asking = Gateway(tools: ToolCatalog.mounted(sight: true), host: host, permission: .ask)
+        _ = await asking.call("ui_click", ["x": 10, "y": 10])
+        XCTAssertEqual(host.confirmations, ["ui_click", "ui_click"])
+        XCTAssertEqual(host.performed, ["ui_screenshot", "ui_click", "ui_click", "ui_click"])
     }
 
     /// A harness's own tool that wants to leave its sandbox is the user's to allow, in whatever mode.

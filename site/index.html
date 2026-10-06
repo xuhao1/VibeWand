@@ -50,7 +50,7 @@
 <section class="hero">
     <div class="wrap">
         <img class="hero-icon" src="img/icon.webp" alt="" width="112" height="112">
-        <div><span class="pill"><span lang="zh">当前版本</span><span lang="en">Current release</span><b>0.10.0</b></span></div>
+        <div><span class="pill"><span lang="zh">当前版本</span><span lang="en">Current release</span><b>0.10.1</b></span></div>
         <h1 class="wordmark">Vibe<span>Wand</span></h1>
         <p class="cn-name" lang="zh">如意魔棒</p>
         <p class="tagline">One wand to command them all.</p>
@@ -70,14 +70,14 @@
         <p class="caption" lang="zh">还有 iTerm2 里的 Claude Code、Codex、OpenCode，以及 Edge、Brave、Firefox、Opera、Vivaldi。</p>
         <p class="caption" lang="en">Also Claude Code, Codex and OpenCode in iTerm2, and Edge, Brave, Firefox, Opera and Vivaldi.</p>
         <div class="cta">
-            <a class="btn primary" href="https://github.com/xuhao1/vibewand-site/releases/download/v0.10.0/VibeWand-0.10.0-macOS-arm64.zip">
+            <a class="btn primary" href="https://github.com/xuhao1/vibewand-site/releases/download/v0.10.1/VibeWand-0.10.1-macOS-arm64.zip">
                 <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v8.5M4.5 7.5 8 11l3.5-3.5M3 14h10"/></svg>
-                <span lang="zh">下载 0.10.0（Apple Silicon）</span><span lang="en">Download 0.10.0 (Apple Silicon)</span>
+                <span lang="zh">下载 0.10.1（Apple Silicon）</span><span lang="en">Download 0.10.1 (Apple Silicon)</span>
             </a>
             <a class="btn" href="#apps"><span lang="zh">在每个应用里能做什么</span><span lang="en">What it does in each app</span></a>
         </div>
-        <p class="caption" lang="zh">macOS 26 以上 · M 系列芯片 · 约 104 MB</p>
-        <p class="caption" lang="en">macOS 26 or later · M-series Mac · about 104 MB</p>
+        <p class="caption" lang="zh">macOS 26 以上 · M 系列芯片 · 约 106 MB</p>
+        <p class="caption" lang="en">macOS 26 or later · M-series Mac · about 106 MB</p>
     </div>
     <figure class="cover">
         <div class="film" lang="zh">
@@ -285,10 +285,10 @@
 <section class="night" id="computer-use">
     <div class="wrap">
         <p class="eyebrow">Computer use</p>
-        <h2 lang="zh">默认不截图，从不点坐标。</h2>
-        <h2 lang="en">No screenshots by default. Never a coordinate click.</h2>
-        <p class="lead" lang="zh">VibeWand 干的是 computer use 这类事：看懂前台应用的界面，替你操作它。它读的是 macOS 辅助功能给出的控件结构，和读屏软件拿到的是同一份。动作要么来自你按的键，要么来自你说的一句话。</p>
-        <p class="lead" lang="en">What VibeWand does is computer use: it works out what the front app is showing and operates it for you. It reads the control structure that macOS Accessibility provides, the same one a screen reader gets. An action starts either from a button you press or from a sentence you say.</p>
+        <h2 lang="zh">默认不截图，也不凭画面去点。</h2>
+        <h2 lang="en">No screenshots by default, and no clicking by sight.</h2>
+        <p class="lead" lang="zh">VibeWand 干的是 computer use 这类事：看懂前台应用的界面，替你操作它。它读的是 macOS 辅助功能给出的控件结构，和读屏软件拿到的是同一份。遇到不提供控件的应用，可以让命令模式看窗口截图并在图上点击。动作要么来自你按的键，要么来自你说的一句话。</p>
+        <p class="lead" lang="en">What VibeWand does is computer use: it works out what the front app is showing and operates it for you. It reads the control structure that macOS Accessibility provides, the same one a screen reader gets. For an app that publishes no controls, you can let command mode look at a picture of the window and click in it. An action starts either from a button you press or from a sentence you say.</p>
 
         <div class="grid paths">
             <article class="card">
@@ -314,17 +314,17 @@
                 <span class="status"><span lang="zh">已随 0.9.0 发布，配好模型后可用</span><span lang="en">Ships in 0.9.0; usable once a model is set up</span></span>
                 <dl>
                     <dt><span lang="zh">谁决定做什么</span><span lang="en">Who decides</span></dt>
-                    <dd lang="zh">你配置的模型，从 13 个工具里选。窗口截图，以及插件模式下 Harness 自己的工具，要你打开才有。</dd>
-                    <dd lang="en">The model you configured, choosing among 13 tools. A picture of the window and, in plugin mode, the harness's own tools are added only if you turn them on.</dd>
+                    <dd lang="zh">你配置的模型，从 13 个工具里选。看窗口截图并在图上点击，以及插件模式下 Harness 自己的工具，要你打开才有。</dd>
+                    <dd lang="en">The model you configured, choosing among 13 tools. Seeing the window and clicking in its picture, and in plugin mode the harness's own tools, are added only if you turn them on.</dd>
                     <dt><span lang="zh">看什么</span><span lang="en">What it looks at</span></dt>
-                    <dd lang="zh">应用、窗口和会话的标题；前台窗口里控件的类型、名称和状态；应用播报的状态行。</dd>
-                    <dd lang="en">App, window and chat titles; the kind, name and state of the controls in the front window; the status line an app announces.</dd>
+                    <dd lang="zh">应用、窗口和会话的标题；前台窗口里控件的类型、名称和状态；应用播报的状态行；打开看窗口后，还有窗口的截图和从图里认出的文字。</dd>
+                    <dd lang="en">App, window and chat titles; the kind, name and state of the controls in the front window; the status line an app announces; with seeing turned on, a picture of the window and the text read in it.</dd>
                     <dt><span lang="zh">做什么</span><span lang="en">What it does</span></dt>
-                    <dd lang="zh">查找并打开会话；打开应用自带的搜索并填词；切应用、打开文件或网址；按控件、发快捷键、选菜单项、往输入框里写字。</dd>
-                    <dd lang="en">Finds and opens chats; opens an app's own search and types the keywords; switches apps, opens a file or URL; presses a control, sends a shortcut, chooses a menu item, types into a field.</dd>
+                    <dd lang="zh">查找并打开会话；打开应用自带的搜索并填词；切应用、打开文件或网址；按控件、发快捷键、选菜单项、往输入框里写字；打开看窗口后，还能点击截图里的一行文字或一个位置。</dd>
+                    <dd lang="en">Finds and opens chats; opens an app's own search and types the keywords; switches apps, opens a file or URL; presses a control, sends a shortcut, chooses a menu item, types into a field; with seeing turned on, clicks a line of text or a point in the window's picture.</dd>
                     <dt><span lang="zh">作用范围</span><span lang="en">Reach</span></dt>
-                    <dd lang="zh">任何读得到控件的应用，一次一个。</dd>
-                    <dd lang="en">Any app whose controls can be read, one at a time.</dd>
+                    <dd lang="zh">任何读得到控件的应用，打开看窗口后也包括不提供控件的应用，一次一个。</dd>
+                    <dd lang="en">Any app whose controls can be read, and with seeing turned on those that publish none, one at a time.</dd>
                 </dl>
             </article>
         </div>
@@ -342,8 +342,8 @@
             </article>
             <article class="card">
                 <h3><span lang="zh">读结构，不读内容</span><span lang="en">Structure is read, content is not</span></h3>
-                <p lang="zh">输入框只知道空不空；不读会话正文和文档，不截屏（除非你为命令模式打开窗口截图），不往密码框里写字。终端没有控件，只读光标旁的几行来找提示符，归约成状态就丢弃。</p>
-                <p lang="en">A field is known only as empty or not. Conversation text and documents are not read, no screenshot is taken unless you turn on the window picture for command mode, and nothing is typed into a password field. A terminal has no controls, so only the few rows next to the cursor are read to find the prompt, reduced to a state and dropped.</p>
+                <p lang="zh">输入框只知道空不空；不读会话正文和文档，不截屏、不凭画面点击（除非你为命令模式打开看窗口截图），不往密码框里写字。终端没有控件，只读光标旁的几行来找提示符，归约成状态就丢弃。</p>
+                <p lang="en">A field is known only as empty or not. Conversation text and documents are not read, no screenshot is taken and no point of a picture is clicked unless you turn on seeing the window for command mode, and nothing is typed into a password field. A terminal has no controls, so only the few rows next to the cursor are read to find the prompt, reduced to a state and dropped.</p>
             </article>
             <article class="card">
                 <h3><span lang="zh">默认没有命令行和文件读写</span><span lang="en">No shell and no file access by default</span></h3>
@@ -366,11 +366,11 @@
                 <p lang="zh">需要 macOS 26 以上和 M 系列芯片。解压后把 <strong>VibeWand.app</strong> 拖进“应用程序”并打开。第一次打开会出现引导，带你走完权限、设备、语音输入和命令模式，每一步都可以跳过。</p>
                 <p lang="en">Requires macOS 26 or later on an M-series Mac. Unzip, drag <strong>VibeWand.app</strong> into Applications and open it. The first launch shows a guide that walks you through permission, your device, voice input and command mode; every step can be skipped.</p>
                 <div class="cta">
-                    <a class="btn primary" href="https://github.com/xuhao1/vibewand-site/releases/download/v0.10.0/VibeWand-0.10.0-macOS-arm64.zip">
+                    <a class="btn primary" href="https://github.com/xuhao1/vibewand-site/releases/download/v0.10.1/VibeWand-0.10.1-macOS-arm64.zip">
                         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v8.5M4.5 7.5 8 11l3.5-3.5M3 14h10"/></svg>
-                        <span lang="zh">下载 VibeWand 0.10.0</span><span lang="en">Download VibeWand 0.10.0</span>
+                        <span lang="zh">下载 VibeWand 0.10.1</span><span lang="en">Download VibeWand 0.10.1</span>
                     </a>
-                    <a class="btn" href="https://github.com/xuhao1/vibewand-site/releases/tag/v0.10.0"><span lang="zh">说明与校验和</span><span lang="en">Notes and checksum</span></a>
+                    <a class="btn" href="https://github.com/xuhao1/vibewand-site/releases/tag/v0.10.1"><span lang="zh">说明与校验和</span><span lang="en">Notes and checksum</span></a>
                 </div>
                 <p class="fine" lang="zh">这个版本是临时签名，没有做 Apple 公证。首次打开如果被 macOS 阻止，在“系统设置 → 隐私与安全性”里允许，见 <a href="https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unidentified-developer-mh40616/mac">Apple 的说明</a>。</p>
                 <p class="fine" lang="en">This build is ad-hoc signed and not notarized by Apple. If macOS blocks the first launch, allow it under System Settings → Privacy &amp; Security; see <a href="https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unidentified-developer-mh40616/mac">Apple's guide</a>.</p>
@@ -399,11 +399,11 @@
         <h2 lang="en">No server. No account.</h2>
         <div class="body" lang="zh">
             <p>设备输入和配置都在本机处理。听写用外置输入法时，它只替你按住 Fn；用内置识别时，录音只留在内存里，系统听写能离线就离线，SenseVoice 始终在本机识别，语音 API 模式会把录音发到你自己填的地址。密钥存在 macOS 钥匙串里，导出配置不会带上。听写的文字只写进输入框，发不发由你决定。</p>
-            <p>命令模式默认开启，但在你配好模型之前什么都不做，也不联系任何服务。配好以后，你说出的命令、应用和会话的标题，以及操作界面时前台窗口控件上的文字，会发给你自己选的模型服务；输入框和文档的内容不会，除非你打开窗口截图：那张图上是窗口当时的样子。每条命令的过程记录在本机，14 天后删除。</p>
+            <p>命令模式默认开启，但在你配好模型之前什么都不做，也不联系任何服务。配好以后，你说出的命令、应用和会话的标题，以及操作界面时前台窗口控件上的文字，会发给你自己选的模型服务；输入框和文档的内容不会，除非你打开看窗口截图：发出去的是窗口当时的样子，和从图里认出的文字。每条命令的过程记录在本机，14 天后删除。</p>
         </div>
         <div class="body" lang="en">
             <p>Device input and configuration stay on your Mac. With an external input method VibeWand only holds Fn for you. With built-in recognition, audio stays in memory; macOS dictation runs on device when it can, SenseVoice always does, and API mode sends audio to the endpoint you entered. Keys live in the macOS Keychain and are never part of an exported configuration. Dictated text goes into the field and no further; sending it is up to you.</p>
-            <p>Command mode is on by default, and until you set up a model it does nothing and contacts no service. After that, the words of your commands, the titles of apps and chats, and the labels of controls in the front window while the interface is operated are sent to the model service you chose yourself. The contents of fields and documents are not, unless you turn on the window picture, which shows the model the window as it is. What each command did is recorded on your Mac and deleted after 14 days.</p>
+            <p>Command mode is on by default, and until you set up a model it does nothing and contacts no service. After that, the words of your commands, the titles of apps and chats, and the labels of controls in the front window while the interface is operated are sent to the model service you chose yourself. The contents of fields and documents are not, unless you turn on seeing the window, which sends the model a picture of the window as it is and the text read in it. What each command did is recorded on your Mac and deleted after 14 days.</p>
         </div>
     </div>
 </section>

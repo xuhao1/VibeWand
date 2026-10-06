@@ -41,13 +41,17 @@ enum SystemPointer {
         event?.post(tap: .cghidEventTap)
         if let original { move(to: original) }
     }
-    static func click(at point: CGPoint) {
+    /// `count` 2 is a double click: the second press says it is the second.
+    static func click(at point: CGPoint, count: Int = 1) {
         move(to: point)
         let source = CGEventSource(stateID: .privateState)
-        for type in [CGEventType.leftMouseDown, .leftMouseUp] {
-            let event = CGEvent(mouseEventSource: source, mouseType: type, mouseCursorPosition: point, mouseButton: .left)
-            event?.setIntegerValueField(.eventSourceUserData, value: marker)
-            event?.post(tap: .cghidEventTap)
+        for press in 1...count {
+            for type in [CGEventType.leftMouseDown, .leftMouseUp] {
+                let event = CGEvent(mouseEventSource: source, mouseType: type, mouseCursorPosition: point, mouseButton: .left)
+                if press > 1 { event?.setIntegerValueField(.mouseEventClickState, value: Int64(press)) }
+                event?.setIntegerValueField(.eventSourceUserData, value: marker)
+                event?.post(tap: .cghidEventTap)
+            }
         }
     }
 }

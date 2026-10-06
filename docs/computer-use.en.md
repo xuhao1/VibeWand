@@ -7,7 +7,7 @@
 
 Every VibeWand feature comes down to operating an app on your Mac for you. This page covers how it looks at an interface, which actions it can take, which route each app uses, and what has been verified. For how to use it, see [Default controls](core-experience.en.md) and [Command mode](command-mode.en.md).
 
-**Both parts ship in 0.9.0 and need macOS 26. Command mode does nothing until a model is set up.** New in 0.10.0: a picture of the window that can be turned on, the harness's own tools in plugin mode, and three changes to how command mode reads a window (a menu that just opened leads the list, what the app announces is read, and a key can be sent to one control).
+**Both parts ship in 0.9.0 and need macOS 26. Command mode does nothing until a model is set up.** New in 0.10.0: a picture of the window that can be turned on, the harness's own tools in plugin mode, and three changes to how command mode reads a window (a menu that just opened leads the list, what the app announces is read, and a key can be sent to one control). New in 0.10.1: operating a window that publishes no controls from its picture, NetEase Cloud Music for one.
 
 ## Two ways to drive it
 
@@ -16,7 +16,7 @@ Every VibeWand feature comes down to operating an app on your Mac for you. This 
 | Way in | Dial, buttons, sticks | Hold the command key and speak |
 | Who decides what happens | Fixed rules: a button plus the current context maps to one action; no model is involved | The model you configured, choosing step by step among 13 tools (not counting what you hand it yourself) |
 | Good for | Frequent, definite actions: scrolling, moving the caret, picking a chat, changing the model, dictating | Things that are easy to say and awkward to press: “switch to the chat about the microphone”, “open the Runtime.swift tab” |
-| Reach | The [supported apps](applications.en.md) and the rules you added | Any app whose controls can be read, one at a time |
+| Reach | The [supported apps](applications.en.md) and the rules you added | Any app whose controls can be read, and with seeing turned on those that publish none, one at a time |
 
 Both use the same means: the control structure that macOS Accessibility provides, plus synthesized key, scroll and pointer events. They also hand over to each other: once a sentence has opened an app's own search, turning to choose and pressing to confirm is back on the buttons.
 
@@ -24,7 +24,7 @@ Both use the same means: the control structure that macOS Accessibility provides
 
 Computer use commonly means a model that looks at screenshots and outputs coordinates. VibeWand takes the other route: it reads only controls that have a name, and it presses that control itself. What it reads is the control tree an app publishes through macOS Accessibility, the same one a screen reader is given. That is why it needs your approval under System Settings → Privacy & Security → Accessibility. By default it needs no screen-recording permission and takes no screenshot.
 
-A picture is something command mode can be given in addition, and it is off by default; see [Let the model see the window](command-mode.en.md#let-the-model-see-the-window). With it on, the model may ask for a picture of the window being operated, with the controls' ids marked on it: it recognises things by eye and still presses controls, never coordinates. The button-driven part is not affected by this setting and never takes a screenshot.
+A picture is something command mode can be given in addition, and it is off by default; see [Let the model see the window and click in it](command-mode.en.md#let-the-model-see-the-window-and-click-in-it). With it on, the model may ask for a picture of the window being operated, with the controls' ids marked on it and the text read in it on this Mac listed beside it. In a window whose controls can be read it recognises things by eye and still presses the control. Some apps publish no control at all, NetEase Cloud Music and others that draw their own interface among them; there it clicks a line of the text read in the picture, or a point of it. That part is not released yet and is in the development build after 0.10.0. The button-driven part is not affected by this setting and never takes a screenshot.
 
 | What is read | What it is used for |
 | --- | --- |
@@ -60,7 +60,7 @@ When driven by buttons, one press maps to one of these:
 
 ## Command mode's 13 tools
 
-By default this table is everything the model can do. There is no shell, no file access, no web access and no coordinate click. Two more things can be handed to it, and each has to be turned on by you: a fourteenth tool, `ui_screenshot`, which shows it a picture of the window being operated; and, in plugin mode, the shell, file, web and other tools of your own DeepSeek Harness. See [What the model can use](command-mode.en.md#what-the-model-can-use).
+By default this table is everything the model can do. There is no shell, no file access, no web access and no coordinate click. Two more things can be handed to it, and each has to be turned on by you: seeing the window, which is `ui_screenshot`, a picture of the window being operated with the text read in it, and, not released yet and in the development build after 0.10.0, `ui_click`, a pointer click on a line of that text or a point of the picture; and, in plugin mode, the shell, file, web and other tools of your own DeepSeek Harness. See [What the model can use](command-mode.en.md#what-the-model-can-use).
 
 | Tool | What it does | Kind |
 | --- | --- | --- |
@@ -114,10 +114,10 @@ What command mode sends to the model service is listed under [What is sent](comm
 
 ## What it cannot do
 
-- Canvases, games and custom-drawn interfaces: there are no controls to read. With the picture turned on the model can see them, and still cannot press anything in them.
+- Canvases, games and custom-drawn interfaces: there are no controls to read. In 0.10.0, with the picture turned on, the model can see them and still cannot press anything in them; since 0.10.1 it can click a place in the picture, which was verified in NetEase Cloud Music and not tried in a game or on a canvas. What takes dragging, hovering, a right click or the scroll wheel is still out of reach.
 - In a terminal only the prompts of Codex, Claude Code and OpenCode are recognised, and iTerm2 is the reference. A prompt in a right-hand tmux pane, other terminals such as Terminal.app, and command-line tools without an adapter are not recognised; the remaining limits are in [Applications](applications.en.md#claude-code-codex-and-opencode-in-a-terminal).
 - WeChat's chat controls cannot be read; it has only the `⌘F` compatibility mapping.
-- Anything that needs looking at the picture to judge, unless you turned on command mode's picture of the window. The button-driven part does not look at the screen.
+- Anything that needs looking at the picture to judge, unless you turned on seeing the window for command mode. The button-driven part does not look at the screen.
 - Handing selected content to another tool, and relays of the kind “run it in one tool, hand the result to another”, are not implemented yet.
 
 ## What has been verified
@@ -131,5 +131,6 @@ What command mode sends to the model service is listed under [What is sent](comm
 | Command mode's kernel process, tool channel, cancellation, choosing, and command key | Covered by automated tests and by runs against the real model |
 | Command mode's results in real apps | Read back item by item between 2026-10-05 and 10-06 in TextEdit, VS Code, Codex, Claude and Feishu, and the three permission modes and plugin mode in TextEdit; see the [acceptance record](command-acceptance.md). Not run: a microphone and a human voice, physical keys, model services other than DeepSeek and local models, plugin mode on a real harness home, searches aimed at DeepSeek Harness, WorkBuddy and WeChat, and keys, menus and typing in VS Code |
 | The picture of the window, the harness's tools, and carrying a conversation on (0.10.0) | Each read back once in a real TextEdit window on the development build before the release, on DeepSeek's model; see the fourth round of the acceptance record. Not run: granting Screen Recording to the released app, and other models looking at a picture |
+| Operating a window that publishes no controls from its picture (0.10.1) | On 2026-10-06, on the development build before the release: searching, opening a playlist and playing it in the real window of NetEase Cloud Music 3.1.7, read back as its process beginning to sound; once on the built-in kernel and once on the installed harness, on DeepSeek's model; see the sixth round of the acceptance record. The pointer click was also read back in TextEdit as a selected word. Not run: other apps without controls, a model that takes no pictures, interface text in languages other than Chinese and English |
 
 By this repository's convention, a capability whose result has not been observed in the real app does not count as supported. Keep in mind what the last row lists as not run.

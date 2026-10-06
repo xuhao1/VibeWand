@@ -50,7 +50,7 @@ final class ToolSocketTests: XCTestCase {
         defer { socket.close() }
         let client = try connect(socket.path)
         let listed = try await client.request("tools/list")
-        XCTAssertEqual(listed["tools"]?.array?.last?["name"], "ui_screenshot")
+        XCTAssertEqual(listed["tools"]?.array?.suffix(2).map { $0["name"]?.string }, ["ui_screenshot", "ui_click"])
         let shown = try await client.request("tools/call", ["name": "ui_screenshot"])
         XCTAssertEqual(shown["content"]?.array?.count, 2)
         XCTAssertEqual(shown["content"]?.array?[0], ["type": "text", "text": "window \"备忘录\""])

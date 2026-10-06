@@ -86,28 +86,28 @@ App names and icons are trademarks of their owners and are shown only to indicat
 
 ## Computer use
 
-What VibeWand does is computer use: it works out what the front app is showing and operates it for you. By default it takes no screenshots, and it never clicks coordinates. It reads the control structure that macOS Accessibility provides, the same one a screen reader gets. An action starts either from a button you press or from a sentence you say.
+What VibeWand does is computer use: it works out what the front app is showing and operates it for you. It reads the control structure that macOS Accessibility provides, the same one a screen reader gets; by default it takes no screenshots and clicks nothing it has only seen. For an app that publishes no controls, you can let command mode look at a picture of the window and click in it. An action starts either from a button you press or from a sentence you say.
 
 | | Driven by buttons | Driven by a sentence ([command mode](docs/command-mode.en.md)) |
 | --- | --- | --- |
 | Status | Released | Released in 0.9.0; usable once a model is set up |
-| Who decides what happens | The button and the current context, by fixed rules; no model is involved | The model you configured, choosing among 13 tools. A picture of the window and, in plugin mode, the harness's own tools are added only if you turn them on |
-| What it looks at | Which app is in front; whether focus is in a field and whether the draft is empty; whether a chat, model or effort list is open and what it offers; input-method candidates and unknown dialogs | App, window and chat titles; the kind, name and state of the controls in the front window; the status line an app announces |
-| What it does | Presses buttons and adjusts sliders; sends shortcuts and arrow keys; scrolls the conversation; parks the pointer on a candidate or clicks it; writes or pastes text; switches apps | Finds and opens chats; opens an app's own search and types the keywords; switches apps, opens a file or URL; presses a control, sends a shortcut, chooses a menu item, types into a field |
-| Reach | The apps in the table above and the rules you added | Any app whose controls can be read, one at a time |
+| Who decides what happens | The button and the current context, by fixed rules; no model is involved | The model you configured, choosing among 13 tools. Seeing the window and clicking in its picture, and in plugin mode the harness's own tools, are added only if you turn them on |
+| What it looks at | Which app is in front; whether focus is in a field and whether the draft is empty; whether a chat, model or effort list is open and what it offers; input-method candidates and unknown dialogs | App, window and chat titles; the kind, name and state of the controls in the front window; the status line an app announces; with seeing turned on, a picture of the window and the text read in it |
+| What it does | Presses buttons and adjusts sliders; sends shortcuts and arrow keys; scrolls the conversation; parks the pointer on a candidate or clicks it; writes or pastes text; switches apps | Finds and opens chats; opens an app's own search and types the keywords; switches apps, opens a file or URL; presses a control, sends a shortcut, chooses a menu item, types into a field; with seeing turned on, clicks a line of text or a point in the window's picture |
+| Reach | The apps in the table above and the rules you added | Any app whose controls can be read, and with seeing turned on those that publish none, one at a time |
 
 Both paths keep the same rules:
 
 - **Nothing is sent for you.** Text stays in the field, and Return is yours to press. By default command mode asks only before deleting, sending, submitting or paying; you can have it ask at every step, or not at all.
 - **An action goes only to the target that was in front when you pressed.** If the app, window or focus has changed, the action is dropped.
-- **Structure is read, content is not.** A field is known only as empty or not. Conversation text and documents are not read, no screenshot is taken unless you turn on the window picture for command mode, and nothing is typed into a password field. A terminal has no controls, so only the few rows next to the cursor are read to find the prompt, reduced to a state and dropped.
+- **Structure is read, content is not.** A field is known only as empty or not. Conversation text and documents are not read, no screenshot is taken and no point of a picture is clicked unless you turn on seeing the window for command mode, and nothing is typed into a password field. A terminal has no controls, so only the few rows next to the cursor are read to find the prompt, reduced to a state and dropped.
 - **No shell and no file access by default.** Configuration runs no scripts, and the model cannot reach anything outside its tool list. In plugin mode you can hand it the harness's own tools, a shell and files among them; the harness's sandbox holds them at the permission mode you chose.
 
 What each capability covers, which channel each app uses and what has been verified in real apps is in [Computer use](docs/computer-use.en.md).
 
 ## Install
 
-**[Download VibeWand 0.10.0 (Apple Silicon)](https://github.com/xuhao1/VibeWand/releases/download/v0.10.0/VibeWand-0.10.0-macOS-arm64.zip)** · [Release notes](https://github.com/xuhao1/VibeWand/releases/latest)
+**[Download VibeWand 0.10.1 (Apple Silicon)](https://github.com/xuhao1/VibeWand/releases/download/v0.10.1/VibeWand-0.10.1-macOS-arm64.zip)** · [Release notes](https://github.com/xuhao1/VibeWand/releases/latest)
 
 Requires macOS 26 or later on an M-series Mac (0.8.4 is the last version for macOS 13 to 15). Unzip, drag **VibeWand.app** into Applications and open it. The first launch shows a guide that walks you through the steps below, voice input and command mode; every step can be skipped. By hand:
 
@@ -126,7 +126,7 @@ brew install opus
 bash scripts/build-app.sh
 ```
 
-The result is `dist/VibeWand.app`. The build downloads pinned versions of Node.js and DeepSeek Harness as the kernel for command mode, which makes the app about 324 MB; `VIBEWAND_SKIP_KERNEL=1` leaves it out. More in the [development guide](docs/development.md).
+The result is `dist/VibeWand.app`. The build downloads pinned versions of Node.js and DeepSeek Harness as the kernel for command mode, which makes the app about 327 MB; `VIBEWAND_SKIP_KERNEL=1` leaves it out. More in the [development guide](docs/development.md).
 
 ## Documentation
 
@@ -136,7 +136,7 @@ The result is `dist/VibeWand.app`. The build downloads pinned versions of Node.j
 
 Device input and configuration stay on your Mac. VibeWand has no server and needs no account. With an external input method it only holds Fn for you. With built-in recognition, audio stays in memory; macOS dictation runs on device when it can, SenseVoice always does, and API mode sends audio to the endpoint you entered. Keys live in the macOS Keychain and are never part of an exported configuration. Dictated text goes into the field and no further; sending it is up to you. A terminal has no composer control, so VibeWand reads the few rows next to the cursor to find the prompt; they are reduced to a state in memory and dropped, never stored or sent anywhere.
 
-Command mode is on by default, and until you set up a model it does nothing and contacts no service. After that, the words of your commands, the titles of apps and chats, and the labels of controls in the front window while the interface is operated are sent to the model service you chose yourself. The contents of fields and documents are not, unless you turn on the window picture, which shows the model the window as it is. What each command did is recorded on this Mac and deleted after 14 days. See [Command mode](docs/command-mode.en.md#what-is-sent).
+Command mode is on by default, and until you set up a model it does nothing and contacts no service. After that, the words of your commands, the titles of apps and chats, and the labels of controls in the front window while the interface is operated are sent to the model service you chose yourself. The contents of fields and documents are not, unless you turn on seeing the window, which sends the model a picture of the window as it is and the text read in it. What each command did is recorded on this Mac and deleted after 14 days. See [Command mode](docs/command-mode.en.md#what-is-sent).
 
 ## License
 

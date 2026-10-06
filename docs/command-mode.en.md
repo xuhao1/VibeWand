@@ -4,7 +4,7 @@
 
 Hold the command key and say what you want. When you release it, VibeWand finds the app, chat or control for you. It finds, opens, presses and puts text in place; the work itself is still done by the software you chose.
 
-**Ships since 0.9.0. Needs macOS 26.** New in 0.10.0: one coordinator for both kernels, the harness's own tools in plugin mode, letting the model see the window, conversations kept for a day, a week or until you end them, choosing and adjusting in a menu that opens (changing Codex's model and effort, for one), and the [first-run guide](getting-started.en.md#the-first-run-guide).
+**Ships since 0.9.0. Needs macOS 26.** New in 0.10.0: one coordinator for both kernels, the harness's own tools in plugin mode, letting the model see the window, conversations kept for a day, a week or until you end them, choosing and adjusting in a menu that opens (changing Codex's model and effort, for one), and the [first-run guide](getting-started.en.md#the-first-run-guide). New in 0.10.1: [operating a window that publishes no controls from its picture](#let-the-model-see-the-window-and-click-in-it), NetEase Cloud Music for one.
 
 ## Set up a model
 
@@ -36,7 +36,7 @@ A command is recognised by the built-in recogniser: macOS dictation, or the spee
 
 Swap the kernel for the DeepSeek Harness you installed yourself: the same coordinator, running as one of its plugins. What that gives you:
 
-- **Conversations are read in the harness.** Each one is kept in the harness's own session store, titled “VibeWand · ” followed by the words of its first command, in no project: the sidebar of the desktop or web app lists it under Ungrouped. Opened, it shows the whole context: the system prompt, every turn, every tool call with what it returned, usage and how full the context is. With [seeing the window](#let-the-model-see-the-window) turned on, the pictures the model looked at are in it too.
+- **Conversations are read in the harness.** Each one is kept in the harness's own session store, titled “VibeWand · ” followed by the words of its first command, in no project: the sidebar of the desktop or web app lists it under Ungrouped. Opened, it shows the whole context: the system prompt, every turn, every tool call with what it returned, usage and how full the context is. With [seeing the window](#let-the-model-see-the-window-and-click-in-it) turned on, the pictures the model looked at are in it too.
 - **Models are set up in the harness.** The model services, API keys and account sign-ins, OAuth included, are the harness's own, and VibeWand stores no key. It starts on the default model your harness is set to; after “Test and list models” you can pick any other model your harness serves.
 - **The harness's own tools can be handed to the model as well;** see [What the model can use](#what-the-model-can-use).
 
@@ -52,6 +52,7 @@ To turn it on, choose Plugin mode under Settings → Command mode → Model → 
 | --- | --- | --- |
 | 0.9.0 | `vibewand-coordinator` 0.9.0 | 0.2.0-rc.2 (the runtime carried by the desktop app) |
 | 0.10.0 | `vibewand-coordinator` 0.10.0; with all tools, `vibewand-overlay` 0.10.0 as well | 0.2.0-rc.2 |
+| 0.10.1 | `vibewand-coordinator` 0.10.1; with all tools, `vibewand-overlay` 0.10.1 as well | 0.2.0-rc.2 |
 
 The settings page shows the version it found and whether it is verified. On a version outside the table a command does not run and says why. You can turn on “Try this unverified version anyway”, and VibeWand then records an exemption the way the harness does, for exactly this plugin version on this harness version. It may fail; switch back to the built-in kernel if it does. The desktop app updates itself, so meeting this after an update is to be expected. The built-in copy stays at 0.2.0-rc.2 and is not affected.
 
@@ -79,13 +80,16 @@ The second choice exists in plugin mode only: the built-in copy does not carry t
 - VibeWand's tools stay the first choice for anything on screen. The system prompt is still VibeWand's, followed by how the harness's tools are to be used.
 - The harness's tools run inside the harness's own sandbox, set by VibeWand's [permission mode](#permission); when the harness has to ask you, the question appears on the overlay like any other.
 
-### Let the model see the window
+### Let the model see the window and click in it
 
-Off by default. When on, the model has one more tool, `ui_screenshot`: a picture of the window being operated, taken when it asks, with the controls' ids marked on it. It is for reading what the window shows, telling look-alike controls apart and checking results only the eye can see.
+Off by default. When on, the model has two more tools: `ui_screenshot`, a picture of the window being operated, taken when it asks, and `ui_click`, a pointer click on a place in that picture. 0.10.0 has the first only, under a switch named “Let the model see the window”; the click and the reading of text described below came with 0.10.1, and the switch was renamed with them.
 
-- Only the one window being operated is in the picture, never the whole screen or another app; its longer edge is scaled to 1600 pixels at most.
-- Nothing is clicked by coordinate: the model recognises a control in the picture and still presses the control. Interfaces whose controls cannot be read, such as canvases and custom-drawn content, can now be seen but still not pressed.
-- It needs the macOS Screen Recording permission, after which VibeWand has to be reopened, and a model that takes pictures. The built-in kernel hands the picture to the model you set up as one that does; if it does not, that step fails, and turning this setting off puts things right.
+- **Seeing.** The picture has the controls' ids marked on it, and comes with the text read in it on this Mac, in Chinese and English: one id for each line, with where the line is in the picture. It is for reading what the window shows, telling look-alike controls apart and checking results only the eye can see. Only the one window being operated is in the picture, never the whole screen or another app; what is sent is 1600 pixels at most along its longer edge.
+- **Clicking.** Some apps give accessibility no controls and draw their whole window themselves. NetEase Cloud Music is one: its list of controls is empty, which used to be where a command stopped. The model can now click a line of the text that was read, or a point of the picture for an icon, a cover or anything else without words, and is answered with a picture of the window as it stands after the click. In a window whose controls can be read, it still presses the control.
+- **Typing and paging stay on the keyboard.** A field is clicked first and then typed into; to see further down a list, the model clicks in it and sends Page Down. Where a field cannot be read, whether the typed text arrived is checked by looking: it counts as arrived when the window shows those words where it did not before.
+- **A click follows the [permission](#permission) mode like any other action.** When the words read at that place, or the name accessibility gives the control there, say delete, send, submit or the like, you are asked every time; under Ask every time, every click is asked about. Only the window being operated is clicked: if it has moved since the picture, or another app's window covers the place, nothing is clicked.
+- It needs the macOS Screen Recording permission, after which VibeWand has to be reopened. The text is read on this Mac, so a model that takes no pictures can still read a window and click its text; icons and layout need a model that does. The built-in kernel hands the picture to the model you set up as one that does; if it does not, that step fails, and turning this setting off puts things right.
+- After an install or an update the system takes about half a minute to get ready the first time text is read. With the switch on, VibeWand spends that at launch instead of at your first command.
 - The pictures the model looked at are kept in that command's Agent record. In plugin mode they are also kept with the conversation in the harness: in the conversation's Trajectory view, select the `ui_screenshot` step and its Result is the picture; in the Chat view that step shows the picture's attachment record.
 
 ## Permission
@@ -170,7 +174,7 @@ The records are kept in `~/Library/Application Support/VibeWand/tasks/` and dele
 
 - **It does not send or submit on its own.** Text it types stays in the field. Only when your command says to send, submit or delete does it do so, and then it asks you first as the permission mode above requires; with Bypass all it no longer asks.
 - **It operates one app:** the one in front when you pressed the command key, or the one it brought forward for you. Once you move elsewhere, what follows is dropped.
-- **No coordinate clicks, and no screenshots unless you turn them on.** By default it reads controls only, and interfaces whose controls cannot be read, such as canvases and custom-drawn content, are out of reach. With [Let the model see the window](#let-the-model-see-the-window) on it can look at the window being operated, and still presses controls only.
+- **No screenshots, and no clicks on what it has only seen, unless you turn them on.** By default it reads controls only, and interfaces that publish none, such as canvases, custom-drawn content and apps like NetEase Cloud Music, are out of reach. With [Let the model see the window and click in it](#let-the-model-see-the-window-and-click-in-it) on, it can look at the window being operated and click a place in the picture; where controls can be read, it still presses the control.
 - **It does not read what fields and documents contain,** only whether a field is empty, how many characters it holds and where its caret is, to check that typed text arrived. It never types into a password field.
 - **No shell and no file access unless you hand them over.** By default the model can call VibeWand's 13 tools and nothing else; see the [development guide](development.md). The harness's own are there only in plugin mode with “The harness's own tools as well” chosen.
 
@@ -183,7 +187,7 @@ Once a model is set up, the model service you chose receives:
 - when the interface is operated, the labels of controls in the front window: button names, tab titles, menu items, and since 0.10.0 the status line an app announces.
 
 - the notes you wrote for the model;
-- with “Let the model see the window” on, the picture of the window the model asks to see: everything the window shows is in it, the text of documents and fields included;
+- with “Let the model see the window and click in it” on, the picture of the window the model asks to see and the text read in it on this Mac: everything the window shows is in them, the text of documents and fields included;
 - when the model has the harness's own tools, the file contents, command output and web pages it reads with them.
 
 With both of those off it does not receive the contents of fields and documents, selected text, the clipboard, or screenshots. Audio is handled as set under Voice input and does not pass through the model service.
@@ -198,7 +202,7 @@ With command mode off, or no model set up, VibeWand behaves as before, reads non
 
 ## What has been verified
 
-Between 2026-10-05 and 10-06 it was run against real apps in five rounds, with every result read back from the app; see the [acceptance record](command-acceptance.md). The first three are 0.9.0; the fourth and fifth are 0.10.0, run on the development build before its release.
+Between 2026-10-05 and 10-06 it was run against real apps in six rounds, with every result read back from the app; see the [acceptance record](command-acceptance.md). The first three are 0.9.0, the fourth and fifth 0.10.0 and the sixth 0.10.1, each run on the development build before its release.
 
 - **TextEdit:** typing; a Return that needs confirmation, confirmed once and refused once; a menu item; opening an app by its Chinese name and switching back.
 - **Permission modes:** under Ask every time, typing is asked about first, goes into the document when confirmed and stays out when declined; under Bypass all, Return runs without a question.
@@ -221,6 +225,11 @@ The fifth round, on the development build before 0.10.0:
 - **Codex's model and effort:** in the real Codex window, “强度调到 low。” turned the button from “GPT-6 Astra Extra High” into “GPT-6 Astra Light”, the lowest of five levels (Codex has none called low); “把模型换成 GPT-6.1 Sol。” made it “GPT-6.1 Sol Light”; and one more sentence put both back. Each took between 9 and 13 tool calls, and the model and effort ended as they were before the test.
 - **Recording any key of a keyboard:** the number pad's 5 went into the document as usual before it was recorded; recorded by pressing it, it stood for its control and no longer reached the document. The keys were synthetic events.
 
+The sixth round, on the development build before 0.10.1:
+
+- **A window that publishes no controls:** the window of NetEase Cloud Music 3.1.7 is empty to accessibility. On “在网易云音乐里搜一个适合编程时听的歌单，打开它并开始播放” the model found the search field in the picture, clicked it, typed, pressed Return, opened a playlist among the results and clicked “播放全部”; what was read back is that the app's process began to sound. On “把这个歌单页面往下翻一页” next, every line of text in the middle of the page had changed its place. Once on the built-in kernel and once on the installed harness with its own tools handed over, with 10 to 12 tool calls and about half a minute each.
+- **The pointer where the model points:** in a real TextEdit window the model found a word of the document in the picture and double-clicked it; what was read back is that the word was selected.
+
 Worth knowing in use:
 
 - **VS Code takes it for a screen reader.** After its controls are read for the first time, VS Code asks whether to turn on “screen reader optimized” mode and shows it in the status bar. Answer No, or set `editor.accessibilitySupport` to `off` in VS Code's settings.
@@ -234,6 +243,8 @@ Not verified: the whole experience with a microphone and a human voice (the runs
 Not verified for plugin mode in particular: running on a real `~/.dsh` (the model services in the test Mac's own settings were only checked to be carried over and listed; no model was called with the keys there); model services signed in to with OAuth or a DeepSeek account; the desktop app's own window (the web app, which is the same interface, was looked at); “View conversations in the browser” from the button to the page (only that the web app starts on a scratch home and reports its address); a `dsh` installed for the terminal; any version other than 0.2.0-rc.2.
 
 Not verified for seeing the window in particular: granting Screen Recording to the released app (the test process used a permission it already had); any model other than DeepSeek's looking at a picture; what happens when a model the harness does not declare as taking pictures, such as those reached through an account sign-in, is handed one.
+
+Not verified for clicking in the picture in particular: apps without controls other than NetEase Cloud Music; a model that works from the text read alone and takes no pictures; VibeWand's own overlay stepping aside when it covers the place to click (no overlay stood there in the test process); interface text in languages other than Chinese and English. Not done: scrolling with the wheel. Synthesized wheel events have their direction rewritten by mouse tools such as Mos, and AppKit and Chromium ask different things of them, so paging goes through the keyboard.
 
 ## Not implemented yet
 

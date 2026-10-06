@@ -176,7 +176,7 @@ Built-in dictation no longer needs the target app to support in-place edits. Nat
 
 ## 在任何应用里边说边写 / Typing as you speak in any app
 
-尚未发布，在 0.10.0 之后的开发版里。“设置 → 语音输入 → 写入方式”里有一个开关，默认关闭。开启后，听写的文字在说话时就出现在目标输入框的光标处，带下划线表示还会变；识别修正时原地改，松开并整理完成后整段换成最终文字。Codex、Claude、终端、浏览器等不接受辅助功能写入的应用也一样，不经过剪贴板。取消听写、识别失败或 VibeWand 退出时，输入框里不留下任何文字。
+0.10.1 起。“设置 → 语音输入 → 写入方式”里有一个开关，默认关闭。开启后，听写的文字在说话时就出现在目标输入框的光标处，带下划线表示还会变；识别修正时原地改，松开并整理完成后整段换成最终文字。Codex、Claude、终端、浏览器等不接受辅助功能写入的应用也一样，不经过剪贴板。取消听写、识别失败或 VibeWand 退出时，输入框里不留下任何文字。
 
 **这不是靠语音接口做到的。**识别一直是流式的，悬浮窗里的预览就是它。缺的是往别的应用的输入框里写“还会变的文字”的途径：macOS 上这条途径是输入法接口（InputMethodKit 的 marked text），键盘输入法自带的语音输入用的就是它。所以这个开关会在 `~/Library/Input Methods` 里装一个 VibeWand 输入法组件（`VibeWandInput.app`，约 2 MB）。它是 palette 类型，和 macOS 自带听写的 `DictationIM` 同类，见 Apple 的 [QA1810](https://developer.apple.com/library/archive/qa/qa1810/_index.html)：
 
@@ -195,7 +195,7 @@ Built-in dictation no longer needs the target app to support in-place edits. Nat
 
 关闭开关会取消选中并删除这个组件。
 
-Not released yet; in the development build after 0.10.0. Settings → Voice input → How text is inserted has a switch, off by default. With it on, dictated text appears at the caret of the target field while you speak, underlined while it may still change; a revised word is put right in place, and after you release and polishing finishes the finished text replaces all of it in one step. Apps that take no accessibility write (Codex, Claude, terminals, browsers) behave the same, and the clipboard is not used. A cancelled or failed dictation, or VibeWand quitting, leaves nothing in the field.
+Since 0.10.1. Settings → Voice input → How text is inserted has a switch, off by default. With it on, dictated text appears at the caret of the target field while you speak, underlined while it may still change; a revised word is put right in place, and after you release and polishing finishes the finished text replaces all of it in one step. Apps that take no accessibility write (Codex, Claude, terminals, browsers) behave the same, and the clipboard is not used. A cancelled or failed dictation, or VibeWand quitting, leaves nothing in the field.
 
 **No speech interface does this.** Recognition has always streamed; the overlay preview is that stream. What was missing is a way to write text that may still change into another app's field, which on macOS is the input method interface (InputMethodKit's marked text), the one a keyboard input method's own voice input uses. The switch therefore installs a VibeWand input method in `~/Library/Input Methods` (`VibeWandInput.app`, about 2 MB). It is a palette, the kind macOS's own `DictationIM` is (Apple's [QA1810](https://developer.apple.com/library/archive/qa/qa1810/_index.html)): it runs beside the keyboard input method in use without replacing it or switching the input source; it asks for no key events, has no window, makes no network connection and does not read what a field already holds; what it writes is always one line, line breaks and tabs becoming spaces, so it has no way of pressing Return and cannot run what was said in a terminal; and it takes text only from the VibeWand app on this Mac, over a Unix socket that only the current user can reach (`~/Library/Application Support/VibeWand/input.sock`).
 

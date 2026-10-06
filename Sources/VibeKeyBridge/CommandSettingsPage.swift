@@ -24,8 +24,8 @@ struct CommandSettingsPage: View {
         var text = tr("配置好模型后，这些内容会离开这台 Mac，发给你选的模型服务：你说出的命令原话；应用、窗口和会话的标题，项目文件夹名；操作界面时前台窗口里控件上的文字。",
                       "Once a model is set up, the following leaves this Mac for the model service you chose: the words of your command; the titles of apps, windows and chats, and project folder names; the labels of controls in the front window when the interface is operated.")
         if settings.sight {
-            text += tr("你打开了“让模型看窗口截图”：模型要看时，被操作的那个窗口的截图也会发给它，窗口里显示的内容都在图上。",
-                       " You turned on letting the model see: when it asks to look, a picture of the window being operated is sent too, with everything that window shows.")
+            text += tr("你打开了“\(CommandSettings.sightTitle)”：模型要看时，被操作的那个窗口的截图和在本机从图里认出的文字也会发给它，窗口里显示的内容都在其中。",
+                       " You turned on letting the model see: when it asks to look, a picture of the window being operated is sent too, with the text read in it on this Mac: everything that window shows.")
         } else {
             text += tr("输入框和文档的内容、选中的文字、截图不会发给它。", " The contents of fields and documents, selected text and screenshots are not sent to it.")
         }
@@ -224,8 +224,9 @@ struct CommandSettingsPage: View {
                 : tr("除了 VibeWand 的工具，模型还能用 Harness 自带的命令行、文件读写、网页搜索、技能和子任务，相当于对着你的 Harness 说话。它的工作目录是 VibeWand 的一个临时目录，回答较长时悬浮窗只显示一行，全文在 Harness 里看。",
                      "Beside VibeWand's tools the model has the harness's own shell, file tools, web search, skills and subagents: you are talking to your harness. Its working directory is a scratch folder of VibeWand's, and when an answer is long the overlay shows one line while the whole of it is in the harness."))
             Divider()
-            SettingsToggleRow(title: tr("让模型看窗口截图", "Let the model see the window"), isOn: Binding(get: { settings.sight }, set: { on in
+            SettingsToggleRow(title: CommandSettings.sightTitle, isOn: Binding(get: { settings.sight }, set: { on in
                 settings.setSight(on)
+                if on { InterfaceTools.warm() }
                 if on, !CGPreflightScreenCaptureAccess() { mayRecord = CGRequestScreenCaptureAccess() }
             }))
             if settings.sight {
@@ -241,8 +242,8 @@ struct CommandSettingsPage: View {
                     }
                 }
             }
-            SettingsNote(text: tr("默认关闭。打开后模型多一个工具：需要时看一眼被操作的那个窗口的截图，上面标着控件的编号，用来读窗口里显示的内容、分清长得一样的控件、核对只有眼睛看得出的结果。它只拍那一个窗口，仍然不点坐标。需要 macOS 的“屏幕录制”权限和一个能看图的模型；授权后要重新打开 VibeWand 才生效。",
-                                  "Off by default. When on, the model has one more tool: a picture of the window being operated, taken when it asks, with the controls' ids marked on it. It is for reading what the window shows, telling look-alike controls apart and checking results only the eye can see. Only that one window is in the picture, and nothing is clicked by coordinate. It needs the macOS Screen Recording permission and a model that takes pictures; VibeWand has to be reopened after the permission is given."))
+            SettingsNote(text: tr("默认关闭。打开后模型多两个工具：看一眼被操作的那个窗口的截图，图上标着控件的编号，并附上在本机从图里认出的文字和它们的位置；用指针点击其中一行文字，或图上的一个位置。不向辅助功能提供控件的窗口（例如网易云音乐）靠它才能操作，它也用来读窗口里显示的内容、分清长得一样的控件、核对只有眼睛看得出的结果。只拍、只点被操作的那一个窗口。点击按下面的权限档位确认：那个位置上写着删除、发送这类字时，每次都先问你。需要 macOS 的“屏幕录制”权限，授权后要重新打开 VibeWand 才生效。不能看图的模型可以靠认出的文字操作，认图标和画面要能看图的模型。",
+                                  "Off by default. When on, the model has two more tools: a picture of the window being operated, taken when it asks, with the controls' ids marked on it and the text read in it on this Mac listed with where each line is; and a pointer click on one of those lines or on a point of the picture. A window that gives accessibility no controls, NetEase Cloud Music for one, can be operated only this way, and it is also for reading what a window shows, telling look-alike controls apart and checking results only the eye can see. Only that one window is pictured and clicked. A click is confirmed as the permission mode below says: when the words at its place say delete, send or the like, you are asked every time. It needs the macOS Screen Recording permission, and VibeWand has to be reopened after that is given. A model that takes no pictures can work from the text read; icons and layout need one that does."))
         }
     }
 

@@ -33,6 +33,8 @@ final class CommandTools: ToolHost {
     private var target: pid_t?
     /// Puts a question on the overlay. Returns the chosen index, 0 for a confirmation, or nil.
     var ask: ((CommandQuestion) async -> Int?)?
+    /// The user has let the model see the window it operates, and point in it.
+    var sight = false
 
     init(adapter: AccessibilityAdapter) { self.adapter = adapter }
 
@@ -85,6 +87,12 @@ final class CommandTools: ToolHost {
             return every ? L10n.tr("发送按键 \(keys)？", "Send \(keys)?") : nil
         case "ui_type":
             return every ? L10n.tr("输入「\(quoted(arguments["text"]?.string ?? ""))」？", "Type “\(quoted(arguments["text"]?.string ?? ""))”?") : nil
+        case "ui_click":
+            // A click is judged by what stands at its place: the words read there, and the control accessibility names there.
+            guard let pid = operated(), let place = await place(arguments, pid: pid).place,
+                  every || ControlRisk.needsConfirmation(place.label) else { return nil }
+            return place.label.isEmpty ? L10n.tr("点击画面里的这个位置？", "Click this place in the window?")
+                : L10n.tr("点击「\(quoted(place.label))」？", "Click “\(quoted(place.label))”?")
         case "activate_app":
             guard every else { return nil }
             let app = arguments["app"]?.string ?? ""
@@ -119,12 +127,13 @@ final class CommandTools: ToolHost {
             guard let pid = operated() else { return movedAway }
             // What the app's adapter presses for the dial is named for the model too.
             let profile = ApplicationProfile.resolve(bundleID: NSRunningApplication(processIdentifier: pid)?.bundleIdentifier)
-            return await interface.snapshot(pid: pid, filter: arguments["filter"]?.string) { role, label in
+            return await interface.snapshot(pid: pid, filter: arguments["filter"]?.string, seeing: sight) { role, label in
                 profile.isModelTrigger(role: role, hint: label) ? "model picker" : profile.isEffortTrigger(role: role, hint: label) ? "effort picker" : nil
             }
         case "ui_screenshot":
             guard let pid = operated() else { return movedAway }
             return await interface.picture(pid: pid)
+        case "ui_click": return await click(arguments)
         case "ui_press": return await press(arguments)
         case "ui_key": return await key(arguments)
         case "ui_menu": return await menu(arguments)
@@ -309,10 +318,54 @@ final class CommandTools: ToolHost {
 
     private func press(_ arguments: JSONValue) async -> ToolOutcome {
         guard operated() != nil else { return movedAway }
-        guard let control = await interface.control(arguments["id"]?.string ?? "") else {
-            return .failure("No such control in the latest snapshot. Take a new snapshot.")
+        let id = arguments["id"]?.string ?? ""
+        guard let control = await interface.control(id) else {
+            return .failure(id.hasPrefix("t") ? Self.notAControl(id) : "No such control in the latest snapshot. Take a new snapshot.")
         }
         return await said(after: await interface.press(control))
+    }
+    private static func notAControl(_ id: String) -> String {
+        "\(id) is a line of text in the picture, not a control. Click it with ui_click; to type there, click it and then call ui_type without an id."
+    }
+
+    // MARK: The pointer
+
+    private func place(_ arguments: JSONValue, pid: pid_t) async -> (place: WindowPlace?, error: String) {
+        await interface.place(pid: pid, id: arguments["id"]?.string, x: arguments["x"]?.int, y: arguments["y"]?.int)
+    }
+
+    private func click(_ arguments: JSONValue) async -> ToolOutcome {
+        guard let pid = operated() else { return movedAway }
+        let found = await place(arguments, pid: pid)
+        guard let place = found.place else { return .failure(found.error) }
+        // The pointer reaches whatever is on top at that place: a panel of VibeWand's own steps out of its way
+        // for the moment, and another app's window there stops the click.
+        let primary = NSScreen.screens.first?.frame.height ?? 0
+        let own = NSApplication.shared.windows.filter {
+            $0.isVisible && !$0.ignoresMouseEvents && CGRect(x: $0.frame.minX, y: primary - $0.frame.maxY, width: $0.frame.width, height: $0.frame.height).contains(place.point)
+        }
+        if own.isEmpty, let owner = await interface.owner(at: place.point), owner != pid {
+            return .failure("Another app's window covers that place. Call need_user and say so.")
+        }
+        own.forEach { $0.ignoresMouseEvents = true }
+        defer { own.forEach { $0.ignoresMouseEvents = false } }
+        // It arrives a moment before it presses, as a hand does: a page shows what is under it first.
+        SystemPointer.move(to: place.point)
+        try? await Task.sleep(nanoseconds: 80_000_000)
+        guard operated() == pid else { return movedAway }
+        SystemPointer.click(at: place.point, count: arguments["count"]?.int == 2 ? 2 : 1)
+        try? await Task.sleep(nanoseconds: 150_000_000)
+        return await shown(after: place.label.isEmpty ? "clicked the place named" : "clicked \"\(place.label)\"", pid: pid)
+    }
+
+    /// Nothing answers the pointer. What it did shows in the window, so the model is given the window as it
+    /// stands a moment later, the way ui_screenshot shows it: one step instead of two for every click.
+    private func shown(after action: String, pid: pid_t) async -> ToolOutcome {
+        try? await Task.sleep(nanoseconds: 450_000_000)
+        guard operated() == pid else { return .ok(.string("\(action). Another app is in front now.")) }
+        let picture = await interface.picture(pid: pid)
+        guard !picture.isError else { return .ok(.string("\(action). Take ui_screenshot to see what it did.")) }
+        return ToolOutcome(text: "\(action). The window now:\n\(picture.text)", image: picture.image)
     }
 
     /// Adds what the app announced in answer to an action, as a screen reader would speak it.
@@ -355,14 +408,19 @@ final class CommandTools: ToolHost {
         var control: InterfaceControl?
         if let id = arguments["id"]?.string {
             control = await interface.control(id)
-            guard control != nil else { return .failure("No such control in the latest snapshot. Take a new snapshot.") }
+            guard control != nil else { return .failure(id.hasPrefix("t") ? Self.notAControl(id) : "No such control in the latest snapshot. Take a new snapshot.") }
         }
         if let refusal = await interface.focus(pid: pid, control: control) { return .failure(refusal) }
         guard operated() == pid else { return movedAway }
         switch await paste(text, pid: pid) {
         case true?: return .ok(["typed_characters": .number(Double(text.count)), "note": "The text is in the field. It was not submitted."])
-        case nil: return .ok(["typed_characters": .number(Double(text.count)),
-                              "note": "Sent, but this field cannot be read to check that it arrived. It was not submitted."], verified: false)
+        case nil:
+            // A field that cannot be read may still be seen: the words show in the window, or they do not.
+            if sight, await interface.shows(text, pid: pid) {
+                return .ok(["typed_characters": .number(Double(text.count)), "note": "The text shows in the window. It was not submitted."])
+            }
+            return .ok(["typed_characters": .number(Double(text.count)),
+                        "note": "Sent, but this field cannot be read to check that it arrived. It was not submitted."], verified: false)
         case false?: return .failure("The text did not go in: the field did not change. Take a snapshot to see what has the keyboard.")
         }
     }
@@ -398,26 +456,46 @@ final class CommandTools: ToolHost {
         return nil
     }
 
-    /// An adapter id, a running app's name or bundle id, or an installed app's name.
+    /// An adapter id, a running app's name or bundle id, or an installed app's name, in any language the user reads.
     private func resolve(_ name: String) -> URL? {
         let wanted = name.trimmingCharacters(in: .whitespaces).lowercased()
         if let entry = Self.targets.first(where: { $0.id == wanted }) { return installed(entry.bundleIDs) }
         let running = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular && $0.processIdentifier != getpid() }
         func names(_ app: NSRunningApplication) -> [String] {
-            [app.localizedName, app.bundleURL?.deletingPathExtension().lastPathComponent, app.bundleIdentifier].compactMap { $0?.lowercased() }
+            ([app.localizedName, app.bundleURL?.deletingPathExtension().lastPathComponent, app.bundleIdentifier].compactMap { $0 }
+                + (app.bundleURL.map { Self.aliases($0) } ?? [])).map { $0.lowercased() }
         }
         if let app = running.first(where: { names($0).contains(wanted) }) ?? running.first(where: { names($0).contains { $0.contains(wanted) } }) {
             return app.bundleURL
         }
         if let application = NSWorkspace.shared.urlForApplication(withBundleIdentifier: name) { return application }
-        let folders = ["/Applications", "/System/Applications", "/System/Applications/Utilities", NSHomeDirectory() + "/Applications"]
-        return folders.map { URL(fileURLWithPath: $0).appendingPathComponent(name + ".app") }.first { FileManager.default.fileExists(atPath: $0.path) }
+        let folders = ["/Applications", "/System/Applications", "/System/Applications/Utilities", NSHomeDirectory() + "/Applications"].map(URL.init(fileURLWithPath:))
+        if let named = folders.map({ $0.appendingPathComponent(name + ".app") }).first(where: { FileManager.default.fileExists(atPath: $0.path) }) { return named }
+        // A command names an app as the user calls it, which need not be what its file is called: 网易云音乐 is NeteaseMusic.app.
+        return folders.flatMap { (try? FileManager.default.contentsOfDirectory(at: $0, includingPropertiesForKeys: nil)) ?? [] }
+            .first { $0.pathExtension == "app" && Self.aliases($0).contains { $0.lowercased() == wanted } }
     }
 
-    /// The name the user knows an app by; some report a shorter one to the system (Visual Studio Code is "Code").
+    /// What an app calls itself in each language the user reads, where its file's name says something else.
+    nonisolated static func aliases(_ application: URL, languages: [String] = Locale.preferredLanguages) -> [String] {
+        guard let bundle = Bundle(url: application) else { return [] }
+        var names: [String] = []
+        for language in languages {
+            guard let localization = Bundle.preferredLocalizations(from: bundle.localizations, forPreferences: [language]).first,
+                  let strings = bundle.url(forResource: "InfoPlist", withExtension: "strings", subdirectory: nil, localization: localization),
+                  let entries = NSDictionary(contentsOf: strings) as? [String: String] else { continue }
+            for name in [entries["CFBundleDisplayName"], entries["CFBundleName"]].compactMap({ $0 }) where !names.contains(name) { names.append(name) }
+        }
+        return names
+    }
+
+    /// The name the user knows an app by; some report a shorter one to the system (Visual Studio Code is "Code"),
+    /// and some go by another in the user's other language (NeteaseMusic is 网易云音乐).
     private static func displayName(_ app: NSRunningApplication) -> String {
         let reported = app.localizedName ?? "", onDisk = app.bundleURL?.deletingPathExtension().lastPathComponent ?? ""
-        return onDisk.isEmpty || onDisk.localizedCaseInsensitiveContains(reported) ? (onDisk.isEmpty ? reported : onDisk) : "\(reported) (\(onDisk))"
+        let name = onDisk.isEmpty || onDisk.localizedCaseInsensitiveContains(reported) ? (onDisk.isEmpty ? reported : onDisk) : "\(reported) (\(onDisk))"
+        let other = (app.bundleURL.map { aliases($0) } ?? []).filter { !name.localizedCaseInsensitiveContains($0) }
+        return other.isEmpty ? name : "\(name) (\(other.joined(separator: ", ")))"
     }
 }
 

@@ -176,6 +176,33 @@ Not run in this round: the model and effort controls of Claude, DeepSeek Harness
 
 这一轮没有测：用说的命令去调 Claude、DeepSeek Harness 和 WorkBuddy 的模型与强度；Codex 正在执行一轮任务时的情况；“Use Full access”在真实悬浮窗上的那一问（名单由单元测试覆盖）；实体键盘、带扩展键的自定义键盘，以及运行中的应用里的录制界面；用麦克风经 SenseVoice 听写；`textedit` 和 `keyboard-layout` 以外的原有场景（`code`、`codex`、几个搜索和插件模式的那些），它们用到的工具在“快照列什么”和“按键怎么发”上有改动，但没有重跑。
 
+## Sixth round, for 0.10.1: a window that publishes no controls / 第六轮：0.10.1 的不提供控件的窗口
+
+On 2026-10-06 the owner asked the development build to play some music for coding, three times, and it could not. The task records show why. Apple Music was operated through its controls and stopped at a subscription the account does not have. NetEase Cloud Music (**3.1.7**, built on the Chromium Embedded Framework) gives accessibility nothing but its three title-bar buttons: `AXManualAccessibility` and `AXEnhancedUserInterface` are both refused, so a snapshot was empty. In one attempt the model gave up there without looking. In the next it did look, six times, and the pictures showed the whole window; it then had nothing to press what it saw with, tried shortcuts instead, one of which added the song then playing to the owner's liked songs, and gave up.
+
+2026-10-06，作者让开发版“放点适合编程的音乐”，三次都没做成。任务记录给出了原因。Apple Music 是经控件操作的，停在账号没有订阅。网易云音乐（**3.1.7**，基于 Chromium Embedded Framework）除了标题栏的三个按钮，什么都不给辅助功能：`AXManualAccessibility` 和 `AXEnhancedUserInterface` 都被拒绝，所以快照是空的。有一次模型到这里没有看图就放弃了；下一次它看了六次，图上是完整的窗口，但它没有办法去按它看到的东西，转而试快捷键，其中一个把当时在放的歌加进了作者“我喜欢的音乐”，最后放弃。
+
+What changed: `ui_screenshot` also lists the text read in the picture on this Mac (Vision, Chinese and English), each line with an id and the place of its middle, words that stand apart in a line listed apart; a new tool, `ui_click`, mounted with it, clicks one of those lines, a control of the snapshot or a point of the picture with the pointer, and answers with the window as it then stands; a snapshot of a window with no controls says to look instead, or names the switch the user has to turn on; text typed into a field that cannot be read counts as arrived when the window shows it; and an app is found by the name it carries in each language the user reads, so that 网易云音乐 finds NeteaseMusic.app. A click is asked about as the permission mode says, judged by the words read at its place and by the name accessibility gives the control there. The switch is now called “Let the model see the window and click in it”.
+
+改动：`ui_screenshot` 同时列出在本机从图里认出的文字（Vision，中文和英文），每行一个编号和它中点的位置，一行里隔得开的词分开列；新工具 `ui_click` 随它一起挂载，用指针点击其中一行、快照里的一个控件或图上的一个位置，返回点击之后的窗口；对没有控件的窗口，快照会提示改为看图，或说出需要用户打开的那个开关；往读不到的输入框里输入时，窗口里出现了这些字才算进去了；应用按它在用户所读各种语言里的名字来找，所以“网易云音乐”找得到 NeteaseMusic.app。点击按权限档位先问：依据是那个位置上认出的文字，和辅助功能在那里报出的控件名。开关现在叫“让模型看窗口截图并点击”。
+
+The runs used the working tree, the kernel of the 0.10.0 build (the coordinator bundle is unchanged since), DeepSeek's `deepseek-flash`, and for plugin mode **DeepSeek Harness desktop 0.2.0-rc.2** with a harness home of the test's own, on macOS 27.0. The owner agreed to the screen being taken and to NetEase Cloud Music being opened and played.
+
+运行用的是工作区的代码、0.10.0 那一版的内核（协调器 bundle 之后没有变过）、DeepSeek 的 `deepseek-flash`；插件模式用 **DeepSeek Harness 桌面版 0.2.0-rc.2**，在测试自己的 Harness 目录里；系统是 macOS 27.0。占用屏幕、打开网易云音乐并播放，事先得到了作者同意。
+
+| What was run / 跑了什么 | Result / 结果 |
+| --- | --- |
+| `netease`, built-in kernel: “在网易云音乐里搜一个适合编程时听的歌单，打开它并开始播放” | `list_targets` → `ui_snapshot` (empty, pointing to the picture) → `ui_screenshot` → `ui_click` on the search field → `ui_type` → `ui_key` return → `ui_screenshot` → `ui_click` on a playlist → `ui_click` on “播放全部” → `finish`: 10 calls, 30 s. The app's process began to send audio out; playback was stopped again and the app, which the test had started, was quit. The first run, before a click answered with the window, took 17 calls / 10 次调用，30 秒。网易云音乐的进程开始输出音频；之后停止播放，并退出由测试启动的应用。第一次运行时点击还不返回窗口，用了 17 次调用 |
+| `plugin-netease`, the installed harness with its own tools handed over, the same command / 安装的 Harness 加它自己的全部工具，同一句话 | 11 and 12 calls in two runs; the playlist “【纯音乐】适合编程、码字，隔绝老板的聒噪” was opened and played, read back the same way / 两次运行分别 11 和 12 次调用；打开并播放了歌单“【纯音乐】适合编程、码字，隔绝老板的聒噪”，读回方式相同 |
+| then “把这个歌单页面往下翻一页” / 接着说 | `ui_key` pagedown → `ui_screenshot` → `finish`. Of 26 lines of text in the middle of the page, none was where it had been / 页面中部的 26 行文字没有一行还在原处 |
+| `pointer`, built-in kernel, a TextEdit window the test opened: “看一眼这个窗口，用指针双击文档里 bravo 这个词” | `ui_screenshot` → `ui_click` with the line's id and count 2 → `finish`; the document's selection read back as “bravo” / 文档里选中的内容读回是“bravo” |
+
+Tried and left out / 试过但没有留下的：a tool for the scroll wheel. A synthesized wheel event is taken by Mos, which the owner runs with its reverse setting on, for a mouse's and turned the other way. Sent as a trackpad's instead, with scroll phases, it passes Mos untouched, but then AppKit and Chromium ask different things of it: a TextEdit document followed a lone “changed” event exactly and glided to its end after a whole gesture, while NetEase Cloud Music's list ignored the lone event. Paging stays on the keyboard, which both took. The dial's own scrolling goes through the same kind of event and is reversed by Mos on this Mac; that was noted and not changed here. / 滚轮工具。合成的滚轮事件会被 Mos 当成鼠标滚轮（作者开着它的“反向”），方向被翻过来。改成触控板式、带滚动阶段的事件后 Mos 不再改写，但 AppKit 和 Chromium 对它的要求不一样：文本编辑对单独一个“changed”事件滚得分毫不差，对一整个手势却一路滑到文末；网易云音乐的列表则不理会单独的事件。翻页继续走键盘，两边都认。旋钮自己的滚屏用的是同一类事件，在这台 Mac 上同样被 Mos 反向；记下了，这次没有改。
+
+Not run in this round: any other app without controls, a game or a canvas among them; a model that takes no pictures working from the text alone; a model service other than DeepSeek; interface text in a language other than Chinese and English; the overlay of the running app stepping out of the pointer's way, and the confirmation of a click on the real overlay (in the test process nothing covered the place, and no click was on a risky word); the settings page's new wording in the running app; the first reading of text after an install, which took 25 s for a new program on this Mac and is what the app now spends at launch.
+
+这一轮没有测：别的不提供控件的应用，包括游戏和画布；不看图、只靠认出的文字的模型；DeepSeek 以外的模型服务；中文和英文以外的界面文字；运行中的应用里，悬浮窗给指针让路的那一步，以及点击在真实悬浮窗上的确认（测试进程里没有东西挡在那里，也没有点到带风险字样的地方）；设置页的新文案在运行中的应用里的样子；安装后第一次认字（在这台 Mac 上，一个新程序第一次认字用了 25 秒，应用现在在启动时先做这一步）。
+
 ## Not run / 没有测的
 
 - A microphone and a human voice: transcripts were replayed. / 麦克风和真人语音：用的是转录回放。

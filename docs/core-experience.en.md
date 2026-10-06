@@ -2,7 +2,7 @@
 
 [简体中文](core-experience.md) · [Getting started](getting-started.en.md) · [Documentation](README.md)
 
-These are the 0.10.0 template defaults. Saved custom mappings take precedence; reset the active template if you want its defaults. Complete controls and hardware boundaries are in [Device templates](device-templates.en.md).
+These are the 0.10.1 template defaults. Saved custom mappings take precedence; reset the active template if you want its defaults. Complete controls and hardware boundaries are in [Device templates](device-templates.en.md).
 
 ## Navigation follows context
 

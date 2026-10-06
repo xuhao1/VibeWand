@@ -2,9 +2,9 @@
 
 [Documentation / 文档目录](README.md) · [Contributing / 贡献说明](../CONTRIBUTING.md)
 
-Use an Apple Silicon Mac with full Xcode 26 or later (macOS 26+ SDK) and Homebrew Opus for the bundled application. The source and the published 0.10.0 package target macOS 26; 0.8.4 was the last package for macOS 13+. See [Getting started](getting-started.en.md) / [快速开始](getting-started.md) to build the application bundle.
+Use an Apple Silicon Mac with full Xcode 26 or later (macOS 26+ SDK) and Homebrew Opus for the bundled application. The source and the published 0.10.1 package target macOS 26; 0.8.4 was the last package for macOS 13+. See [Getting started](getting-started.en.md) / [快速开始](getting-started.md) to build the application bundle.
 
-打包环境需要 Apple Silicon Mac、完整 Xcode 26+（macOS 26+ SDK）及 Homebrew Opus。源码和已发布的 0.10.0 安装包的最低系统都是 macOS 26；0.8.4 是最后一个支持 macOS 13 以上的安装包。
+打包环境需要 Apple Silicon Mac、完整 Xcode 26+（macOS 26+ SDK）及 Homebrew Opus。源码和已发布的 0.10.1 安装包的最低系统都是 macOS 26；0.8.4 是最后一个支持 macOS 13 以上的安装包。
 
 ## Build from source / 从源码编译
 
@@ -21,9 +21,9 @@ The script compiles a release build, copies the icon, device images and license 
 
 脚本完成 Release 编译、素材与许可证打包和签名，生成 **`dist/VibeWand.app`**。在 Finder 中打开，或复制到「应用程序」后双击；设置、演示、采集与诊断均通过图形界面操作。
 
-The default build targets the build Mac's architecture. The published 0.10.0 package is **arm64 / Apple Silicon**, requires macOS 26+, uses ad-hoc signing, and is not Apple-notarized. The bundled microphone-helper build currently targets arm64, so this packaging flow does not support Intel.
+The default build targets the build Mac's architecture. The published 0.10.1 package is **arm64 / Apple Silicon**, requires macOS 26+, uses ad-hoc signing, and is not Apple-notarized. The bundled microphone-helper build currently targets arm64, so this packaging flow does not support Intel.
 
-默认编译面向构建机器的架构。已发布 0.10.0 为 **arm64 / Apple Silicon**，要求 macOS 26+，临时签名且未公证；当前麦克风组件固定编译为 arm64，此打包流程不支持 Intel。
+默认编译面向构建机器的架构。已发布 0.10.1 为 **arm64 / Apple Silicon**，要求 macOS 26+，临时签名且未公证；当前麦克风组件固定编译为 arm64，此打包流程不支持 Intel。
 
 ## Command kernel / 命令内核
 
@@ -40,7 +40,7 @@ The kernel is DeepSeek Harness driven over the Agent Client Protocol, and what i
 | `list_targets`, `find_sessions`, `open_session`, `search_in_app`, `activate_app` | Apps and chats / 应用与会话 |
 | `choose`, `finish`, `need_user` | Asking the user and ending a task / 询问用户与结束任务 |
 | `ui_snapshot`, `ui_press`, `ui_key`, `ui_menu`, `ui_type` | The front window, through its accessibility tree. A snapshot leads with what is new or changed since the one before, reads what the app announces as a status line, and marks the control the app's adapter knows as its model picker; a key can be sent to one control, one press for each call, and the answer carries what the app then announced / 经辅助功能控件树操作前台窗口。快照把上一次之后新出现或变了的排在最前，读应用播报的状态行，并标出适配里认得的模型选择器；按键可以发给指定的控件，一次一下，返回里带上应用随后播报的内容 |
-| `ui_screenshot` | A picture of the window being operated, with the snapshot's ids marked on it. Mounted only when the user turned on “Let the model see the window” / 被操作窗口的截图，标着快照里的编号；只有用户打开“让模型看窗口截图”时才挂载 |
+| `ui_screenshot`, `ui_click` | A picture of the window being operated, with the snapshot's ids marked on it and the text read in it on this Mac listed line by line; and a pointer click on one of those lines, on a control of the snapshot or on a point of the picture, answered with the window as it then stands. Mounted only when the user turned on “Let the model see the window and click in it”. This is how a window that publishes no controls is operated; a snapshot of one says so / 被操作窗口的截图，标着快照里的编号，并逐行列出在本机从图里认出的文字；以及用指针点击其中一行、快照里的一个控件或图上的一个位置，返回点击之后的窗口。只有用户打开“让模型看窗口截图并点击”时才挂载。不提供控件的窗口靠这两个工具操作，对这种窗口的快照会直接这样提示 |
 
 Whether a tool call waits for the user is decided in `Gateway` from the permission mode (`PermissionMode`): every call that changes something, only those the host judges risky, or none. The host (`CommandTools.confirm`) words the question and knows what is risky.
 
@@ -102,6 +102,8 @@ VIBEWAND_COMMAND_LIVE=textedit,keyboard,code,codex,search-claude DEEPSEEK_VIBEWA
 | `plugin-tools` | DeepSeek Harness installed / 已安装 | The harness's own tools handed over: one command runs its shell, then types with VibeWand's tool / 交出 Harness 自己的工具：一条命令先跑它的命令行，再用 VibeWand 的工具输入 |
 | `resume` | — | A conversation taken up again after its kernel process was let go / 内核进程退出后，下一条命令接上同一段对话 |
 | `sight`, `plugin-sight` | Screen Recording for the test process; `plugin-sight`: DeepSeek Harness / 测试进程有屏幕录制权限；`plugin-sight` 还需已安装 DeepSeek Harness | The model reads from a picture of the test's window what its controls do not say; on the installed harness the picture is also kept in its attachment store / 模型从测试窗口的截图里读出控件里没有的内容；在安装的 Harness 上，图片还存进了它的附件库 |
+| `pointer` | Screen Recording for the test process / 测试进程有屏幕录制权限 | The model finds a word in the picture of the test's document and double-clicks it; the selection is read back. The pointer is moved and put back / 模型从测试文档的截图里找到一个词并双击，读回选中的词；指针会被移动，结束后放回原处 |
+| `netease`, `plugin-netease` | NetEase Cloud Music installed and signed in, Screen Recording; `plugin-netease`: DeepSeek Harness / 已安装并登录网易云音乐，屏幕录制权限；`plugin-netease` 还需已安装 DeepSeek Harness | A window that publishes no controls, operated from its picture: a playlist is searched for, opened and played, read back as the app's process sounding, then the page is paged down. It is the user's own app and account: music plays for a moment and its queue changes; playback is stopped again if it was silent before, and the app is quit if the test started it. `plugin-netease` runs on the installed harness with its own tools handed over / 不提供控件的窗口，靠截图操作：搜索、打开并播放一个歌单，读回的是它的进程开始出声，然后把页面往下翻一页。用的是你自己的应用和账号：会响一小段音乐，播放队列会变；之前没在播放的话结束时会停下，由测试启动的话会退出。`plugin-netease` 在安装的 Harness 上、连同它自己的全部工具一起跑 |
 | `keyboard` | — | The keyboard command key, answering with arrows and Return; no model / 键盘命令键与方向键、回车作答；不用模型 |
 | `keyboard-layout` | — | The keyboard as the device: a combination taken from the document, dictation by a held combination, other keys untouched, and a key with no modifier recorded by pressing it; no model / 键盘当设备：组合键不进文档、按住组合键听写、其他键照常，以及按一下录制一个不带修饰键的键；不用模型 |
 | `code` | Visual Studio Code | Reading tabs and pressing one by name; the test offers the model no keys or typing there / 读取并按下标签页；测试在这里不给模型按键和输入 |
@@ -149,7 +151,7 @@ The film at the top of the page is played from the site itself: `site/video/vibe
 **While this repository is private, the page links to nothing in it.** The download is a release of the site's repository, not of this one, because a visitor cannot reach this one; the package goes there as a release asset rather than into `site/`, since Git refuses a file over 100 MB and the package is close to that. The page states the released version in its download links and size, so with each release:
 
 ```sh
-gh release create v0.10.0 -R xuhao1/vibewand-site VibeWand-0.10.0-macOS-arm64.zip SHA256SUMS-0.10.0.txt
+gh release create v0.10.1 -R xuhao1/vibewand-site VibeWand-0.10.1-macOS-arm64.zip SHA256SUMS-0.10.1.txt
 ```
 
 then update the version, links and size in `site/index.html` and publish. When this repository is opened, point the download back at its own releases and bring back the links to the documentation and the source, and the license statement in the footer: until then the owner wants no license terms on the page or in that repository's release notes, and the footer says only that the project is to be opened soon.

@@ -1,6 +1,6 @@
 {
   "name": "vibewand-overlay",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "private": true,
   "description": "VibeWand on a whole DeepSeek Harness the user installed: the harness's own base and ACP bundles, with every tool they ship, and the few rows VibeWand restates for itself. Chosen in VibeWand as the tool scope \"everything the harness has\".",
   "license": "SEE LICENSE IN ../../LICENSE",
