@@ -4,7 +4,7 @@
 
 Hold the command key and say what you want. When you release it, VibeWand finds the app, chat or control for you. It finds, opens, presses and puts text in place; the work itself is still done by the software you chose.
 
-**Ships in 0.9.0. Needs macOS 26.** This page already describes the next version's changes, which are not released yet: one coordinator for both kernels, the harness's own tools in plugin mode, letting the model see the window, conversations kept for a day, a week or until you end them, choosing and adjusting in a menu that opens (changing Codex's model and effort, for one), and the [first-run guide](getting-started.en.md).
+**Ships since 0.9.0. Needs macOS 26.** New in 0.10.0: one coordinator for both kernels, the harness's own tools in plugin mode, letting the model see the window, conversations kept for a day, a week or until you end them, choosing and adjusting in a menu that opens (changing Codex's model and effort, for one), and the [first-run guide](getting-started.en.md#the-first-run-guide).
 
 ## Set up a model
 
@@ -51,7 +51,7 @@ To turn it on, choose Plugin mode under Settings → Command mode → Model → 
 | VibeWand | Plugin | Verified DeepSeek Harness |
 | --- | --- | --- |
 | 0.9.0 | `vibewand-coordinator` 0.9.0 | 0.2.0-rc.2 (the runtime carried by the desktop app) |
-| Development build (unreleased) | `vibewand-coordinator` 0.9.1; with all tools, `vibewand-overlay` 0.9.1 as well | 0.2.0-rc.2 |
+| 0.10.0 | `vibewand-coordinator` 0.10.0; with all tools, `vibewand-overlay` 0.10.0 as well | 0.2.0-rc.2 |
 
 The settings page shows the version it found and whether it is verified. On a version outside the table a command does not run and says why. You can turn on “Try this unverified version anyway”, and VibeWand then records an exemption the way the harness does, for exactly this plugin version on this harness version. It may fail; switch back to the built-in kernel if it does. The desktop app updates itself, so meeting this after an update is to be expected. The built-in copy stays at 0.2.0-rc.2 and is not affected.
 
@@ -95,7 +95,7 @@ Settings → Command mode → Permission decides how much it asks before it acts
 | Mode | What happens |
 | --- | --- |
 | Ask every time | Switching apps, opening a chat, pressing a control, sending keys and typing each show on the overlay what is about to happen and wait for your confirm key. Reading the window and searching do not |
-| Ask when risky (default) | Navigation and typing run at once. Buttons and menu items whose name contains delete, discard, don't save, send, submit, pay and the like, Return in a multi-line field, and ⌘Return, ⌘⌫ and ⌘Q wait for you every time. From the next version so do buttons that hand out access: allow, grant, authorize, approve, Full access |
+| Ask when risky (default) | Navigation and typing run at once. Buttons and menu items whose name contains delete, discard, don't save, send, submit, pay and the like, Return in a multi-line field, and ⌘Return, ⌘⌫ and ⌘Q wait for you every time. Since 0.10.0 so do buttons that hand out access: allow, grant, authorize, approve, Full access |
 | Bypass all | Nothing is asked, deleting, sending and submitting included. When the model picks the wrong control or mishears you, those happen too |
 
 In every mode the back key stops at any moment, a choice between several candidates is still yours, and once you move to another app what follows is dropped.
@@ -129,7 +129,7 @@ Right ⌘ pressed together with another key is an ordinary modifier and is not t
 - **Find a chat in other apps.** Claude, DeepSeek Harness, WorkBuddy, Feishu and WeChat have no list to query: VibeWand brings the app forward, opens its own search and types the keywords, and you pick with the dial as usual.
 - **Switch apps, open a file or a URL.** “Open Notes.”
 - **Operate the window in front.** “Open the Runtime.swift tab.” VibeWand reads that window's controls, then presses one, sends a shortcut, chooses a menu item, or puts text into a field.
-- **Choose and adjust in a menu that opens (next version).** In Codex: “set the effort to the lowest”, “switch the model to GPT-6.1 Sol”. VibeWand presses the model picker beside the message field and reads the entries that appear in its popover. A model is picked from the list; a row that is set with the arrow keys, as the effort is, moves one step at a time, with the level the app announces read after each step, and the popover is closed once it is there. When the app has no level called “low”, the nearest one is taken and the result says which.
+- **Choose and adjust in a menu that opens (since 0.10.0).** In Codex: “set the effort to the lowest”, “switch the model to GPT-6.1 Sol”. VibeWand presses the model picker beside the message field and reads the entries that appear in its popover. A model is picked from the list; a row that is set with the arrow keys, as the effort is, moves one step at a time, with the level the app announces read after each step, and the popover is closed once it is there. When the app has no level called “low”, the nearest one is taken and the result says which.
 - **Correct it.** Press the command key again and say “not that one, the next”. Commands in one conversation see each other; see [Conversation and context](#conversation-and-context).
 
 Speaking a new command interrupts the previous one at once.
@@ -180,7 +180,7 @@ Once a model is set up, the model service you chose receives:
 
 - the words of your command;
 - app names, window titles, chat titles, project folder names, and the names of running apps;
-- when the interface is operated, the labels of controls in the front window: button names, tab titles, menu items, and from the next version the status line an app announces.
+- when the interface is operated, the labels of controls in the front window: button names, tab titles, menu items, and since 0.10.0 the status line an app announces.
 
 - the notes you wrote for the model;
 - with “Let the model see the window” on, the picture of the window the model asks to see: everything the window shows is in it, the text of documents and fields included;
@@ -198,7 +198,7 @@ With command mode off, or no model set up, VibeWand behaves as before, reads non
 
 ## What has been verified
 
-Between 2026-10-05 and 10-06 it was run against real apps in five rounds, with every result read back from the app; see the [acceptance record](command-acceptance.md). The first three are the released 0.9.0; the fourth and fifth are the development build, which is not released.
+Between 2026-10-05 and 10-06 it was run against real apps in five rounds, with every result read back from the app; see the [acceptance record](command-acceptance.md). The first three are 0.9.0; the fourth and fifth are 0.10.0, run on the development build before its release.
 
 - **TextEdit:** typing; a Return that needs confirmation, confirmed once and refused once; a menu item; opening an app by its Chinese name and switching back.
 - **Permission modes:** under Ask every time, typing is asked about first, goes into the document when confirmed and stays out when declined; under Bypass all, Return runs without a question.
@@ -208,7 +208,7 @@ Between 2026-10-05 and 10-06 it was run against real apps in five rounds, with e
 - **Keyboard:** right ⌘ held on its own starts listening; while a question waits, the arrows and Return answer it and do not reach the app in front.
 - **Plugin mode:** the DeepSeek Harness 0.2.0-rc.2 installed on the test Mac (the desktop app's runtime) loaded the plugin, typed into a real TextEdit window and switched apps, and kept the conversation in its session store; such a conversation was opened in the harness's standard web interface, which showed its content, usage and context trajectory; a plugin declaring another version was refused by the harness. All of this ran in a harness home of the test's own, on DeepSeek's model.
 
-The fourth round, on the development build:
+The fourth round, on the development build before 0.10.0:
 
 - **One coordinator, two kernels:** the built-in copy and the harness installed on the test Mac loaded the same plugin, and each typed into a real TextEdit window.
 - **Carrying on:** after one command the kernel process was made to exit, and the next command took the same conversation up again, with the model typing once more the word it had typed in the first (built-in kernel, a real TextEdit window). On the installed harness a later process was checked to take the same conversation up, against a stand-in desktop.
@@ -216,7 +216,7 @@ The fourth round, on the development build:
 - **The harness's own tools:** within one command the model ran the harness's shell and then VibeWand's typing tool, and the command's output arrived in the test's document (a real window). When a command was about to write outside the sandbox the harness asked through VibeWand: declined, it did not run; allowed, it ran. That part used a stand-in desktop, and the question was not looked at on the real overlay.
 - **The keyboard layout:** a key combination reached VibeWand and not the document, holding the dictation combination put the dictated text into the document, every other key worked as usual, and a combination pressed while the command key's modifier was held was not taken for a command. The keys were synthetic events.
 
-The fifth round, on the development build:
+The fifth round, on the development build before 0.10.0:
 
 - **Codex's model and effort:** in the real Codex window, “强度调到 low。” turned the button from “GPT-6 Astra Extra High” into “GPT-6 Astra Light”, the lowest of five levels (Codex has none called low); “把模型换成 GPT-6.1 Sol。” made it “GPT-6.1 Sol Light”; and one more sentence put both back. Each took between 9 and 13 tool calls, and the model and effort ended as they were before the test.
 - **Recording any key of a keyboard:** the number pad's 5 went into the document as usual before it was recorded; recorded by pressing it, it stood for its control and no longer reached the document. The keys were synthetic events.
@@ -227,7 +227,7 @@ Worth knowing in use:
 - **Codex chats that live on a remote machine are not in the list** and are found only through the `⌘K` search.
 - After a Codex chat is opened the overlay adds “result not verified”: the app cannot read back where the link landed.
 - **Not every service takes a reasoning level.** When one is chosen and the service refuses it, Save and test reports the error; go back to Model default, or spell out the service's format under Extra settings.
-- **Codex's highest effort level wants “Full access”.** Reaching it brings up a dialog that asks you to agree. In one acceptance run the model pressed one step too far, met it, and closed it with “Close dialog”. In the next version a key is sent one press at a time with the level read back after each, and a button that hands out access, “Use Full access” among them, always waits for you (unless you chose to skip all confirmations).
+- **Codex's highest effort level wants “Full access”.** Reaching it brings up a dialog that asks you to agree. In one acceptance run the model pressed one step too far, met it, and closed it with “Close dialog”. In 0.10.0 a key is sent one press at a time with the level read back after each, and a button that hands out access, “Use Full access” among them, always waits for you (unless you chose to skip all confirmations).
 
 Not verified: the whole experience with a microphone and a human voice (the runs replayed transcripts); physical keys (the keyboard keys were synthetic events); the app's own settings page, guide and overlay as they look while running (only off-screen renders were checked); model services other than DeepSeek, and local models; searches aimed at DeepSeek Harness, WorkBuddy and WeChat; keys, menus and typing in VS Code.
 

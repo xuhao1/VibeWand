@@ -54,6 +54,6 @@ These records support implementation and provenance. They are not first-use inst
 
 ## License and attribution / 许可与署名
 
-[PolyForm Noncommercial license / 非商用许可证](../LICENSE) · [Third-party notices / 第三方记录](../third-party/README.md) · [Device artwork / 设备插画](../assets/device/README.md)
+[PolyForm Noncommercial license / 非商用许可证](../LICENSE) · [Third-party notices / 第三方记录](../third-party/README.md) · [Open licensing items / 许可与版权遗留项](licensing-open-items.md) · [Device artwork / 设备插画](../assets/device/README.md)
 
 Personal noncommercial use is permitted under the license. Commercial use requires contacting [Hao Xu](https://github.com/xuhao1) and obtaining a separate license. 允许按条款个人非商用使用；商用必须联系徐浩并取得单独授权。

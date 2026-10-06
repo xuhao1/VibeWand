@@ -4,7 +4,7 @@
 
 [中文](device-templates.md) · [Core experience](core-experience.en.md) · [HID integration](hid-profiles.md)
 
-VibeWand includes three switchable logical layouts: **VibeKey, Controller, and Remote**. The next version, which is not released yet, adds a fourth, **[Keyboard](#keyboard)**, which needs no device. Select a control in the diagram to edit its click, double-click, long-press, hold, or navigation action. Each template retains its own timing and context overrides.
+VibeWand includes three switchable logical layouts: **VibeKey, Controller, and Remote**. Since 0.10.0 there is a fourth, **[Keyboard](#keyboard)**, which needs no device. Select a control in the diagram to edit its click, double-click, long-press, hold, or navigation action. Each template retains its own timing and context overrides.
 
 ## Implementation status
 
@@ -55,7 +55,7 @@ Face buttons follow the user-requested convention: ○ confirms, □ deletes and
 
 ## Keyboard
 
-**Added in the next version, which is not released yet.** With no device at hand the keyboard is the device: six key combinations each stand for one button, and gestures, contexts and application support are exactly those of VibeKey.
+**Added in 0.10.0.** With no device at hand the keyboard is the device: six key combinations each stand for one button, and gestures, contexts and application support are exactly those of VibeKey.
 
 | Control | Default combination | Default action |
 | --- | --- | --- |

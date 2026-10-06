@@ -4,7 +4,7 @@
 
 ## 1. 下载并打开
 
-从 [GitHub Releases](https://github.com/xuhao1/VibeWand/releases/latest) 下载 **[VibeWand-0.9.0-macOS-arm64.zip](https://github.com/xuhao1/VibeWand/releases/download/v0.9.0/VibeWand-0.9.0-macOS-arm64.zip)**。本包要求 **macOS 26+**、**Apple Silicon Mac**，不含 Intel 可执行文件，下载约 84 MB（内含命令模式的内核）；macOS 13–15 请使用 [0.8.4](https://github.com/xuhao1/VibeWand/releases/tag/v0.8.4)。
+从 [GitHub Releases](https://github.com/xuhao1/VibeWand/releases/latest) 下载 **[VibeWand-0.10.0-macOS-arm64.zip](https://github.com/xuhao1/VibeWand/releases/download/v0.10.0/VibeWand-0.10.0-macOS-arm64.zip)**。本包要求 **macOS 26+**、**Apple Silicon Mac**，不含 Intel 可执行文件，下载约 104 MB（内含命令模式的内核和本机 SenseVoice 的识别程序）；macOS 13–15 请使用 [0.8.4](https://github.com/xuhao1/VibeWand/releases/tag/v0.8.4)。
 
 1. 在 Finder 中双击 ZIP，解压得到 **VibeWand.app**。
 2. 拖入「应用程序」。
@@ -14,9 +14,9 @@
 
 没有设备时，在「设置 → 开发者 → 演示模式」体验；使用设备前切回「实时控制」。自行编译见[从源码编译](development.md#build-from-source--从源码编译)，完成后在 Finder 中打开生成的应用。
 
-### 首次引导（下一版，尚未发布）
+### 首次引导
 
-下一版起，第一次打开 VibeWand 会出现一个引导窗口，带你把下面第 2 到第 5 步和命令模式走一遍，每一步都可以跳过：
+0.10.0 起，第一次打开 VibeWand 会出现一个引导窗口，带你把下面第 2 到第 5 步和命令模式走一遍，每一步都可以跳过：
 
 | 步骤 | 做什么 |
 | --- | --- |
@@ -42,7 +42,7 @@
 | VibeKey / AU05 | 退出 Ulanzi Studio，连接接收器，选择 VibeKey。Studio 运行时 VibeWand 会让出设备。 |
 | 系统支持的手柄 | USB 连接或先在 macOS 蓝牙设置中配对，再选择手柄；自动识别无需导入 HID 配置。 |
 | 遥控器 / 其他 HID 设备 | 先实测并准备匹配真实接口的配置，参阅[硬件说明](device-templates.md)与[HID 接入](hid-profiles.md)。 |
-| 没有设备（下一版，尚未发布） | 选“键盘”：六组组合键当按键用，默认是 ⌃⌥⌘ 加空格、方向键、回车和退格，每个都可以按一下来录制成别的键。见[键盘布局](device-templates.md#键盘)。 |
+| 没有设备 | 选“键盘”：六组组合键当按键用，默认是 ⌃⌥⌘ 加空格、方向键、回车和退格，每个都可以按一下来录制成别的键。见[键盘布局](device-templates.md#键盘)。 |
 
 在「连接设备…」检查实时设备名称和连接状态。选择模板不会完成配对；配置已保存也不代表设备已连接。
 

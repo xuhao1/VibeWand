@@ -16,7 +16,7 @@
 | Fn produces no dictation | Focus an editable field and test the same held Fn trigger with your keyboard. Check your speech service and microphone independently. |
 | Settings/overlay disappeared | Reopen settings or show the overlay from the menu bar. Closing settings does not stop device input. |
 
-The following belong to the next version, which is not released yet:
+The following concern what 0.10.0 added:
 
 | Symptom | Check |
 | --- | --- |
@@ -26,7 +26,7 @@ The following belong to the next version, which is not released yet:
 | VibeWand's conversations do not show in DeepSeek Harness | They are listed under Ungrouped with titles that start “VibeWand ·”. A harness that is already open does not notice new ones: quit and reopen the desktop app, reload the web app, or use “View conversations in the browser” on the Command mode page. |
 | “Let the model see the window” is on and the model says it cannot see | Allow VibeWand under System Settings → Privacy & Security → Screen Recording, then quit and reopen it. The chosen model has to take pictures. |
 | An earlier conversation is not carried on | A conversation you opened in the harness is taken over by it, and VibeWand starts a new one. So does changing any command-mode setting, and a context four fifths full. |
-| Command mode opened a menu and then said it could not read what was in it | That is 0.9.0. In the next version a snapshot leads with what has just appeared. If it still happens, open that command under Command mode → Records and send us the list it read. |
+| Command mode opened a menu and then said it could not read what was in it | That is 0.9.0. Since 0.10.0 a snapshot leads with what has just appeared. If it still happens, open that command under Command mode → Records and send us the list it read. |
 | Codex's effort, set by a spoken command, stopped at another level than the one you named | Codex does not call its levels low, medium and high. Say “the lowest” or “one step down”, or the name on the button: Light, Standard, Extended, Extra High. |
 | SenseVoice is chosen and dictation says the models are not downloaded | Click Download and prepare under Voice input, about 241 MB. After a break, clicking again resumes where it stopped. The mirror `hf-mirror.com` is used when `huggingface.co` cannot be reached; with neither reachable nothing can be fetched. |
 | The first sentence through SenseVoice is slow | The recogniser starts when the dictation button goes down and takes about two seconds to load its models; after five idle minutes it exits, and the next start takes those two seconds again. A sentence longer than that hides it. |

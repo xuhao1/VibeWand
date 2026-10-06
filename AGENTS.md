@@ -23,7 +23,7 @@ For toolchain issues, set `DEVELOPER_DIR` to the installed Xcode developer direc
 
 ## Coding Style & Naming Conventions
 
-Use four-space Swift indentation, `UpperCamelCase` types, and `lowerCamelCase` members. Name files after their principal type or responsibility. Follow surrounding formatting; no repository formatter or linter is configured. Keep UI-independent speech logic in `SpeechInput`, device decoding in `AU05Device`, and command-mode logic that needs no window in `WandAgent`. The model's reach is the tool catalog in `Sources/WandAgent/Tools.swift`; adding a tool, or a row or package to `kernel/coordinator`, is a deliberate change with a test to update. Keep the two harnesses on one code path: what differs between them belongs in the profile `Harness` writes, not in a second implementation.
+Use four-space Swift indentation, `UpperCamelCase` types, and `lowerCamelCase` members. Name files after their principal type or responsibility. Follow surrounding formatting; no repository formatter or linter is configured. Keep UI-independent speech logic in `SpeechInput`, device decoding in `AU05Device`, and command-mode logic that needs no window in `WandAgent`. The model's reach is the tool catalog in `Sources/WandAgent/Tools.swift`; adding a tool, or a row or package to `kernel/coordinator`, is a deliberate change with a test to update. A change to the kernel's package set is also checked against `third-party/README.md`, looking inside any prebuilt library it brings, and against the open items in `docs/licensing-open-items.md`. Keep the two harnesses on one code path: what differs between them belongs in the profile `Harness` writes, not in a second implementation.
 
 ## Testing Guidelines
 

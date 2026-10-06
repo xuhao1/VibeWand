@@ -4,7 +4,7 @@
 
 ## 1. Download and open
 
-Download **[VibeWand-0.9.0-macOS-arm64.zip](https://github.com/xuhao1/VibeWand/releases/download/v0.9.0/VibeWand-0.9.0-macOS-arm64.zip)** from [GitHub Releases](https://github.com/xuhao1/VibeWand/releases/latest). This package requires **macOS 26+** and an **Apple Silicon Mac**; it does not include an Intel binary. The download is about 84 MB, as it carries the kernel for command mode. On macOS 13 to 15, use [0.8.4](https://github.com/xuhao1/VibeWand/releases/tag/v0.8.4).
+Download **[VibeWand-0.10.0-macOS-arm64.zip](https://github.com/xuhao1/VibeWand/releases/download/v0.10.0/VibeWand-0.10.0-macOS-arm64.zip)** from [GitHub Releases](https://github.com/xuhao1/VibeWand/releases/latest). This package requires **macOS 26+** and an **Apple Silicon Mac**; it does not include an Intel binary. The download is about 104 MB, as it carries the kernel for command mode and the SenseVoice recogniser. On macOS 13 to 15, use [0.8.4](https://github.com/xuhao1/VibeWand/releases/tag/v0.8.4).
 
 1. Double-click the ZIP in Finder to extract **VibeWand.app**.
 2. Drag it into **Applications**.
@@ -14,9 +14,9 @@ This package is ad-hoc signed and has not been notarized by Apple. If macOS bloc
 
 To try it without hardware, choose **Settings → Developer → Demo**. Return to **Live control** to use your device. If you prefer to compile it, follow [Build from source](development.md#build-from-source--从源码编译), then open the resulting app in Finder.
 
-### The first-run guide (next version, not released yet)
+### The first-run guide
 
-From the next version on, the first time VibeWand opens it shows a guide that walks you through steps 2 to 5 below and command mode. Every step can be skipped:
+Since 0.10.0, the first time VibeWand opens it shows a guide that walks you through steps 2 to 5 below and command mode. Every step can be skipped:
 
 | Step | What it does |
 | --- | --- |
@@ -42,7 +42,7 @@ Open **Settings…** from the menu bar, then **Devices & inputs**.
 | VibeKey / AU05 | Quit Ulanzi Studio, connect the receiver, and select VibeKey. VibeWand yields the device while Studio is running. |
 | Supported gamepad | Connect with USB or pair in macOS Bluetooth settings, then select Controller. Automatic discovery needs no HID import. |
 | Remote / unsupported HID device | Use a measured profile matching its actual interface. Follow [Hardware](device-templates.en.md) and [HID integration](hid-profiles.md) first. |
-| No device (next version, not released yet) | Select Keyboard: six key combinations stand in for the buttons, by default ⌃⌥⌘ with Space, the arrows, Return and Backspace, and each can be recorded as another key by pressing it. See [the keyboard layout](device-templates.en.md#keyboard). |
+| No device | Select Keyboard: six key combinations stand in for the buttons, by default ⌃⌥⌘ with Space, the arrows, Return and Backspace, and each can be recorded as another key by pressing it. See [the keyboard layout](device-templates.en.md#keyboard). |
 
 Open **Connect device…** and check the live device name and connection status. Selecting a picture or template does not pair hardware. A saved profile is not evidence of a live connection.
 

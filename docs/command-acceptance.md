@@ -103,11 +103,11 @@ Not run in this round: plugin mode on a real `~/.dsh`; a model service signed in
 
 这一轮没有测：在真实的 `~/.dsh` 上运行插件模式；经 OAuth 或 DeepSeek 账号登录的模型服务；桌面版自己的窗口（看的是与它共用界面的网页版）；终端安装的 `dsh`；未验证版本的例外（文件内容与 Harness 自己的 `allow-version` 命令写出的一致，但没有在第二个 Harness 版本上实际用过）；Claude 和飞书的搜索。
 
-## Fourth round, unreleased: one coordinator, pictures, a harness's tools, the keyboard / 第四轮（未发布）：一个协调器、截图、Harness 的工具、键盘
+## Fourth round, for 0.10.0: one coordinator, pictures, a harness's tools, the keyboard / 第四轮：0.10.0 的一个协调器、截图、Harness 的工具、键盘
 
-On 2026-10-06, after 0.9.0, the two kernels were put on one coordinator bundle and one code path, and four things were added: conversations that outlive the kernel process, a picture of the window the model may ask for, the harness's own tools in plugin mode, and the keyboard as a device. None of it is released. The runs used the working tree, the kernel assembled from it, DeepSeek's `deepseek-flash`, and for plugin mode the same **DeepSeek Harness desktop 0.2.0-rc.2** as round three, again with a harness home of the test's own.
+On 2026-10-06, after 0.9.0, the two kernels were put on one coordinator bundle and one code path, and four things were added: conversations that outlive the kernel process, a picture of the window the model may ask for, the harness's own tools in plugin mode, and the keyboard as a device. All of it shipped in 0.10.0; the runs were made before that. They used the working tree, the kernel assembled from it, DeepSeek's `deepseek-flash`, and for plugin mode the same **DeepSeek Harness desktop 0.2.0-rc.2** as round three, again with a harness home of the test's own.
 
-2026-10-06，在 0.9.0 之后，两种内核改为共用一个协调器 bundle 和一条代码路径，并新增四项：比内核进程活得久的对话、模型可以要的窗口截图、插件模式下 Harness 自己的工具，以及把键盘当设备。这些都还没有发布。运行用的是工作区的代码和由它组装的内核，模型是 DeepSeek 的 `deepseek-flash`；插件模式用的仍是第三轮那份 **DeepSeek Harness 桌面版 0.2.0-rc.2**，同样在测试自己的 Harness 目录里。
+2026-10-06，在 0.9.0 之后，两种内核改为共用一个协调器 bundle 和一条代码路径，并新增四项：比内核进程活得久的对话、模型可以要的窗口截图、插件模式下 Harness 自己的工具，以及把键盘当设备。这些随 0.10.0 发布，验收在发布之前做。运行用的是工作区的代码和由它组装的内核，模型是 DeepSeek 的 `deepseek-flash`；插件模式用的仍是第三轮那份 **DeepSeek Harness 桌面版 0.2.0-rc.2**，同样在测试自己的 Harness 目录里。
 
 In real windows the test opened (`CommandLiveTests`) / 在测试自己打开的真实窗口里：
 
@@ -142,7 +142,7 @@ Not run in this round: the guide, the keyboard layout and the new settings in th
 
 这一轮没有测：运行中的应用里的引导、键盘布局和新设置；实体键盘，以及按住它的修饰键时 VibeWand 发出的动作在各个应用里是否都一样；给应用包授权屏幕录制（测试进程用的是它已有的权限）；DeepSeek 以外的模型看图；“在浏览器里查看对话”从按钮到页面的全过程（只核对过网页版能在临时目录上启动并报出地址）；桌面版重开后它自己的窗口；Harness 的询问出现在真实悬浮窗上的样子（核对的是经网关的那一段）；在真实的 `~/.dsh` 上运行插件模式；VS Code、Codex、Claude 和飞书的场景，它们用到的工具没有改动。
 
-## Fifth round, unreleased: a menu that opens, any key of a keyboard, SenseVoice / 第五轮（未发布）：弹出的菜单、键盘上的任意键、SenseVoice
+## Fifth round, for 0.10.0: a menu that opens, any key of a keyboard, SenseVoice / 第五轮：0.10.0 的弹出菜单、键盘上的任意键、SenseVoice
 
 On 2026-10-06 the owner tried the development build and reported that in Codex a spoken command to change the model or its effort could not be carried out. The task records of those attempts show why. Codex's model button (in the app now named ChatGPT, **26.930.31730**) opens a popover whose four controls sit at the very end of a window of some 340, and a snapshot printed the first 150. The effort is no list of options: it is one row, “Power”, set with the left and right arrows, and where it stands is only announced, as “GPT-6 Astra Extra High, 4 of 5.”, in text a snapshot did not read. While the popover is open the button is named “Select effort”, so looking for it by its earlier name found nothing. The model pressed the right button each time, read the same list again, and gave up.
 
@@ -170,7 +170,7 @@ Runs of the same scenario while the change was being made / 改动过程中同�
 
 The keyboard, in a TextEdit window the test opened (`keyboard-layout`, scripted, no model) / 键盘，在测试自己打开的文本编辑窗口里（脚本内核，不用模型）：the number pad's 5, with no modifier, went into the document as usual; with a recording under way the next press of it was handed to the recorder and reached nothing else; set as a control's combination, it then stood for that control and did not reach the document. The earlier steps of the scenario passed as before. / 数字小键盘的 5，不带修饰键，先照常进了文档；开始录制后，再按它的那一下交给了录制，没有传给别处；设成一个键位的组合键以后，它代表这个键位，不再进文档。这个场景原有的几步与之前一样通过。
 
-SenseVoice was run on recordings, not on a microphone: see [Voice input](voice-input.md#下一版尚未发布本机-sensevoice--sensevoice-on-this-mac). / SenseVoice 用录音文件跑过，没有用麦克风，见[语音输入](voice-input.md#下一版尚未发布本机-sensevoice--sensevoice-on-this-mac)。
+SenseVoice was run on recordings, not on a microphone: see [Voice input](voice-input.md#本机-sensevoice--sensevoice-on-this-mac). / SenseVoice 用录音文件跑过，没有用麦克风，见[语音输入](voice-input.md#本机-sensevoice--sensevoice-on-this-mac)。
 
 Not run in this round: the model and effort controls of Claude, DeepSeek Harness and WorkBuddy by a spoken command; Codex while a turn is running; the “Use Full access” question on the real overlay (the labels are covered by a unit test); a physical keyboard, a custom keyboard with extra keys, and the recorder in the running app; dictation through SenseVoice with a microphone; the earlier scenarios other than `textedit` and `keyboard-layout` (`code`, `codex`, the searches and the plugin-mode ones), whose tools changed in what a snapshot lists and how a key is sent but were not run again.
 

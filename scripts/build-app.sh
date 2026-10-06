@@ -65,8 +65,8 @@ cat > "$task_staged_app/Contents/Info.plist" <<'PLIST'
 <key>CFBundleExecutable</key><string>VibeWand</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
-<key>CFBundleShortVersionString</key><string>0.9.0</string>
-<key>CFBundleVersion</key><string>27</string>
+<key>CFBundleShortVersionString</key><string>0.10.0</string>
+<key>CFBundleVersion</key><string>28</string>
 <key>LSMinimumSystemVersion</key><string>26.0</string>
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>
