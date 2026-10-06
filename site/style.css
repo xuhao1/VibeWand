@@ -739,6 +739,13 @@ footer p + p {
     margin-top: 12px;
 }
 
+footer .soon {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 14px;
+}
+
 footer .credit {
     font-size: 14px;
 }

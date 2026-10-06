@@ -148,13 +148,13 @@ For repeatable signing, set `VIBEWAND_SIGNING_IDENTITY` (the legacy `VIBEKEY_SIG
 gh release create v0.10.0 -R xuhao1/vibewand-site VibeWand-0.10.0-macOS-arm64.zip SHA256SUMS-0.10.0.txt
 ```
 
-then update the version, links and size in `site/index.html` and publish. When this repository is opened, point the download back at its own releases and bring back the links to the documentation and the source, and the license statement in the footer, which the owner had taken off the page until then.
+then update the version, links and size in `site/index.html` and publish. When this repository is opened, point the download back at its own releases and bring back the links to the documentation and the source, and the license statement in the footer: until then the owner wants no license terms on the page or in that repository's release notes, and the footer says only that the project is to be opened soon.
 
 `site/` 就是整个网站：`index.html`、`style.css` 和 `img/`，没有构建步骤。两种语言写在同一页里，分别标 `lang="zh"` 和 `lang="en"`，改文字要改两处。图片是 `assets/` 和 `docs/images/` 里的文件用 `cwebp` 转出来的；四联场景图和设备图是示意图，悬浮面板是实际窗口截图，应用图标来自 `assets/apps/`（来源和归属见那里的 README）。预览用 `python3 -m http.server --directory site`。
 
 `bash scripts/publish-site.sh` 把 `site/` 复制到公开仓库 [`xuhao1/vibewand-site`](https://github.com/xuhao1/vibewand-site)，GitHub Pages 把它作为 vibewand.xuhao1.me 提供（`site/CNAME`）。它发布的是工作区当前的样子，不管有没有提交；已发布的内容相同时什么都不做。
 
-**本仓库还是私有的时候，页面不链接到这里的任何东西。**下载用的是网站仓库的 Release，而不是本仓库的，因为访客打不开本仓库；安装包作为 Release 附件上传，而不是放进 `site/`，因为 Git 拒绝超过 100 MB 的文件，而安装包已经接近这个大小。页面的下载链接和大小写着已发布的版本号，所以每次发布先执行上面的 `gh release create`，再改 `site/index.html` 里的版本号、链接和大小并发布。本仓库公开以后，把下载改回本仓库自己的 Release，恢复指向文档和源码的链接，并把页脚的许可说明加回来（作者要求在正式开源之前先不放）。
+**本仓库还是私有的时候，页面不链接到这里的任何东西。**下载用的是网站仓库的 Release，而不是本仓库的，因为访客打不开本仓库；安装包作为 Release 附件上传，而不是放进 `site/`，因为 Git 拒绝超过 100 MB 的文件，而安装包已经接近这个大小。页面的下载链接和大小写着已发布的版本号，所以每次发布先执行上面的 `gh release create`，再改 `site/index.html` 里的版本号、链接和大小并发布。本仓库公开以后，把下载改回本仓库自己的 Release，恢复指向文档和源码的链接，并把页脚的许可说明加回来：作者要求在正式开源之前，页面和网站仓库的 Release 说明里都不写许可条款，页脚只说“即将开源”。
 
 ## Implementation model / 实现分层
 
