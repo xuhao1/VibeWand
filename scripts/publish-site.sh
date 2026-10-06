@@ -5,7 +5,10 @@ task_root="$(cd "$(dirname "$0")/.." && pwd)"
 task_clone="$(mktemp -d)"
 trap 'rm -rf "$task_clone"' EXIT
 git clone --quiet --depth 1 https://github.com/xuhao1/vibewand-site.git "$task_clone"
-rsync -a --delete --exclude .git --exclude .DS_Store "$task_root/site/" "$task_clone/"
+rsync -a --delete --exclude .git --exclude .DS_Store --exclude video "$task_root/site/" "$task_clone/"
+# The films the page plays are made by promo/tools/web.sh and are not kept in this repository: they are published
+# when they are here, and the published ones stay as they are when they are not.
+if [ -d "$task_root/site/video" ]; then rsync -a --exclude .DS_Store "$task_root/site/video/" "$task_clone/video/"; fi
 git -C "$task_clone" add -A
 if git -C "$task_clone" diff --cached --quiet; then echo "The published site is already up to date."; exit 0; fi
 # That repository is public: commit with the owner's GitHub address, not the one this checkout uses.

@@ -80,8 +80,16 @@
         <p class="caption" lang="en">macOS 26 or later · M-series Mac · about 104 MB</p>
     </div>
     <figure class="cover">
-        <img lang="zh" src="img/cover-zh.webp" width="1600" height="900" alt="VibeWand 如意魔棒：一根魔棒，号令所有 AI。手柄、旋钮和遥控器，连着 Codex、Claude、DeepSeek Harness 等应用">
-        <img lang="en" src="img/cover-en.webp" width="1600" height="900" alt="VibeWand: one wand to command them all. A controller, a dial and a remote, joined to Codex, Claude, DeepSeek Harness and other apps">
+        <div class="film" lang="zh">
+            <video controls playsinline preload="none" poster="img/cover-zh.webp" width="1920" height="1080" src="video/vibewand-zh.mp4" aria-label="VibeWand 如意魔棒宣传片：一根魔棒，号令所有 AI"></video>
+            <button class="play" type="button" hidden aria-label="播放宣传片"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.9l11.3-6.8a1 1 0 0 0 0-1.8L9.5 4.3A1 1 0 0 0 8 5.2z"/></svg></button>
+        </div>
+        <div class="film" lang="en">
+            <video controls playsinline preload="none" poster="img/cover-en.webp" width="1920" height="1080" src="video/vibewand-en.mp4" aria-label="The VibeWand film: one wand to command them all"></video>
+            <button class="play" type="button" hidden aria-label="Play the film"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.9l11.3-6.8a1 1 0 0 0 0-1.8L9.5 4.3A1 1 0 0 0 8 5.2z"/></svg></button>
+        </div>
+        <figcaption class="caption" lang="zh">三分钟看完 VibeWand。也可以<a href="https://www.bilibili.com/video/BV169Hf6oEeq/">在 B 站观看</a>。</figcaption>
+        <figcaption class="caption" lang="en">VibeWand in three minutes. Also <a href="https://youtu.be/8eKGw3LD_aI">on YouTube</a>.</figcaption>
     </figure>
 </section>
 
@@ -422,6 +430,13 @@ document.getElementById("lang-switch").addEventListener("click", function () {
     root.dataset.lang = lang;
     root.lang = lang === "zh" ? "zh-CN" : "en";
     try { localStorage.setItem("lang", lang); } catch (e) {}
+    document.querySelectorAll("video").forEach(function (video) { video.pause(); });
+});
+// The film starts from one large button, and the browser's own controls take over once it plays.
+document.querySelectorAll(".film").forEach(function (film) {
+    var video = film.querySelector("video"), play = film.querySelector(".play");
+    video.controls = false; play.hidden = false;
+    play.addEventListener("click", function () { play.hidden = true; video.controls = true; video.play(); });
 });
 </script>
 </body>

@@ -138,9 +138,11 @@ For repeatable signing, set `VIBEWAND_SIGNING_IDENTITY` (the legacy `VIBEKEY_SIG
 
 ## Project site / 项目主页
 
-`site/` is the whole site: `index.html`, `style.css` and `img/`, with no build step. Both languages are in the one page as `lang="zh"` and `lang="en"` twins, so a change to the text is made twice. The images are `cwebp` conversions of files in `assets/` and `docs/images/`; the four-scene strip and the device pictures are illustrations, the overlay is an actual window capture, and the app icons come from `assets/apps/` (see its README for where they are from and whose they are). Preview with `python3 -m http.server --directory site`.
+`site/` is the whole site: `index.html`, `style.css`, `img/` and the films in `video/`, with no build step for the page. Both languages are in the one page as `lang="zh"` and `lang="en"` twins, so a change to the text is made twice. The images are `cwebp` conversions of files in `assets/` and `docs/images/`; the four-scene strip and the device pictures are illustrations, the overlay is an actual window capture, and the app icons come from `assets/apps/` (see its README for where they are from and whose they are). Preview with `python3 -m http.server --directory site`.
 
 `bash scripts/publish-site.sh` copies `site/` into the public repository [`xuhao1/vibewand-site`](https://github.com/xuhao1/vibewand-site), which GitHub Pages serves as vibewand.xuhao1.me (`site/CNAME`). It publishes the working tree as it is, committed or not, and does nothing when the published copy is already the same.
+
+The film at the top of the page is played from the site itself: `site/video/vibewand-zh.mp4` and `vibewand-en.mp4`, about 20 MB each, with the cover as the picture shown before it plays. They are made from the films in `output/promo/cut/` by `bash promo/tools/web.sh` (see `promo/README.md`) and are not kept in this repository; `site/video/` is ignored. The publishing script uploads them when they are there and leaves the published ones alone when they are not, so a checkout that never built the film can still publish the page. Under the film the Chinese page links to it on Bilibili and the English page on YouTube, never the other way round, and the READMEs' title pictures link the same way.
 
 **While this repository is private, the page links to nothing in it.** The download is a release of the site's repository, not of this one, because a visitor cannot reach this one; the package goes there as a release asset rather than into `site/`, since Git refuses a file over 100 MB and the package is close to that. The page states the released version in its download links and size, so with each release:
 
@@ -150,9 +152,11 @@ gh release create v0.10.0 -R xuhao1/vibewand-site VibeWand-0.10.0-macOS-arm64.zi
 
 then update the version, links and size in `site/index.html` and publish. When this repository is opened, point the download back at its own releases and bring back the links to the documentation and the source, and the license statement in the footer: until then the owner wants no license terms on the page or in that repository's release notes, and the footer says only that the project is to be opened soon.
 
-`site/` 就是整个网站：`index.html`、`style.css` 和 `img/`，没有构建步骤。两种语言写在同一页里，分别标 `lang="zh"` 和 `lang="en"`，改文字要改两处。图片是 `assets/` 和 `docs/images/` 里的文件用 `cwebp` 转出来的；四联场景图和设备图是示意图，悬浮面板是实际窗口截图，应用图标来自 `assets/apps/`（来源和归属见那里的 README）。预览用 `python3 -m http.server --directory site`。
+`site/` 就是整个网站：`index.html`、`style.css`、`img/` 和 `video/` 里的宣传片，页面本身没有构建步骤。两种语言写在同一页里，分别标 `lang="zh"` 和 `lang="en"`，改文字要改两处。图片是 `assets/` 和 `docs/images/` 里的文件用 `cwebp` 转出来的；四联场景图和设备图是示意图，悬浮面板是实际窗口截图，应用图标来自 `assets/apps/`（来源和归属见那里的 README）。预览用 `python3 -m http.server --directory site`。
 
 `bash scripts/publish-site.sh` 把 `site/` 复制到公开仓库 [`xuhao1/vibewand-site`](https://github.com/xuhao1/vibewand-site)，GitHub Pages 把它作为 vibewand.xuhao1.me 提供（`site/CNAME`）。它发布的是工作区当前的样子，不管有没有提交；已发布的内容相同时什么都不做。
+
+页面顶部的宣传片由网站自己播放：`site/video/vibewand-zh.mp4` 和 `vibewand-en.mp4`，各约 20 MB，播放前显示的是封面。它们由 `bash promo/tools/web.sh` 从 `output/promo/cut/` 里的成片转出（见 `promo/README.md`），不进本仓库，`site/video/` 已被忽略。发布脚本在它们存在时上传，不存在时保留已发布的那份，所以没有生成过成片的检出照样能发布页面。视频下方，中文页面链接到 B 站，英文页面链接到 YouTube，不要反过来；两份 README 的题图也是这样链接的。
 
 **本仓库还是私有的时候，页面不链接到这里的任何东西。**下载用的是网站仓库的 Release，而不是本仓库的，因为访客打不开本仓库；安装包作为 Release 附件上传，而不是放进 `site/`，因为 Git 拒绝超过 100 MB 的文件，而安装包已经接近这个大小。页面的下载链接和大小写着已发布的版本号，所以每次发布先执行上面的 `gh release create`，再改 `site/index.html` 里的版本号、链接和大小并发布。本仓库公开以后，把下载改回本仓库自己的 Release，恢复指向文档和源码的链接，并把页脚的许可说明加回来：作者要求在正式开源之前，页面和网站仓库的 Release 说明里都不写许可条款，页脚只说“即将开源”。
 

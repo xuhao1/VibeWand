@@ -331,11 +331,50 @@ h3 {
     padding: 0 24px;
 }
 
-.cover img {
+.film {
+    position: relative;
+    overflow: hidden;
+    border-radius: 28px;
+    background: var(--night);
+    box-shadow: 0 34px 90px rgba(76, 52, 190, 0.3), 0 6px 18px rgba(18, 22, 43, 0.2);
+}
+
+.film video {
+    display: block;
     width: 100%;
     height: auto;
-    border-radius: 28px;
-    box-shadow: 0 34px 90px rgba(76, 52, 190, 0.3), 0 6px 18px rgba(18, 22, 43, 0.2);
+    aspect-ratio: 16 / 9;
+}
+
+.film .play {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: clamp(48px, 9%, 104px);
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    background: rgba(11, 10, 36, 0.55);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    color: #fff;
+    cursor: pointer;
+    transition: transform 0.2s, background 0.2s;
+}
+
+.film .play[hidden] {
+    display: none;
+}
+
+.film .play:hover {
+    transform: scale(1.08);
+    background: rgba(74, 84, 230, 0.8);
+}
+
+.film .play svg {
+    width: 46%;
 }
 
 .scenes {
@@ -885,7 +924,7 @@ footer .credit {
         padding: 0 14px;
     }
 
-    .cover img {
+    .film {
         border-radius: 16px;
     }
 

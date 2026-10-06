@@ -10,3 +10,4 @@ output/
 !.env.example
 *.pem
 *.p12
+site/video/

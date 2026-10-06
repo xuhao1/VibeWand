@@ -12,7 +12,7 @@ Everything the promotional film is made from, so that the film can be built agai
 | `takes/` | The filmed overlay (VP9 with transparency) and what the script did when; `<take>.webm` with the app in Chinese, `<take>.en.webm` in English / 录下的悬浮窗（带透明通道的 VP9）及脚本的动作时间；`<take>.webm` 是中文界面，`<take>.en.webm` 是英文界面 |
 | `src/` | The page that draws every frame, in either language: `stage.js` (timeline, subtitles, backdrop), `mock.js` (shared pieces), `scenes/*.js` / 逐帧绘制画面的页面，两种语言共用 |
 | `film/*.json` | Scripts the film build of VibeWand plays while its overlay is recorded / 录制悬浮窗时由拍摄版 VibeWand 执行的脚本 |
-| `tools/` | Setup, sound, rendering, encoding; recording and speech for making new material / 安装、声音、渲染、编码；以及重新录制和配音用的工具 |
+| `tools/` | Setup, sound, rendering, encoding, the copies for the site; recording and speech for making new material / 安装、声音、渲染、编码、主页用的版本；以及重新录制和配音用的工具 |
 
 ## Build the film / 生成成片
 
@@ -33,6 +33,12 @@ bash promo/tools/build.sh en VibeWand-promo-en   # the English version
 To look at single moments: `node promo/tools/render.mjs --stills 12.5,48 --scale 0.5`, then `bash promo/tools/sheet.sh` lays them out on one sheet.
 
 只看某几个时刻：`node promo/tools/render.mjs --stills 12.5,48 --scale 0.5`，再用 `bash promo/tools/sheet.sh` 拼成一张总览。
+
+## On the site / 放到主页
+
+`bash promo/tools/web.sh` makes the copies the project site plays itself, `site/video/vibewand-zh.mp4` and `vibewand-en.mp4`: the same 1080p at 60 frames a second, about 20 MB each instead of 100. Git ignores them, and `bash scripts/publish-site.sh` publishes them with the page; `docs/development.md` has the rest.
+
+`bash promo/tools/web.sh` 生成项目主页自己播放的版本：`site/video/vibewand-zh.mp4` 和 `vibewand-en.mp4`，同样是 1080p、每秒 60 帧，各约 20 MB（成片约 100 MB）。它们不进仓库，由 `bash scripts/publish-site.sh` 随页面一起发布，其余见 `docs/development.md`。
 
 ## Cover / 封面
 

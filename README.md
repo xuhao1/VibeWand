@@ -2,7 +2,9 @@
 
 **One wand to command them all.**
 
-![VibeWand: one wand to command them all](docs/images/cover-en.jpg)
+[![VibeWand: one wand to command them all. Watch the three-minute film](docs/images/cover-en.jpg)](https://youtu.be/8eKGw3LD_aI)
+
+<p align="center"><a href="https://youtu.be/8eKGw3LD_aI">▶ Watch the three-minute film</a></p>
 
 A dial, a game controller, a remote or just the keyboard, plus a spoken sentence, for driving the AI tools on your Mac: Codex, Claude, DeepSeek Harness and WorkBuddy, Claude Code, Codex and OpenCode in a terminal, and browsers, WeChat and Feishu.
 
