@@ -19,7 +19,7 @@ The menu bar keeps everyday entry points. One native settings window groups conf
 
 ## Remap a control
 
-The editing flow is **template → physical button → context → gesture → action**. Click the photo or its input list, then edit that button in the inspector. Controller groups include face buttons, shoulders, stick presses, D-pad, and auxiliary controls. Physical names such as “□ Square” stay separate from the assigned action, so remapping does not make the button's name misleading.
+The editing flow is **template → physical button → context → gesture → action**. Click the photo or its input list, then edit that button in the inspector. Controller groups include face buttons, shoulders, stick presses, D-pad, and auxiliary controls. Physical names such as “□ Square” stay separate from the assigned action, so remapping does not make the button's name misleading. Since 0.10.2 every controller button has five gestures, R1 / R2 included: press, double press, long press, hold, and “press at once, repeat while held”; “Controls” at the top of the page draws the current layout as one picture, see [Default controls](core-experience.en.md#the-controls-card).
 
 Contexts include default, reading / empty draft, editing, conversations, models, effort, and application switching. Open a gesture to choose from the searchable action library. **Use default** restores inheritance; **Unassigned** explicitly disables it. Reset the selected input in the current context, or restore the whole template. Edits are saved locally as they happen.
 

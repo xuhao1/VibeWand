@@ -53,6 +53,12 @@ Vibe coding 的大部分时间其实不在打字：读回复、翻会话、换�
 
 几个设备可以同时连着。在哪个上面按键，面板和按键布局就跟到哪个，不用进设置切换。蓝牙手柄闲置十来分钟会自己关机，设置里有个“保持手柄唤醒”的开关。
 
+忘了哪个键是干什么的，随时可以调出一张按键一览：设备在中间，每个键旁边写着它现在的作用，按到哪个哪个亮，这时按键不会发给应用。它画的是你自己的布局，改过的键显示改过之后的样子。
+
+<p align="center"><img src="docs/images/controls-card-v0102-zh.jpg" width="760" alt="VibeWand 0.10.2 手柄默认布局的按键一览，离屏渲染"></p>
+
+<p align="center"><sub>VibeWand 0.10.2 的按键一览，手柄默认布局。由应用自己的视图离屏渲染，没有连接设备。</sub></p>
+
 各型号的细节见[硬件指南](docs/device-templates.md)。
 
 **VibeWand 是独立项目，与 Ulanzi、Sony、小米及其他设备厂商没有隶属、合作、赞助或背书关系。产品名称与商标归各自所有者。**
@@ -78,7 +84,7 @@ Vibe coding 的大部分时间其实不在打字：读回复、翻会话、换�
 
 前五行 AI 工具均在本机实测过。终端一行在 iTerm2 3.7.3 里对 Codex CLI 0.160.0、Claude Code 2.1.289、OpenCode 1.18.34 逐步读回屏幕验收，见[验收记录](docs/terminal-acceptance.md)；WorkBuddy 5.6.2 已通过原生界面回读验收：搜索并打开任务、切换模型、编辑草稿，以及用转录回放验证听写写入。
 
-不在表里的应用也有三件事能用：听写跟着键盘焦点走，原生输入框边说边写，其他应用在松开后粘贴一次，剪贴板随后恢复原样；双击切换 macOS 应用；手柄触摸板移动指针和点击。想让别的应用也响应切换会话和换模型这两个键，在设置里按 bundle ID 添加它并指定快捷键。这类应用动作只发给表里的应用和你自己加的规则，按完整的 bundle ID 匹配，不看窗口标题，每一项都能在设置里单独关掉。
+不在表里的应用也有三件事能用：听写跟着键盘焦点走，原生输入框边说边写，其他应用在松开后粘贴一次，剪贴板随后恢复原样；切换 macOS 应用；手柄触摸板移动指针和点击。想让别的应用也响应切换会话和换模型这两个键，在设置里按 bundle ID 添加它并指定快捷键。这类应用动作只发给表里的应用和你自己加的规则，按完整的 bundle ID 匹配，不看窗口标题，每一项都能在设置里单独关掉。
 
 应用的名称和图标是各自所有者的商标，这里只用来说明兼容性；VibeWand 与它们没有隶属、赞助或背书关系。
 
@@ -105,7 +111,7 @@ VibeWand 干的是 computer use 这类事：看懂前台应用的界面，替你
 
 ## 安装
 
-**[下载 VibeWand 0.10.1（Apple Silicon）](https://github.com/xuhao1/VibeWand/releases/download/v0.10.1/VibeWand-0.10.1-macOS-arm64.zip)** · [版本说明](https://github.com/xuhao1/VibeWand/releases/latest)
+**[下载 VibeWand 0.10.2（Apple Silicon）](https://github.com/xuhao1/VibeWand/releases/download/v0.10.2/VibeWand-0.10.2-macOS-arm64.zip)** · [版本说明](https://github.com/xuhao1/VibeWand/releases/latest)
 
 需要 macOS 26 以上和 M 系列芯片（0.8.4 是最后一个支持 macOS 13–15 的版本）。解压后把 **VibeWand.app** 拖进“应用程序”并打开。第一次打开会出现引导，带你走完下面几步、语音输入和命令模式，每一步都可以跳过。手动做的话：
 

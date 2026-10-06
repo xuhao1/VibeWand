@@ -309,8 +309,8 @@ struct CommandSettingsPage: View {
 
     private var keyCard: some View {
         SettingsCard(title: tr("命令键", "Command key")) {
-            SettingsNote(text: tr("按住说话，松开执行。VibeKey：长按旋钮并保持（命令模式可用时，模型入口改为长按 OK）。手柄：按住 L2。",
-                                  "Hold to speak, release to run. VibeKey: long-press the dial and keep holding (the model entry moves to a long press of OK while command mode is usable). Controller: hold L2."))
+            SettingsNote(text: tr("按住说话，松开执行。VibeKey：长按旋钮并保持（命令模式可用时，模型入口改为长按 OK）。手柄：按住 R1。",
+                                  "Hold to speak, release to run. VibeKey: long-press the dial and keep holding (the model entry moves to a long press of OK while command mode is usable). Controller: hold R1."))
             Picker(tr("键盘", "Keyboard"), selection: Binding(get: { settings.hotkey }, set: { settings.setHotkey($0) })) {
                 ForEach(CommandHotkey.allCases, id: \.self) { Text($0.title).tag($0) }
             }

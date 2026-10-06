@@ -51,32 +51,33 @@ final class GameControllerInputTests: XCTestCase {
         }
     }
 
-    func testButtonsHaveBalancedPressesAndShouldersAreSinglePulses() {
+    func testEveryButtonHasABalancedPressTheShouldersIncluded() {
         var decoder = GameControllerDecoder()
         XCTAssertEqual(decoder.consume(.init(buttons: [.voice: true]), now: 0), [transition(.voice, .down)])
         XCTAssertTrue(decoder.consume(.init(buttons: [.voice: true]), now: 0.1).isEmpty)
         XCTAssertEqual(decoder.consume(.init(), now: 0.2), [transition(.voice, .up)])
-        XCTAssertEqual(decoder.consume(.init(buttons: [.left: true, .right: true]), now: 1),
-                       [transition(.left, .pulse), transition(.right, .pulse)])
-        XCTAssertTrue(decoder.consume(.init(buttons: [.left: true, .right: true]), now: 2).isEmpty)
-        XCTAssertTrue(decoder.consume(.init(), now: 3).isEmpty)
+        XCTAssertEqual(decoder.consume(.init(buttons: [.r1: true, .r2: true]), now: 1),
+                       [transition(.r1, .down), transition(.r2, .down)])
+        XCTAssertTrue(decoder.consume(.init(buttons: [.r1: true, .r2: true]), now: 2).isEmpty)
+        XCTAssertEqual(decoder.consume(.init(buttons: [.r2: true]), now: 3), [transition(.r1, .up)])
+        XCTAssertEqual(decoder.consume(.init(), now: 4), [transition(.r2, .up)])
     }
 
     func testAttachSuppressesAlreadyHeldInputUntilReleaseAndNeutral() {
         var decoder = GameControllerDecoder()
-        let held = GameControllerDecoder.Sample(buttons: [.voice: true, .right: true], axes: [.rightY: 0.9])
+        let held = GameControllerDecoder.Sample(buttons: [.voice: true, .r2: true], axes: [.rightY: 0.9])
         decoder.prime(held)
         XCTAssertTrue(decoder.consume(held, now: 0).isEmpty)
         XCTAssertTrue(decoder.repeats(now: 2).isEmpty)
         XCTAssertTrue(decoder.consume(.init(), now: 3).isEmpty)
-        XCTAssertEqual(decoder.consume(held, now: 4), [transition(.right, .pulse), transition(.voice, .down),
+        XCTAssertEqual(decoder.consume(held, now: 4), [transition(.r2, .down), transition(.voice, .down),
                        transition(.rightStickUp, .down), transition(.rightStickUp, .pulse)])
     }
 
     func testCancellationNeverCompletesPendingTapOrRepeats() {
         var decoder = GameControllerDecoder()
-        _ = decoder.consume(.init(buttons: [.voice: true, .left: true], axes: [.rightX: 1]), now: 0)
-        XCTAssertEqual(decoder.reset(), [transition(.rightStickRight, .cancel), transition(.voice, .cancel)])
+        _ = decoder.consume(.init(buttons: [.voice: true, .r1: true], axes: [.rightX: 1]), now: 0)
+        XCTAssertEqual(decoder.reset(), [transition(.r1, .cancel), transition(.rightStickRight, .cancel), transition(.voice, .cancel)])
         XCTAssertTrue(decoder.repeats(now: 100).isEmpty)
         XCTAssertTrue(decoder.consume(.init(), now: 100).isEmpty)
     }
@@ -92,7 +93,7 @@ final class GameControllerInputTests: XCTestCase {
         gamepad.dpad.setValueForXAxis(-1, yAxis: 1)
         gamepad.rightThumbstick.setValueForXAxis(0.8, yAxis: -0.9)
         let sample = GameControllerInputSource.sample(gamepad)
-        for control: AU05Control in [.ok, .escape, .dial, .voice, .left, .right, .l1, .l2, .dpadUp, .dpadLeft] {
+        for control: AU05Control in [.ok, .escape, .dial, .voice, .r1, .r2, .l1, .l2, .dpadUp, .dpadLeft] {
             XCTAssertEqual(sample.buttons[control], true, control.rawValue)
         }
         XCTAssertEqual(sample.buttons[.dpadDown], false)

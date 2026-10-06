@@ -53,6 +53,12 @@ A floating overlay shows what each button will do right now. It collapses into a
 
 Several devices can stay connected at once. Press a button on one and the overlay and button layout follow it; there is nothing to switch in Settings. A Bluetooth controller powers itself off after about ten idle minutes, so Settings has a "Keep the controller awake" switch.
 
+Forgot what a button does? Bring up the controls card at any time: the device in the middle, each control with what it does right now, and whatever you press lights up without reaching the app. It draws your own layout, so a button you changed shows what you gave it.
+
+<p align="center"><img src="docs/images/controls-card-v0102-en.jpg" width="760" alt="The controls card of VibeWand 0.10.2 with the controller's default layout, rendered off screen"></p>
+
+<p align="center"><sub>The controls card of VibeWand 0.10.2, the controller's default layout. Rendered off screen from the app's own view, with no device connected.</sub></p>
+
 Per-model details are in the [hardware guide](docs/device-templates.en.md).
 
 **VibeWand is an independent project. It is not affiliated with, sponsored by or endorsed by Ulanzi, Sony, Xiaomi or any other device maker. Product names and trademarks belong to their owners.**
@@ -78,7 +84,7 @@ A ✓ is something you can do in that app. How each app is operated, the version
 
 The first five rows, the AI tools, were exercised on a real machine. The terminal row was accepted in iTerm2 3.7.3 against Codex CLI 0.160.0, Claude Code 2.1.289 and OpenCode 1.18.34 with the screen read back after every step; see the [acceptance record](docs/terminal-acceptance.md). WorkBuddy 5.6.2 passed native UI readback checks for task search and opening, model switching, draft editing and dictation delivery with transcript replay.
 
-Three things work in apps that are not in the table. Dictation follows the keyboard focus: native fields fill in as you speak, and everything else gets a single paste when you release, after which your clipboard is put back. A double press switches macOS apps. The controller's touchpad moves the pointer and clicks. To make another app answer the chat and model buttons, add it in Settings by bundle ID and assign the shortcuts. These app actions go only to the apps in the table and to rules you added yourself, matched by full bundle ID and never by window title, and each one can be turned off in Settings.
+Three things work in apps that are not in the table. Dictation follows the keyboard focus: native fields fill in as you speak, and everything else gets a single paste when you release, after which your clipboard is put back. Switching macOS apps works everywhere. The controller's touchpad moves the pointer and clicks. To make another app answer the chat and model buttons, add it in Settings by bundle ID and assign the shortcuts. These app actions go only to the apps in the table and to rules you added yourself, matched by full bundle ID and never by window title, and each one can be turned off in Settings.
 
 App names and icons are trademarks of their owners and are shown only to indicate compatibility. VibeWand is not affiliated with, sponsored by or endorsed by them.
 
@@ -105,7 +111,7 @@ What each capability covers, which channel each app uses and what has been verif
 
 ## Install
 
-**[Download VibeWand 0.10.1 (Apple Silicon)](https://github.com/xuhao1/VibeWand/releases/download/v0.10.1/VibeWand-0.10.1-macOS-arm64.zip)** · [Release notes](https://github.com/xuhao1/VibeWand/releases/latest)
+**[Download VibeWand 0.10.2 (Apple Silicon)](https://github.com/xuhao1/VibeWand/releases/download/v0.10.2/VibeWand-0.10.2-macOS-arm64.zip)** · [Release notes](https://github.com/xuhao1/VibeWand/releases/latest)
 
 Requires macOS 26 or later on an M-series Mac (0.8.4 is the last version for macOS 13 to 15). Unzip, drag **VibeWand.app** into Applications and open it. The first launch shows a guide that walks you through the steps below, voice input and command mode; every step can be skipped. By hand:
 

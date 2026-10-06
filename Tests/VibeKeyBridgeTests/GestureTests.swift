@@ -147,12 +147,13 @@ final class GestureTests: XCTestCase {
     }
 
     func testOptionalControllerButtonsStayUnassignedUntilConfigured() throws {
-        let controls: [DeviceControl] = [.l1, .l2, .leftStickPress, .rightStickPress,
+        let controls: [DeviceControl] = [.l1, .l2, .r1, .r2, .leftStickPress, .rightStickPress,
             .dpadUp, .dpadDown, .dpadLeft, .dpadRight, .options, .create, .home, .touchpad, .mute,
             .power, .volumeUp, .volumeDown]
         for scope in GestureScope.allCases {
             for control in controls {
-                for kind in GestureKind.allCases {
+                // A direction's step is the one thing that comes assigned.
+                for kind in GestureKind.allCases where control.direction == nil || kind != .rotate {
                     XCTAssertEqual(config.action(scope, control, kind), .none, "\(scope).\(control).\(kind)")
                 }
             }
@@ -182,6 +183,93 @@ final class GestureTests: XCTestCase {
         try customized.validate()
         let restored = try JSONDecoder().decode(GestureConfiguration.self, from: JSONEncoder().encode(customized))
         XCTAssertEqual(restored.overrides, customized.overrides)
+    }
+}
+
+extension GestureTests {
+    func testAButtonsStepFiresOnTheWayDownRepeatsWhileHeldAndNeverClicks() {
+        var config = DeviceTemplateID.dualSense.template.defaultConfiguration
+        var engine = GestureEngine()
+        let first = engine.receive(.dpadDown, phase: .down, now: 0, scope: .reading, config: config)
+        XCTAssertEqual(first.map(\.action), [.scrollDown])
+        XCTAssertEqual(first.map(\.kind), [.rotate])
+        XCTAssertTrue(engine.tick(now: 0.34).isEmpty)
+        XCTAssertEqual(engine.tick(now: 0.35).map(\.action), [.scrollDown])
+        XCTAssertTrue(engine.tick(now: 0.40).isEmpty)
+        XCTAssertEqual(engine.tick(now: 0.44).map(\.action), [.scrollDown])
+        // A late tick steps once and never catches up.
+        XCTAssertEqual(engine.tick(now: 100).count, 1)
+        XCTAssertTrue(engine.tick(now: 100).isEmpty)
+        XCTAssertTrue(engine.receive(.dpadDown, phase: .up, now: 100.1, scope: .reading, config: config).isEmpty)
+        XCTAssertTrue(engine.tick(now: 200).isEmpty)
+        // Cancelled, it stops without a last step.
+        _ = engine.receive(.dpadDown, phase: .down, now: 300, scope: .reading, config: config)
+        XCTAssertTrue(engine.receive(.dpadDown, phase: .cancel, now: 300.1, scope: .reading, config: config).isEmpty)
+        XCTAssertTrue(engine.tick(now: 400).isEmpty)
+
+        // Given a press of its own, a direction-pad button is that and no longer a step.
+        config.set(.global, .dpadDown, .single, .enter)
+        XCTAssertEqual(config.action(.reading, .dpadDown, .rotate), .none)
+        XCTAssertEqual(config.action(.sessions, .dpadDown, .rotate), .none)
+        XCTAssertEqual(config.action(.reading, .dpadUp, .rotate), .scrollUp)
+        XCTAssertTrue(engine.receive(.dpadDown, phase: .down, now: 500, scope: .reading, config: config).isEmpty)
+        XCTAssertEqual(engine.receive(.dpadDown, phase: .up, now: 500.1, scope: .reading, config: config).map(\.action), [.enter])
+        // A step chosen on top of that comes first, and the press stays silent.
+        config.set(.global, .dpadDown, .rotate, .scrollDown)
+        XCTAssertEqual(engine.receive(.dpadDown, phase: .down, now: 600, scope: .reading, config: config).map(\.action), [.scrollDown])
+        XCTAssertTrue(engine.receive(.dpadDown, phase: .up, now: 600.1, scope: .reading, config: config).isEmpty)
+        XCTAssertTrue(engine.tick(now: 700).isEmpty)
+        XCTAssertEqual(config.live(.reading, .dpadDown, [.rotate, .single, .long, .hold]), [.rotate, .hold])
+        // And a hold comes before both.
+        config.set(.global, .dpadDown, .hold, .dictation)
+        XCTAssertEqual(engine.receive(.dpadDown, phase: .down, now: 800, scope: .reading, config: config).map(\.kind), [.hold])
+        XCTAssertTrue(engine.tick(now: 801).isEmpty)
+        XCTAssertEqual(config.live(.reading, .dpadDown, [.rotate, .single, .long, .hold]), [.hold])
+    }
+
+    func testControllerShouldersTakeEveryGestureAButtonCan() {
+        var config = DeviceTemplateID.dualSense.template.defaultConfiguration
+        config.commandLayer = DeviceTemplateID.dualSense.template.commandBindings
+        var engine = GestureEngine()
+        // L1: a press answers on release, a long press does not also press.
+        XCTAssertTrue(engine.receive(.l1, phase: .down, now: 0, scope: .reading, config: config).isEmpty)
+        XCTAssertEqual(engine.receive(.l1, phase: .up, now: 0.1, scope: .reading, config: config).map(\.action), [.contextDial])
+        _ = engine.receive(.l1, phase: .down, now: 1, scope: .reading, config: config)
+        XCTAssertEqual(engine.tick(now: 1.7).map(\.action), [.models])
+        XCTAssertTrue(engine.receive(.l1, phase: .up, now: 1.8, scope: .reading, config: config).isEmpty)
+        // L2 is held like ⌘Tab: down opens, up chooses.
+        XCTAssertEqual(engine.receive(.l2, phase: .down, now: 2, scope: .reading, config: config).map(\.phase), [.down])
+        let released = engine.receive(.l2, phase: .up, now: 2.1, scope: .applications, config: config)
+        XCTAssertEqual(released.map(\.action), [.switchApplications])
+        XCTAssertEqual(released.map(\.phase), [.up])
+        // R1 and R2 are held to speak, however long, and let go to finish.
+        for (button, action) in [(DeviceControl.r1, GestureAction.command), (.r2, .dictation)] {
+            let began = engine.receive(button, phase: .down, now: 10, scope: .editing, config: config)
+            XCTAssertEqual(began.map(\.action), [action])
+            XCTAssertEqual(began.map(\.phase), [.down])
+            XCTAssertTrue(engine.tick(now: 15).isEmpty)
+            XCTAssertEqual(engine.receive(button, phase: .up, now: 15.1, scope: .editing, config: config).map(\.phase), [.up])
+        }
+        // R1 takes clicks like any button once its hold is given up: press, double press and long press.
+        config.set(.global, .r1, .hold, GestureAction.none)
+        config.set(.global, .r1, .single, .contextDial)
+        config.set(.global, .r1, .double, .toggleOverlay)
+        config.set(.global, .r1, .long, .models)
+        _ = engine.receive(.r1, phase: .down, now: 20, scope: .reading, config: config)
+        XCTAssertTrue(engine.receive(.r1, phase: .up, now: 20.05, scope: .reading, config: config).isEmpty)
+        _ = engine.receive(.r1, phase: .down, now: 20.15, scope: .reading, config: config)
+        XCTAssertEqual(engine.receive(.r1, phase: .up, now: 20.2, scope: .reading, config: config).map(\.action), [.toggleOverlay])
+        _ = engine.receive(.r1, phase: .down, now: 21, scope: .reading, config: config)
+        _ = engine.receive(.r1, phase: .up, now: 21.05, scope: .reading, config: config)
+        XCTAssertEqual(engine.tick(now: 21.4).map(\.action), [.contextDial])
+        _ = engine.receive(.r1, phase: .down, now: 22, scope: .reading, config: config)
+        XCTAssertEqual(engine.tick(now: 22.7).map(\.action), [.models])
+        XCTAssertTrue(engine.receive(.r1, phase: .up, now: 22.8, scope: .reading, config: config).isEmpty)
+        // And a step, which makes it the arrow key it used to be, now with a repeat.
+        config.set(.reading, .r1, .rotate, .scrollDown)
+        XCTAssertEqual(engine.receive(.r1, phase: .down, now: 30, scope: .reading, config: config).map(\.action), [.scrollDown])
+        XCTAssertEqual(engine.tick(now: 30.4).map(\.action), [.scrollDown])
+        XCTAssertTrue(engine.receive(.r1, phase: .up, now: 30.5, scope: .reading, config: config).isEmpty)
     }
 }
 
@@ -245,7 +333,7 @@ extension GestureTests {
     func testStickCancelDropsHeldStateAndScopeChangesChooseCurrentBinding() {
         var engine = GestureEngine()
         XCTAssertTrue(engine.receive(.rightStickDown, phase: .down, now: 0, scope: .reading, config: config).isEmpty)
-        XCTAssertEqual(engine.receive(.rightStickDown, phase: .pulse, now: 0, scope: .reading, config: config).map(\.action), [.scrollUp])
+        XCTAssertEqual(engine.receive(.rightStickDown, phase: .pulse, now: 0, scope: .reading, config: config).map(\.action), [.scrollDown])
         XCTAssertEqual(engine.receive(.rightStickDown, phase: .pulse, now: 0.4, scope: .models, config: config).map(\.action), [.nextCandidate])
         XCTAssertTrue(engine.receive(.rightStickDown, phase: .cancel, now: 0.5, scope: .models, config: config).isEmpty)
         XCTAssertTrue(engine.held.isEmpty)

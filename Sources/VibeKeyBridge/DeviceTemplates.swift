@@ -41,30 +41,36 @@ struct DeviceTemplate {
             configuration.longPressInterval = 0.65
         }
         if id == .dualSense {
-            // Keep the physical input IDs stable: Square=dial, Circle=escape,
-            // Cross=ok. Only the controller preset changes their actions.
+            // One job a button. The face buttons act: ○ confirms, × goes back and □ deletes, in every scene.
+            // The right shoulder talks (R1 a command, once command mode is live; R2 text) and the left one
+            // switches (L1 chats, L2 apps). Sticks and the direction pad move; those defaults belong to every layout.
+            // The physical input IDs stay as they were: Square=dial, Circle=escape, Cross=ok.
             configuration.set(.global, .dial, .single, .deleteBackward)
             configuration.set(.global, .dial, .double, GestureAction.none)
             configuration.set(.global, .dial, .long, .deleteBackward)
             configuration.set(.global, .escape, .single, .contextConfirm)
-            configuration.set(.global, .escape, .long, .models)
+            configuration.set(.global, .escape, .long, GestureAction.none)
             configuration.set(.global, .ok, .single, .escape)
-            configuration.set(.global, .ok, .double, .switchApplications)
-            configuration.set(.global, .ok, .long, .contextDial)
             configuration.set(.global, .touchpad, .single, .pointerClick)
+            configuration.set(.global, .r2, .hold, .dictation)
+            configuration.set(.global, .l1, .single, .contextDial)
+            configuration.set(.global, .l1, .long, .models)
+            // Held like ⌘Tab: a tap returns to the app before, a hold shows the row to choose from.
+            configuration.set(.global, .l2, .hold, .switchApplications)
+            configuration.set(.global, .options, .single, .showControls)
             for scope in [GestureScope.sessions, .models, .efforts, .applications] {
-                configuration.set(scope, .escape, .single, scope == .applications ? .confirmApplication : .confirmCandidate)
-                configuration.set(scope, .ok, .single, scope == .applications ? .cancelApplication : .cancelPicker)
+                let apps = scope == .applications
+                configuration.set(scope, .escape, .single, apps ? .confirmApplication : .confirmCandidate)
+                configuration.set(scope, .ok, .single, apps ? .cancelApplication : .cancelPicker)
                 configuration.set(scope, .dial, .single, GestureAction.none)
-                for control in [DeviceControl.dial, .ok, .escape] {
-                    configuration.set(scope, control, .double, GestureAction.none)
-                    configuration.set(scope, control, .long, GestureAction.none)
-                }
+                configuration.set(scope, .dial, .long, GestureAction.none)
+                configuration.set(scope, .escape, .long, GestureAction.none)
+                // In a list L1 steps on, the way it steps through a browser's tabs.
+                configuration.set(scope, .l1, .single, apps ? .nextApplication : .nextCandidate)
+                configuration.set(scope, .l1, .long, GestureAction.none)
             }
-            configuration.set(.sessions, .ok, .single, .confirmCandidate)
-            configuration.set(.sessions, .escape, .single, .cancelPicker)
-            // From an effort popover, holding ○ again continues to the model list.
-            configuration.set(.efforts, .escape, .long, .models)
+            // From an effort popover, holding L1 again continues to the model list.
+            configuration.set(.efforts, .l1, .long, .models)
         }
         if id == .xiaomiRemote {
             configuration.set(.global, .dial, .single, .contextConfirm)
@@ -89,7 +95,7 @@ struct DeviceTemplate {
         // Holding the dial speaks a command, so the model entry moves to a long press of OK.
         case .vibeKey: return [GestureConfiguration.key(.global, .dial, .long): .command,
                                GestureConfiguration.key(.global, .ok, .long): .models]
-        case .dualSense: return [GestureConfiguration.key(.global, .l2, .hold): .command]
+        case .dualSense: return [GestureConfiguration.key(.global, .r1, .hold): .command]
         // The keyboard has a command key of its own: a right-hand modifier held alone.
         case .xiaomiRemote, .keyboard: return [:]
         }
@@ -115,14 +121,32 @@ struct DeviceTemplate {
                L10n.tr("默认未分配，可按自己的习惯设置。", "Unassigned by default. Make this button your own."),
                symbol, x, y)
     }
+    /// A controller button. Besides the clicks and the hold it can be a step: at once on the way down, repeating while held.
+    private static func pad(_ control: DeviceControl, _ title: String, _ detail: String,
+                            _ symbol: String, _ x: Double, _ y: Double) -> DeviceTemplateControl {
+        DeviceTemplateControl(control: control, title: title, detail: detail, symbol: symbol,
+                              gestures: buttonGestures + [.rotate], x: x, y: y)
+    }
+    private static func pad(unassigned control: DeviceControl, _ symbol: String, _ x: Double, _ y: Double) -> DeviceTemplateControl {
+        pad(control, control.label, L10n.tr("默认未分配，可按自己的习惯设置。", "Unassigned by default. Make this button your own."), symbol, x, y)
+    }
+    /// A direction-pad button is a step by default.
+    private static func arrow(_ control: DeviceControl, _ symbol: String, _ x: Double, _ y: Double) -> DeviceTemplateControl {
+        let vertical = control.direction == .up || control.direction == .down
+        return DeviceTemplateControl(control: control, title: control.label,
+            detail: vertical
+                ? L10n.tr("按一下滚屏 · 列表里上一个 / 下一个 · 按住连续移动", "Press to scroll or move through a list · hold to keep going")
+                : L10n.tr("编辑时移动光标 · 列表里上一个 / 下一个 · 按住连续移动", "Press to move the caret when editing or through a list · hold to keep going"),
+            symbol: symbol, gestures: [.rotate] + buttonGestures, x: x, y: y)
+    }
 
     private static func stick(_ control: DeviceControl, _ symbol: String,
                               _ x: Double, _ y: Double) -> DeviceTemplateControl {
         let vertical = [.leftStickUp, .leftStickDown, .rightStickUp, .rightStickDown].contains(control)
         return DeviceTemplateControl(control: control, title: control.label,
             detail: vertical
-                ? L10n.tr("拨动滚屏 · 选择器中切换候选 · 持续拨住连续移动，回中停止", "Tilt to scroll or navigate pickers · keep tilted to repeat; center to stop")
-                : L10n.tr("编辑时移动光标 · 阅读时滚屏 · 持续拨住连续移动，回中停止", "Move the cursor when editing or scroll when reading · keep tilted to repeat; center to stop"),
+                ? L10n.tr("拨动滚屏 · 列表里上一个 / 下一个 · 持续拨住连续移动，回中停止", "Tilt to scroll or move through a list · keep tilted to repeat; center to stop")
+                : L10n.tr("编辑时移动光标 · 列表里上一个 / 下一个 · 持续拨住连续移动，回中停止", "Tilt to move the caret when editing or through a list · keep tilted to repeat; center to stop"),
             symbol: symbol, gestures: [.rotate], x: x, y: y)
     }
 
@@ -137,19 +161,20 @@ struct DeviceTemplate {
                 button(.ok, L10n.tr("OK 键", "OK"), L10n.tr("确认 / Enter", "Confirm / Enter"), "return", 0.50, 0.72),
                 button(.escape, L10n.tr("ESC 键", "ESC"), L10n.tr("删除 / 返回 · 编辑时按住连续删除", "Delete / back · hold to keep deleting while editing"), "delete.left", 0.50, 0.88)
             ]),
-        DeviceTemplate(id: .dualSense, title: L10n.tr("手柄", "Controller"), subtitle: L10n.tr("右手完成全部操作 · 按键可自定义", "Everything within your right hand · fully remappable"),
+        DeviceTemplate(id: .dualSense, title: L10n.tr("手柄", "Controller"), subtitle: L10n.tr("右肩说话 · 左肩切换 · 面键确认删除 · 摇杆方向键移动", "Right shoulder talks · left shoulder switches · face buttons act · sticks and D-pad move"),
             connectionNote: L10n.tr("通过 USB 连接，或先在 macOS 蓝牙设置中配对。系统支持的手柄会自动识别，无需导入 HID 配置。按键支持以设备实际提供的输入为准。", "Connect over USB or pair in macOS Bluetooth settings. Supported controllers are detected automatically, without an HID profile. Available buttons depend on the device."),
-            audioNote: L10n.tr("USB 麦克风以系统输入设备实际识别为准；蓝牙使用 Mac 或外接麦克风。△ 按住听写。", "For USB microphones, check macOS input devices. With Bluetooth, use your Mac or an external microphone. Hold △ to dictate."),
+            audioNote: L10n.tr("USB 麦克风以系统输入设备实际识别为准；蓝牙使用 Mac 或外接麦克风。△ 或 R2 按住听写。", "For USB microphones, check macOS input devices. With Bluetooth, use your Mac or an external microphone. Hold △ or R2 to dictate."),
             controls: [
-                direction(.left, "R1", 0.79, 0.21), direction(.right, "R2", 0.78, 0.10),
-                button(.dial, L10n.tr("□ 方形键", "□ Square"), L10n.tr("单击退格 · 按住连续删除", "Press to backspace · hold to keep deleting"), "square", 0.75, 0.38),
-                button(.ok, L10n.tr("× 交叉键", "× Cross"), L10n.tr("单击返回 · 双击切应用 · 长按会话 / 标签页", "Press to go back · double press to switch apps · long press for chats / tabs"), "xmark", 0.82, 0.47),
-                button(.escape, L10n.tr("○ 圆形键", "○ Circle"), L10n.tr("单击确认 / Enter · 长按模型 / 强度", "Press to confirm / Enter · long press for models / effort"), "circle", 0.89, 0.38),
-                button(.voice, L10n.tr("△ 三角键", "△ Triangle"), L10n.tr("右拇指按住听写；食指可同时使用 R1 / R2 导航", "Hold with your right thumb to dictate while navigating with R1 / R2."), "triangle", 0.82, 0.29),
-                unassigned(.l1, "l1.button.roundedbottom.horizontal", 0.21, 0.21),
-                unassigned(.l2, "l2.button.roundedtop.horizontal", 0.22, 0.10),
-                unassigned(.leftStickPress, "l.joystick.press.down", 0.37, 0.56),
-                unassigned(.rightStickPress, "r.joystick.press.down", 0.64, 0.56),
+                pad(.r1, "R1", L10n.tr("命令模式配好后：按住说一句命令", "Once command mode is set up: hold to speak a command"), "r1.button.roundedbottom.horizontal", 0.79, 0.21),
+                pad(.r2, "R2", L10n.tr("按住听写：食指扣着说，拇指可以继续翻页", "Hold to dictate: the index finger holds it while the thumb keeps scrolling"), "r2.button.roundedtop.horizontal", 0.78, 0.10),
+                pad(.dial, L10n.tr("□ 方形键", "□ Square"), L10n.tr("单击退格 · 按住连续删除", "Press to backspace · hold to keep deleting"), "square", 0.75, 0.38),
+                pad(.ok, L10n.tr("× 交叉键", "× Cross"), L10n.tr("返回 / 停止 · 列表里取消", "Back / stop · cancel in a list"), "xmark", 0.82, 0.47),
+                pad(.escape, L10n.tr("○ 圆形键", "○ Circle"), L10n.tr("确认 / Enter · 列表里确认", "Confirm / Enter · confirm in a list"), "circle", 0.89, 0.38),
+                pad(.voice, L10n.tr("△ 三角键", "△ Triangle"), L10n.tr("按住听写，松开结束", "Hold to dictate; release to finish"), "triangle", 0.82, 0.29),
+                pad(.l1, "L1", L10n.tr("单击会话 / 标签页 · 长按模型 / 强度 · 列表里下一个", "Press for chats / tabs · long press for models / effort · next item in a list"), "l1.button.roundedbottom.horizontal", 0.21, 0.21),
+                pad(.l2, "L2", L10n.tr("按住切应用：轻按回到上一个应用；按住时左右选择，松开切换", "Hold to switch apps: a tap returns to the app before; while held choose with left / right, release to switch"), "l2.button.roundedtop.horizontal", 0.22, 0.10),
+                pad(unassigned: .leftStickPress, "l.joystick.press.down", 0.37, 0.56),
+                pad(unassigned: .rightStickPress, "r.joystick.press.down", 0.64, 0.56),
                 stick(.leftStickUp, "arrow.up", 0.37, 0.51),
                 stick(.leftStickDown, "arrow.down", 0.37, 0.61),
                 stick(.leftStickLeft, "arrow.left", 0.32, 0.56),
@@ -158,15 +183,15 @@ struct DeviceTemplate {
                 stick(.rightStickDown, "arrow.down", 0.64, 0.61),
                 stick(.rightStickLeft, "arrow.left", 0.59, 0.56),
                 stick(.rightStickRight, "arrow.right", 0.69, 0.56),
-                unassigned(.dpadUp, "arrow.up", 0.18, 0.29),
-                unassigned(.dpadDown, "arrow.down", 0.18, 0.47),
-                unassigned(.dpadLeft, "arrow.left", 0.11, 0.38),
-                unassigned(.dpadRight, "arrow.right", 0.25, 0.38),
-                unassigned(.options, "line.3.horizontal", 0.68, 0.30),
-                unassigned(.create, "square.and.arrow.up", 0.32, 0.30),
-                unassigned(.home, "house", 0.50, 0.61),
-                button(.touchpad, L10n.tr("触摸板", "Touchpad"), L10n.tr("滑动移动光标 · 按压鼠标左键", "Slide to move the pointer · press to click"), "rectangle", 0.50, 0.34),
-                unassigned(.mute, "mic.slash", 0.50, 0.68)
+                arrow(.dpadUp, "arrow.up", 0.18, 0.29),
+                arrow(.dpadDown, "arrow.down", 0.18, 0.47),
+                arrow(.dpadLeft, "arrow.left", 0.11, 0.38),
+                arrow(.dpadRight, "arrow.right", 0.25, 0.38),
+                pad(.options, L10n.tr("☰ 选项键", "☰ Options"), L10n.tr("打开 / 关闭按键一览", "Show / hide the controls card"), "line.3.horizontal", 0.68, 0.30),
+                pad(unassigned: .create, "square.and.arrow.up", 0.32, 0.30),
+                pad(unassigned: .home, "house", 0.50, 0.61),
+                pad(.touchpad, L10n.tr("触摸板", "Touchpad"), L10n.tr("滑动移动光标 · 按压鼠标左键", "Slide to move the pointer · press to click"), "rectangle", 0.50, 0.34),
+                pad(unassigned: .mute, "mic.slash", 0.50, 0.68)
             ]),
         DeviceTemplate(id: .xiaomiRemote, title: L10n.tr("遥控器", "Remote"), subtitle: L10n.tr("方向键 + 语音 + 返回", "Direction pad + voice + back"),
             connectionNote: L10n.tr("逻辑模板已就绪；macOS 配对、HID 按键及释放事件需实测后导入配置。", "Pair with macOS and import a verified HID profile that includes button press and release events."),
@@ -178,8 +203,8 @@ struct DeviceTemplate {
                 button(.escape, L10n.tr("返回键", "Back"), L10n.tr("删除 / 返回 · 编辑时按住连续删除", "Delete / back · hold to keep deleting while editing"), "arrow.uturn.backward", 0.29, 0.64),
                 button(.ok, L10n.tr("菜单键", "Menu"), L10n.tr("单击切换会话 / 标签页 · 长按模型 · 选择器中确认", "Press to switch chats / tabs · long press for models · confirm in pickers"), "line.3.horizontal", 0.71, 0.64),
                 unassigned(.power, "power", 0.50, 0.07),
-                unassigned(.dpadUp, "arrow.up", 0.50, 0.29),
-                unassigned(.dpadDown, "arrow.down", 0.50, 0.47),
+                arrow(.dpadUp, "arrow.up", 0.50, 0.29),
+                arrow(.dpadDown, "arrow.down", 0.50, 0.47),
                 unassigned(.home, "house", 0.50, 0.57),
                 unassigned(.volumeUp, "plus", 0.35, 0.76),
                 unassigned(.volumeDown, "minus", 0.65, 0.76)
@@ -227,7 +252,7 @@ final class DeviceTemplateStore {
         var configurations: [String: GestureConfiguration] = [:]
         var profiles: [String: HIDDeviceProfile] = [:]
         // Optional for the v1 store written before controller pointer support.
-        var presetRevision: Int? = 5
+        var presetRevision: Int? = 6
     }
     private let defaults: UserDefaults
     private var state: State
@@ -249,6 +274,7 @@ final class DeviceTemplateStore {
             migrateSessionConfirmation()
             migrateEffortModelEntry()
             migrateHeldDelete()
+            migrateControllerLayout()
         } else {
             state = State()
             state.presetRevision = 1
@@ -257,6 +283,7 @@ final class DeviceTemplateStore {
             migrateSessionConfirmation()
             migrateEffortModelEntry()
             migrateHeldDelete()
+            migrateControllerLayout()
         }
     }
 
@@ -355,8 +382,7 @@ final class DeviceTemplateStore {
         }
         if var saved = state.configurations[DeviceTemplateID.dualSense.rawValue] {
             let old = GestureConfiguration()
-            let updated = DeviceTemplateID.dualSense.template.defaultConfiguration
-            for (key, action) in updated.overrides {
+            for (key, action) in Self.formerControllerPreset {
                 let parts = key.split(separator: ".").map(String.init)
                 guard let scope = GestureScope(rawValue: parts[0]),
                       let control = DeviceControl(rawValue: parts[1]),
@@ -395,6 +421,60 @@ final class DeviceTemplateStore {
             state.configurations[DeviceTemplateID.dualSense.rawValue] = saved
         }
         state.presetRevision = 5
+        try? persist()
+    }
+    /// The controller's bindings before revision 6, to tell what a saved layout left as it came.
+    static var formerControllerPreset: [String: GestureAction] {
+        var former = GestureConfiguration()
+        former.set(.global, .dial, .single, .deleteBackward)
+        former.set(.global, .dial, .double, GestureAction.none)
+        former.set(.global, .dial, .long, .deleteBackward)
+        former.set(.global, .escape, .single, .contextConfirm)
+        former.set(.global, .escape, .long, .models)
+        former.set(.global, .ok, .single, .escape)
+        former.set(.global, .ok, .double, .switchApplications)
+        former.set(.global, .ok, .long, .contextDial)
+        former.set(.global, .touchpad, .single, .pointerClick)
+        for scope in [GestureScope.sessions, .models, .efforts, .applications] {
+            let apps = scope == .applications, chats = scope == .sessions
+            former.set(scope, .escape, .single, apps ? .confirmApplication : chats ? .cancelPicker : .confirmCandidate)
+            former.set(scope, .ok, .single, apps ? .cancelApplication : chats ? .confirmCandidate : .cancelPicker)
+            former.set(scope, .dial, .single, GestureAction.none)
+            for control in [DeviceControl.dial, .ok, .escape] {
+                former.set(scope, control, .double, GestureAction.none)
+                former.set(scope, control, .long, GestureAction.none)
+            }
+        }
+        former.set(.efforts, .escape, .long, .models)
+        return former.overrides
+    }
+    /// Revision 6: R1 and R2 are buttons of their own, and the controller's layout was rearranged around them.
+    /// A binding left as it came takes its new value; one the user had changed stays.
+    private func migrateControllerLayout() {
+        guard (state.presetRevision ?? 1) < 6 else { return }
+        if var saved = state.configurations[DeviceTemplateID.dualSense.rawValue] {
+            // R1 and R2 used to arrive as the two turns of a dial, one pulse a press. What they were given moves to
+            // the gesture a button has for it: speaking is held now that there is a release to end it, moving
+            // is a step, and anything else is a press.
+            let moves: Set<GestureAction> = [.contextLeft, .contextRight, .cursorLeft, .cursorRight, .scrollUp, .scrollDown,
+                                             .previousCandidate, .nextCandidate, .previousApplication, .nextApplication]
+            for (turn, button) in [(DeviceControl.left, DeviceControl.r1), (.right, .r2)] {
+                for scope in GestureScope.allCases {
+                    guard let action = saved.overrides.removeValue(forKey: GestureConfiguration.key(scope, turn, .rotate)) else { continue }
+                    let kind: GestureKind = action == .command || action == .dictation ? .hold : moves.contains(action) ? .rotate : .single
+                    saved.overrides[GestureConfiguration.key(scope, button, kind)] = action
+                }
+            }
+            let former = Self.formerControllerPreset, fresh = DeviceTemplateID.dualSense.template.defaultConfiguration.overrides
+            func control(_ key: String) -> Substring { key.split(separator: ".")[1] }
+            // A button that came empty and was given something by the user is left to them.
+            let taken = Set(saved.overrides.keys.map(control)).subtracting(former.keys.map(control))
+            for key in Set(former.keys).union(fresh.keys) where saved.overrides[key] == former[key] && !taken.contains(control(key)) {
+                saved.overrides[key] = fresh[key]
+            }
+            state.configurations[DeviceTemplateID.dualSense.rawValue] = saved
+        }
+        state.presetRevision = 6
         try? persist()
     }
     private func migrateSessionConfirmation() {

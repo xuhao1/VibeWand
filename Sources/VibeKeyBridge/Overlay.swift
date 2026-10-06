@@ -590,30 +590,21 @@ private final class CompanionView: NSView {
             let width = designSize.width - right - 16
             let y: CGFloat = expanded ? 153 : 143
             let step: CGFloat = expanded ? 48 : 45
-            var result = [
-                item("voice", .voice, NSRect(x: right, y: y, width: width, height: 31), "mic"),
-                item("square", .dial, NSRect(x: right, y: y + step, width: width, height: 31), "delete.left"),
-                item("circle", .escape, NSRect(x: right, y: y + step * 2, width: width, height: 31), "arrow.uturn.backward"),
-                item("cross", .ok, NSRect(x: right - 8, y: y + step * 3, width: width + 8, height: 31), "xmark.circle")
-            ]
-            let navX: CGFloat = expanded ? 345 : 316
-            let previous = HUDGuidance.primary(.left, snapshot: snapshot)?.action
-            let next = HUDGuidance.primary(.right, snapshot: snapshot)?.action
-            let navigation: String
-            if previous == .scrollDown && next == .scrollUp {
-                navigation = L10n.tr("R1 下滚 · R2 上滚", "R1 Down · R2 Up")
-            } else if previous == .cursorLeft && next == .cursorRight {
-                navigation = L10n.tr("R1 左移 · R2 右移", "R1 Left · R2 Right")
-            } else if (previous == .previousCandidate && next == .nextCandidate) || (previous == .previousApplication && next == .nextApplication) {
-                navigation = L10n.tr("R1 上个 · R2 下个", "R1 Prev · R2 Next")
-            } else {
-                navigation = "R1/R2 · \(HUDGuidance.primary(.left, snapshot: snapshot)?.caption ?? "—")/\(HUDGuidance.primary(.right, snapshot: snapshot)?.caption ?? "—")"
+            var result = [.voice, .dial, .escape, .ok].enumerated().map { index, control in
+                item(control.rawValue, control, NSRect(x: right - (index == 3 ? 8 : 0), y: y + step * CGFloat(index), width: width + (index == 3 ? 8 : 0), height: 31),
+                     HUDGuidance.primary(control, snapshot: snapshot)?.action.symbol ?? "minus")
             }
-            result.append(Callout(id: "shoulders", rect: NSRect(x: navX, y: 65, width: designSize.width - navX - 16, height: 31),
-                control: .right, symbol: "", caption: navigation, fromBottom: true, secondary: .left))
-            result.append(Callout(id: "touch", rect: NSRect(x: expanded ? 183 : 160, y: 65, width: 146, height: 31),
-                control: .touchpad, symbol: "hand.draw", caption: L10n.tr("滑动 · 光标", "Slide · pointer"), fromBottom: true))
-            for index in result.indices where !["touch", "shoulders"].contains(result[index].id) {
+            // Across the top, each shoulder pair shares a caption: the left one switches, the right one talks.
+            func shoulders(_ first: DeviceControl, _ second: DeviceControl) -> String {
+                [first, second].map { "\(HUDGuidance.shortName($0, template: .dualSense)) \(HUDGuidance.primary($0, snapshot: snapshot)?.caption ?? "—")" }.joined(separator: " · ")
+            }
+            let side: CGFloat = expanded ? 176 : 152
+            let switching = NSRect(x: 16, y: 65, width: side, height: 31), talking = NSRect(x: designSize.width - 16 - side, y: 65, width: side, height: 31)
+            result.append(Callout(id: "top.left", rect: switching, control: .l2, symbol: "", caption: shoulders(.l1, .l2), fromBottom: true, secondary: .l1))
+            result.append(Callout(id: "top.right", rect: talking, control: .r2, symbol: "", caption: shoulders(.r1, .r2), fromBottom: true, secondary: .r1))
+            result.append(Callout(id: "top.touch", rect: NSRect(x: switching.maxX + 4, y: 65, width: talking.minX - switching.maxX - 8, height: 31),
+                control: .touchpad, symbol: "", caption: L10n.tr("触摸板 · 指针", "Touchpad · pointer"), fromBottom: true))
+            for index in result.indices where !result[index].id.hasPrefix("top.") {
                 let measured = (result[index].caption as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 11, weight: .medium)]).width
                 let desired = min(expanded ? 154 : 132, max(result[index].rect.width, ceil(measured) + 42))
                 result[index].rect.origin.x = designSize.width - 16 - desired
@@ -677,12 +668,14 @@ private final class CompanionView: NSView {
             let color: NSColor = callout.emphasized ? darkAppearance ? .init(srgbRed: 0.67, green: 0.84, blue: 1, alpha: 1) : .systemBlue : .labelColor
             let inset: CGFloat = callout.symbol.isEmpty ? 10 : 33
             if !callout.symbol.isEmpty { symbol(callout.symbol, rect: NSRect(x: callout.rect.minX + 11, y: callout.rect.midY - 7, width: 15, height: 15), color: color) }
-            text(callout.caption, rect: NSRect(x: callout.rect.minX + inset, y: callout.rect.midY - 7, width: callout.rect.width - inset - 9, height: 17), size: callout.id == "shoulders" ? 10 : 11, weight: .medium, color: color)
+            text(callout.caption, rect: NSRect(x: callout.rect.minX + inset, y: callout.rect.midY - 7, width: callout.rect.width - inset - 9, height: 17), size: callout.fromBottom ? 10 : 11, weight: .medium, color: color,
+                 alignment: callout.fromBottom ? .center : .left)
         }
         if deviceTemplate == .dualSense {
             let rect = NSRect(x: 40, y: deviceRect.maxY + 4, width: deviceRect.width - 46, height: 25)
             OverlayGlassSkin.pill(in: rect, dark: darkAppearance)
-            let caption = "↑ \(HUDGuidance.primary(.rightStickUp, snapshot: snapshot)?.caption ?? "—") · ↓ \(HUDGuidance.primary(.rightStickDown, snapshot: snapshot)?.caption ?? "—")"
+            let moves = HUDGuidance.directions(snapshot.controlHints, up: .rightStickUp, down: .rightStickDown, left: .rightStickLeft, right: .rightStickRight)
+            let caption = moves.isEmpty ? "—" : moves.joined(separator: " · ")
             symbol("r.joystick", rect: NSRect(x: rect.minX + 11, y: rect.minY + 6, width: 13, height: 13), color: .secondaryLabelColor)
             text(caption, rect: NSRect(x: rect.minX + 32, y: rect.minY + 5, width: rect.width - 42, height: 16), size: 10.5, weight: .medium, color: .secondaryLabelColor, alignment: .center)
         }
@@ -708,13 +701,11 @@ private final class CompanionView: NSView {
     }
 
     private func extraGestureText() -> String {
-        let controls: [DeviceControl] = deviceTemplate == .dualSense ? (expanded ? [.ok, .escape] : [.ok]) : (expanded ? [.dial, .ok] : [.dial])
+        let controls: [DeviceControl] = deviceTemplate == .dualSense ? [.r1, .options] : (expanded ? [.dial, .ok] : [.dial])
         let kinds: [GestureKind] = [.long, .double]
         let result = controls.flatMap { control in
-            (snapshot.controlHints[control] ?? []).filter { kinds.contains($0.kind) }.map { "\(HUDGuidance.shortName(control, template: deviceTemplate)) \($0.title)" }
-        }
-        if result.isEmpty && snapshot.scope == .sessions && deviceTemplate == .dualSense {
-            return L10n.tr("R1 / R2 或摇杆选择", "Choose with R1/R2 or the stick")
+            (snapshot.controlHints[control] ?? []).filter { kinds.contains($0.kind) || $0.action == .showControls }
+                .map { "\(HUDGuidance.shortName(control, template: deviceTemplate)) \($0.action == .showControls ? $0.caption : $0.title)" }
         }
         return result.isEmpty ? snapshot.action : result.joined(separator: " · ")
     }

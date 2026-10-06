@@ -17,21 +17,23 @@ final class DualSenseMicrophoneSourceTests: XCTestCase {
         var r1 = report()
         r1[10] = 0x02
         let shoulder = try XCTUnwrap(DualSenseMicrophoneSource.sample(from: r1))
-        XCTAssertEqual(shoulder.buttons[.left], true)
-        XCTAssertEqual(shoulder.buttons[.right], false)
+        XCTAssertEqual(shoulder.buttons[.r1], true)
+        XCTAssertEqual(shoulder.buttons[.r2], false)
 
         var r2 = report()
         r2[7] = 255
         let trigger = try XCTUnwrap(DualSenseMicrophoneSource.sample(from: r2))
-        XCTAssertEqual(trigger.buttons[.left], false)
-        XCTAssertEqual(trigger.buttons[.right], true)
+        XCTAssertEqual(trigger.buttons[.r1], false)
+        XCTAssertEqual(trigger.buttons[.r2], true)
 
+        // Both are buttons with a release of their own, as on the native controller.
         var decoder = GameControllerDecoder()
-        XCTAssertEqual(decoder.consume(shoulder, now: 0).filter { $0.control == .left },
-                       [GameControllerTransition(control: .left, phase: .pulse)])
-        _ = decoder.consume(try XCTUnwrap(DualSenseMicrophoneSource.sample(from: report())), now: 0.1)
-        XCTAssertEqual(decoder.consume(trigger, now: 0.2).filter { $0.control == .right },
-                       [GameControllerTransition(control: .right, phase: .pulse)])
+        XCTAssertEqual(decoder.consume(shoulder, now: 0).filter { $0.control == .r1 },
+                       [GameControllerTransition(control: .r1, phase: .down)])
+        XCTAssertEqual(decoder.consume(try XCTUnwrap(DualSenseMicrophoneSource.sample(from: report())), now: 0.1),
+                       [GameControllerTransition(control: .r1, phase: .up)])
+        XCTAssertEqual(decoder.consume(trigger, now: 0.2).filter { $0.control == .r2 },
+                       [GameControllerTransition(control: .r2, phase: .down)])
     }
 
     @MainActor

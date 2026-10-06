@@ -40,6 +40,7 @@ swift run AU05Capture --list > hid-interfaces.json
 | 控件 | 逻辑输入名（按钮 `control` / 轴正负方向） |
 | --- | --- |
 | 左肩键与左扳机 | `l1`、`l2` |
+| 右肩键与右扳机（0.10.2） | `r1`、`r2`；用 `button` 绑定。旧配置里绑到 `left` / `right` 的 `pulse` 仍是单步导航 |
 | 摇杆按压 | `leftStickPress`、`rightStickPress` |
 | 左摇杆方向 | `leftStickUp`、`leftStickDown`、`leftStickLeft`、`leftStickRight` |
 | 右摇杆方向 | `rightStickUp`、`rightStickDown`、`rightStickLeft`、`rightStickRight` |

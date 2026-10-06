@@ -51,6 +51,8 @@ extension DeviceControl {
         case .forceEscape: return L10n.tr("原生 Escape", "Native Escape")
         case .l1: return "L1"
         case .l2: return "L2"
+        case .r1: return "R1"
+        case .r2: return "R2"
         case .leftStickPress: return L10n.tr("左摇杆按下 · L3", "Left stick press · L3")
         case .rightStickPress: return L10n.tr("右摇杆按下 · R3", "Right stick press · R3")
         case .leftStickUp: return L10n.tr("左摇杆 ↑", "Left stick ↑")

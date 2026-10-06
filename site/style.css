@@ -393,6 +393,23 @@ h3 {
     text-align: center;
 }
 
+/* The controls card, as wide as the device cards above it. */
+
+.controls {
+    max-width: 980px;
+    margin: 34px auto 10px;
+}
+
+.controls img {
+    width: 100%;
+    border-radius: 18px;
+}
+
+.controls .caption {
+    margin-top: 10px;
+    text-align: center;
+}
+
 /* Why */
 
 .why p + p {

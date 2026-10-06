@@ -61,8 +61,8 @@ struct GameControllerDecoder {
                 continue
             }
             if down, buttons.insert(control).inserted {
-                events.append(GameControllerTransition(control: control, phase: control == .left || control == .right ? .pulse : .down))
-            } else if !down, buttons.remove(control) != nil, control != .left, control != .right {
+                events.append(GameControllerTransition(control: control, phase: .down))
+            } else if !down, buttons.remove(control) != nil {
                 events.append(GameControllerTransition(control: control, phase: .up))
             }
         }
@@ -105,7 +105,7 @@ struct GameControllerDecoder {
     }
 
     mutating func reset() -> [GameControllerTransition] {
-        let held = buttons.filter { $0 != .left && $0 != .right }.union(axes.values.map(\.control))
+        let held = buttons.union(axes.values.map(\.control))
         buttons.removeAll(); axes.removeAll(); suppressedButtons.removeAll(); suppressedAxes.removeAll()
         return held.sorted { $0.rawValue < $1.rawValue }.map { GameControllerTransition(control: $0, phase: .cancel) }
     }
@@ -345,7 +345,7 @@ final class GameControllerInputSource: ControllerPointerEventSource {
         var buttons: [AU05Control: Bool] = [
             .ok: gamepad.buttonA.isPressed, .escape: gamepad.buttonB.isPressed,
             .dial: gamepad.buttonX.isPressed, .voice: gamepad.buttonY.isPressed,
-            .left: gamepad.rightShoulder.isPressed, .right: gamepad.rightTrigger.isPressed,
+            .r1: gamepad.rightShoulder.isPressed, .r2: gamepad.rightTrigger.isPressed,
             .l1: gamepad.leftShoulder.isPressed, .l2: gamepad.leftTrigger.isPressed,
             .dpadUp: gamepad.dpad.up.isPressed, .dpadDown: gamepad.dpad.down.isPressed,
             .dpadLeft: gamepad.dpad.left.isPressed, .dpadRight: gamepad.dpad.right.isPressed,

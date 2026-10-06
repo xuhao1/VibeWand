@@ -4,7 +4,7 @@ public enum AU05Control: String, Codable, CaseIterable, Sendable {
     case voice, ok, escape, dial, right, left
     // Additional logical controls are available to imported generic HID profiles.
     // AU05KeyDecoder continues to decode only its original six wire inputs.
-    case l1, l2, leftStickPress, rightStickPress
+    case l1, l2, r1, r2, leftStickPress, rightStickPress
     case leftStickUp, leftStickDown, leftStickLeft, leftStickRight
     case rightStickUp, rightStickDown, rightStickLeft, rightStickRight
     case dpadUp, dpadDown, dpadLeft, dpadRight

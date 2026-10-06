@@ -45,12 +45,12 @@ enum GestureAction: String, CaseIterable, Codable {
     case sessions, models, deleteBackward, enter, escape, cursorLeft, cursorRight, scrollUp, scrollDown
     case previousCandidate, nextCandidate, confirmCandidate, cancelPicker
     case dictation, command, pointerClick, switchApplications, previousApplication, nextApplication, confirmApplication, cancelApplication
-    case toggleOverlay, openSettings, toggleGuide
+    case toggleOverlay, openSettings, toggleGuide, showControls
     var category: ActionCategory {
         switch self {
         case .dictation, .command, .pointerClick, .switchApplications, .previousApplication, .nextApplication, .confirmApplication, .cancelApplication:
             return .system
-        case .none, .toggleOverlay, .openSettings, .toggleGuide:
+        case .none, .toggleOverlay, .openSettings, .toggleGuide, .showControls:
             return .vibeWand
         default: return .application
         }
@@ -87,6 +87,28 @@ enum GestureAction: String, CaseIterable, Codable {
         case .toggleOverlay: return L10n.tr("显示 / 隐藏悬浮面板", "Show / hide overlay")
         case .openSettings: return L10n.tr("打开 VibeWand 设置", "Open VibeWand settings")
         case .toggleGuide: return L10n.tr("展开 / 收起按键说明", "Show / hide button guide")
+        case .showControls: return L10n.tr("打开 / 关闭按键一览", "Show / hide the controls card")
+        }
+    }
+    /// The picture that stands for the action beside its caption.
+    var symbol: String {
+        switch self {
+        case .none: return "minus"
+        case .dictation: return "mic"
+        case .command: return "sparkles"
+        case .contextDial, .sessions: return "bubble.left.and.bubble.right"
+        case .models: return "slider.horizontal.3"
+        case .contextConfirm, .enter, .confirmCandidate, .confirmApplication: return "return"
+        case .contextEscape, .escape, .cancelPicker, .cancelApplication: return "arrow.uturn.backward"
+        case .deleteBackward: return "delete.left"
+        case .scrollUp, .scrollDown: return "arrow.up.arrow.down"
+        case .contextLeft, .contextRight, .cursorLeft, .cursorRight: return "arrow.left.arrow.right"
+        case .previousCandidate, .nextCandidate: return "list.bullet"
+        case .switchApplications, .previousApplication, .nextApplication: return "square.on.square"
+        case .pointerClick: return "cursorarrow.click"
+        case .toggleOverlay: return "macwindow"
+        case .openSettings: return "gearshape"
+        case .toggleGuide, .showControls: return "gamecontroller"
         }
     }
     static func legacy(_ control: DeviceControl?) -> GestureAction {
@@ -99,7 +121,7 @@ enum GestureAction: String, CaseIterable, Codable {
         case .voice: return .dictation
         case .settings: return .models
         case .forceEscape: return .escape
-        case .l1, .l2, .leftStickPress, .rightStickPress,
+        case .l1, .l2, .r1, .r2, .leftStickPress, .rightStickPress,
              .leftStickUp, .leftStickDown, .leftStickLeft, .leftStickRight,
              .rightStickUp, .rightStickDown, .rightStickLeft, .rightStickRight,
              .dpadUp, .dpadDown, .dpadLeft, .dpadRight,
@@ -140,17 +162,25 @@ struct GestureConfiguration: Codable {
         }
         if scope != .global, let custom = explicit(.global, control, kind) { return custom }
         if let layered = commandLayer[Self.key(.global, control, kind)] { return layered }
-        // New direction defaults also apply to saved configurations from before
-        // sticks were supported. Explicit user overrides above always win.
-        if control.isStickDirection && kind == .rotate {
-            let backwards = [.leftStickUp, .leftStickLeft, .rightStickUp, .rightStickLeft].contains(control)
+        // A stick or the direction pad moves the way it points: up is up in a page and in a list, and
+        // sideways moves the caret. Saved configurations get these too; an explicit override above wins.
+        if let direction = control.direction, kind == .rotate {
+            // A direction-pad button the user gave a click is theirs: the step stands aside for it.
+            if !control.isStickDirection, [GestureKind.single, .double, .long].contains(where: {
+                (explicit(scope, control, $0) ?? explicit(.global, control, $0) ?? .none) != .none
+            }) { return .none }
+            let backwards = direction == .up || direction == .left
             switch scope {
             case .applications: return backwards ? .previousApplication : .nextApplication
             case .sessions, .models, .efforts: return backwards ? .previousCandidate : .nextCandidate
             default:
-                if [.leftStickUp, .rightStickUp].contains(control) { return .scrollDown }
-                if [.leftStickDown, .rightStickDown].contains(control) { return .scrollUp }
-                return backwards ? .contextLeft : .contextRight
+                switch direction {
+                case .up: return .scrollUp
+                case .down: return .scrollDown
+                // With no draft there is no caret to move.
+                case .left: return scope == .reading ? .none : .cursorLeft
+                case .right: return scope == .reading ? .none : .cursorRight
+                }
             }
         }
         let builtInNavigation = ((control == .left || control == .right) && kind == .rotate)
@@ -182,6 +212,15 @@ struct GestureConfiguration: Codable {
         default: return .none
         }
     }
+    /// The gestures among `kinds` that can fire on a button in a scene: a hold owns the whole press,
+    /// and a step leaves no room for clicks.
+    func live(_ scope: GestureScope, _ control: DeviceControl, _ kinds: [GestureKind]) -> [GestureKind] {
+        guard !control.isStickDirection, control != .left, control != .right else { return kinds }
+        let clicks: Set<GestureKind> = [.single, .double, .long]
+        if action(scope, control, .hold) != .none { return kinds.filter { !clicks.contains($0) && $0 != .rotate } }
+        if action(scope, control, .rotate) != .none { return kinds.filter { !clicks.contains($0) } }
+        return kinds
+    }
     mutating func set(_ scope: GestureScope, _ control: DeviceControl, _ kind: GestureKind, _ action: GestureAction?) {
         overrides[Self.key(scope, control, kind)] = action
     }
@@ -199,6 +238,18 @@ struct GestureConfiguration: Codable {
     enum ConfigurationError: LocalizedError {
         case invalid
         var errorDescription: String? { L10n.tr("配置格式或手势时间范围不正确。", "Invalid configuration format or gesture timing.") }
+    }
+}
+
+extension GestureConfiguration {
+    /// A layout written by a later version may name an action this one does not have. That one binding is left
+    /// out and the rest is read: failing here would throw away every saved layout, for every device.
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try values.decode(Int.self, forKey: .schemaVersion)
+        doubleClickInterval = try values.decode(Double.self, forKey: .doubleClickInterval)
+        longPressInterval = try values.decode(Double.self, forKey: .longPressInterval)
+        overrides = try values.decode([String: String].self, forKey: .overrides).compactMapValues(GestureAction.init(rawValue:))
     }
 }
 
@@ -224,7 +275,12 @@ struct GestureEngine {
         var doubleInterval: TimeInterval
         var suppressed = false
         var secondClick = false
+        /// A step fires as the button goes down and again while it stays down, like an arrow key.
+        var step = GestureAction.none
+        var nextStep: TimeInterval = 0
     }
+    /// The pace a tilted stick repeats at.
+    static let stepDelay = GameControllerDecoder.repeatDelay, stepInterval = GameControllerDecoder.repeatInterval
     private struct Click { var press: Press; var due: TimeInterval }
     private var presses: [DeviceControl: Press] = [:]
     private var clicks: [DeviceControl: Click] = [:]
@@ -241,22 +297,28 @@ struct GestureEngine {
         if holdAction != .none && (phase == .down || (phase == .pulse && !isRotation)) {
             clicks.removeValue(forKey: control)
         }
+        // A release ends a step where it is: there is no last one on the way up.
+        if phase == .up { presses[control]?.step = .none }
         var out = phase == .cancel ? [] : tick(now: now)
         switch phase {
         case .down:
             guard presses[control] == nil else { return out }
             sequence &+= 1
+            // A button with a step bound leaves no room for clicks; a hold still comes first.
+            let step: GestureAction = holdAction == .none && !isRotation ? config.action(scope, control, .rotate) : .none
             var press = Press(started: now, token: sequence,
                 single: config.action(scope, control, .single), double: config.action(scope, control, .double),
                 long: config.action(scope, control, .long), hold: holdAction,
                 longInterval: config.longPressInterval, doubleInterval: config.doubleClickInterval,
-                suppressed: holdAction != .none || control.isStickDirection)
+                suppressed: holdAction != .none || control.isStickDirection || step != .none,
+                step: step, nextStep: now + Self.stepDelay)
             if press.hold == .none, let previous = clicks[control], now <= previous.due,
                previous.press.double == press.double, press.double != .none {
                 clicks.removeValue(forKey: control); press.secondClick = true
             }
             presses[control] = press
             if press.hold != .none { out.append(signal(control, .hold, press.hold, .down, press.token)) }
+            else if step != .none { out.append(signal(control, .rotate, step, .pulse, press.token)) }
         case .up, .cancel:
             if phase == .cancel { clicks.removeValue(forKey: control) }
             guard let press = presses.removeValue(forKey: control) else { return out }
@@ -295,7 +357,12 @@ struct GestureEngine {
             if click.press.single != .none { out.append(signal(control, .single, click.press.single, .pulse, click.press.token)) }
         }
         for (control, var press) in presses.sorted(by: { $0.key.rawValue < $1.key.rawValue }) {
-            if !press.suppressed && now - press.started >= press.longInterval {
+            if press.step != .none {
+                // One step a tick: a late tick never catches up with a burst.
+                guard now >= press.nextStep else { continue }
+                press.nextStep = now + Self.stepInterval; presses[control] = press
+                out.append(signal(control, .rotate, press.step, .pulse, press.token))
+            } else if !press.suppressed && now - press.started >= press.longInterval {
                 press.suppressed = true; presses[control] = press; clicks.removeValue(forKey: control)
                 if press.long != .none { out.append(signal(control, .long, press.long, .pulse, press.token)) }
             }

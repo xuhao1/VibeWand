@@ -4,7 +4,7 @@
 
 ## 1. Download and open
 
-Download **[VibeWand-0.10.1-macOS-arm64.zip](https://github.com/xuhao1/VibeWand/releases/download/v0.10.1/VibeWand-0.10.1-macOS-arm64.zip)** from [GitHub Releases](https://github.com/xuhao1/VibeWand/releases/latest). This package requires **macOS 26+** and an **Apple Silicon Mac**; it does not include an Intel binary. The download is about 106 MB, as it carries the kernel for command mode and the SenseVoice recogniser. On macOS 13 to 15, use [0.8.4](https://github.com/xuhao1/VibeWand/releases/tag/v0.8.4).
+Download **[VibeWand-0.10.2-macOS-arm64.zip](https://github.com/xuhao1/VibeWand/releases/download/v0.10.2/VibeWand-0.10.2-macOS-arm64.zip)** from [GitHub Releases](https://github.com/xuhao1/VibeWand/releases/latest). This package requires **macOS 26+** and an **Apple Silicon Mac**; it does not include an Intel binary. The download is about 106 MB, as it carries the kernel for command mode and the SenseVoice recogniser. On macOS 13 to 15, use [0.8.4](https://github.com/xuhao1/VibeWand/releases/tag/v0.8.4).
 
 1. Double-click the ZIP in Finder to extract **VibeWand.app**.
 2. Drag it into **Applications**.
@@ -50,14 +50,16 @@ Open **Connect device…** and check the live device name and connection status.
 
 Open Settings → Voice input. External mode uses your input method configured for held Fn. Built-in mode offers macOS dictation, Alibaba Qwen Realtime and compatible transcription APIs. Keys stay in Keychain and are excluded from exports. Use Start test to check recognition and permissions.
 
-Focus an editable field, hold the VibeKey microphone key or Controller △, and release to finish. Review text before sending. Built-in mode records from the microphone of the device whose key you hold (the VibeKey, for example) and falls back to the macOS default input; Voice input settings can pin the system sound input and hold your own vocabulary and subject hint. An optional DualSense Bluetooth microphone path is available in Devices & inputs; see [requirements and setup](dualsense-microphone-integration.md). For USB controller audio, check the actual macOS input-device list separately. See [Voice input](voice-input.md).
+Focus an editable field, hold the VibeKey microphone key or Controller △ (since 0.10.2, R2 as well), and release to finish. Review text before sending. Built-in mode records from the microphone of the device whose key you hold (the VibeKey, for example) and falls back to the macOS default input; Voice input settings can pin the system sound input and hold your own vocabulary and subject hint. An optional DualSense Bluetooth microphone path is available in Devices & inputs; see [requirements and setup](dualsense-microphone-integration.md). For USB controller audio, check the actual macOS input-device list separately. See [Voice input](voice-input.md).
 
 ## 5. Try the default workflow
 
-1. Bring a [supported app](applications.en.md#supported-programs-at-a-glance) such as Codex or Claude to the foreground and read a reply. Turn the dial or use R1 / R2 to scroll.
+1. Bring a [supported app](applications.en.md#supported-programs-at-a-glance) such as Codex or Claude to the foreground and read a reply. Turn the dial, or scroll with a controller's D-pad or sticks.
 2. Focus a draft, hold the dictation button, speak, then release. With an observed nonempty draft, navigation moves the caret.
 3. Confirm only when ready: OK on VibeKey or ○ on Controller. Return follows the target app's send/newline preference.
-4. Double-press the dial or Controller × to open app switching. Navigate and confirm; back cancels.
+4. Double-press the dial to open app switching, navigate and confirm; back cancels. On a controller hold L2, choose with left / right, and release to switch.
+
+The controller steps above are the 0.10.2 layout; press ☰ on the controller for the whole [controls card](core-experience.en.md#the-controls-card). Up to 0.10.1 scrolling was on R1 / R2 and app switching was a double press of ×.
 
 The floating panel shows input and context without taking keyboard focus. Its gear opens settings; × hides it. Restore it from the menu bar.
 

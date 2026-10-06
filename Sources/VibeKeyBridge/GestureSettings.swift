@@ -214,6 +214,10 @@ final class SettingsModel: ObservableObject {
         if kind == .rotate && selected.control.rawValue.contains("Stick") {
             return tr("拨动 / 持续拨住", "Tilt / keep tilted")
         }
+        // On a button a step is the press itself: at once on the way down, again while it stays down.
+        if kind == .rotate && selected.control != .left && selected.control != .right {
+            return tr("按下即触发 · 按住连发", "Press at once · repeats while held")
+        }
         return kind == .rotate && template.id != .vibeKey ? tr("按下", "Press") : kind.label
     }
     func setTiming(double: Double? = nil, long: Double? = nil) {
@@ -358,7 +362,7 @@ private enum InputGroup: String, CaseIterable {
         switch self {
         case .all: return true
         case .buttons: return [.dial,.ok,.escape,.voice].contains(control)
-        case .shoulders: return [.left,.right,.l1,.l2].contains(control)
+        case .shoulders: return [.l1,.l2,.r1,.r2].contains(control)
         case .sticks: return control.rawValue.contains("Stick")
         case .dpad: return [.dpadUp,.dpadDown,.dpadLeft,.dpadRight].contains(control)
         case .more: return !InputGroup.buttons.contains(control) && !InputGroup.shoulders.contains(control) && !InputGroup.sticks.contains(control) && !InputGroup.dpad.contains(control)
@@ -384,6 +388,8 @@ struct DeviceSettings: View {
                 Toggle(tr("跟随正在使用的设备", "Follow the device in use"), isOn: Binding(get: { model.runtime.followsActiveDevice },
                     set: { model.runtime.setFollowsActiveDevice($0); model.refresh() })).toggleStyle(.switch).controlSize(.small)
                 Spacer(minLength: 0)
+                Button { model.runtime.toggleCard() } label: { Label(tr("按键一览", "Controls"), systemImage: "gamecontroller") }
+                    .help(tr("把当前布局画成一张图：每个键在每个场景里做什么。", "The layout as one picture: what every control does in every scene."))
                 Button(action: model.importGestures) { Label(tr("导入", "Import"), systemImage: "square.and.arrow.down") }
                 Button(action: model.exportGestures) { Label(tr("导出", "Export"), systemImage: "square.and.arrow.up") }
                 Button { model.runtime.resetConfiguration(); model.refresh() } label: { Label(tr("恢复默认", "Reset"), systemImage: "arrow.counterclockwise") }
@@ -673,6 +679,9 @@ private struct InputInspector: View {
             HStack { Text(tr("触发方式", "Gestures")).font(.system(size: 13, weight: .semibold)); Spacer(); Text(tr("点击更改动作", "Click to assign")).font(.system(size: 12)).foregroundStyle(.tertiary) }
             if model.config.action(model.scope, model.selected.control, .hold) != .none {
                 Text(tr("按住动作优先生效；单击、双击和长按配置会保留，暂不触发。", "Hold takes priority. Tap and long-press bindings are kept but inactive while Hold is assigned."))
+                    .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            } else if model.config.live(model.scope, model.selected.control, model.selected.gestures) != model.selected.gestures {
+                Text(tr("「按下即触发」生效时，这个键像方向键一样立刻动作并连发；单击、双击和长按配置会保留，暂不触发。", "While “Press at once” is assigned the button acts like an arrow key. Tap and long-press bindings are kept but inactive."))
                     .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             ScrollView {

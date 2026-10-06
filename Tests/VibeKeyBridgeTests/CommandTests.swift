@@ -239,16 +239,17 @@ final class CommandTests: XCTestCase {
         XCTAssertFalse(String(decoding: try JSONEncoder().encode(configuration), as: UTF8.self).contains("command"))
     }
 
-    func testControllerSpeaksOnL2AndAnswersWithItsPickerButtons() {
+    func testControllerSpeaksOnR1AndAnswersWithItsPickerButtons() {
         var configuration = DeviceTemplateID.dualSense.template.defaultConfiguration
-        XCTAssertEqual(configuration.action(.reading, .l2, .hold), GestureAction.none)
+        XCTAssertEqual(configuration.action(.reading, .r1, .hold), GestureAction.none)
         configuration.commandLayer = DeviceTemplateID.dualSense.template.commandBindings
-        XCTAssertEqual(configuration.action(.reading, .l2, .hold), .command)
-        XCTAssertEqual(configuration.action(.command, .l2, .hold), .command)
+        XCTAssertEqual(configuration.action(.reading, .r1, .hold), .command)
+        XCTAssertEqual(configuration.action(.command, .r1, .hold), .command)
         // While the coordinator asks, the device answers it as it answers a model picker.
         XCTAssertEqual(configuration.action(.command, .escape, .single), .confirmCandidate)
         XCTAssertEqual(configuration.action(.command, .ok, .single), .cancelPicker)
-        XCTAssertEqual(configuration.action(.command, .left, .rotate), .previousCandidate)
+        XCTAssertEqual(configuration.action(.command, .dpadUp, .rotate), .previousCandidate)
+        XCTAssertEqual(configuration.action(.command, .rightStickDown, .rotate), .nextCandidate)
         XCTAssertEqual(GestureConfiguration().action(.command, .right, .rotate), .nextCandidate)
         XCTAssertTrue(DeviceTemplateID.xiaomiRemote.template.commandBindings.isEmpty)
     }

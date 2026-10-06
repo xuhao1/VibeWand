@@ -53,6 +53,7 @@ To turn it on, choose Plugin mode under Settings → Command mode → Model → 
 | 0.9.0 | `vibewand-coordinator` 0.9.0 | 0.2.0-rc.2 (the runtime carried by the desktop app) |
 | 0.10.0 | `vibewand-coordinator` 0.10.0; with all tools, `vibewand-overlay` 0.10.0 as well | 0.2.0-rc.2 |
 | 0.10.1 | `vibewand-coordinator` 0.10.1; with all tools, `vibewand-overlay` 0.10.1 as well | 0.2.0-rc.2 |
+| 0.10.2 | `vibewand-coordinator` 0.10.2; with all tools, `vibewand-overlay` 0.10.2 as well. Their contents are those of 0.10.1; only the version changed | 0.2.0-rc.2 |
 
 The settings page shows the version it found and whether it is verified. On a version outside the table a command does not run and says why. You can turn on “Try this unverified version anyway”, and VibeWand then records an exemption the way the harness does, for exactly this plugin version on this harness version. It may fail; switch back to the built-in kernel if it does. The desktop app updates itself, so meeting this after an update is to be expected. The built-in copy stays at 0.2.0-rc.2 and is not affected.
 
@@ -119,7 +120,7 @@ Hold to speak, release to run.
 | Input | Default |
 | --- | --- |
 | VibeKey | Long-press the dial and keep holding; release when done. While command mode is usable, the model entry is a long press of OK |
-| Controller | Hold L2 |
+| Controller | Hold R1 (since 0.10.2; L2 up to 0.10.1) |
 | Keyboard | Hold right ⌘ on its own for about 0.2 s; Settings offers the other right-hand modifiers, or none. The same key serves the [keyboard layout](device-templates.en.md#keyboard) |
 | Remote | No default; bind one yourself |
 
@@ -144,7 +145,7 @@ The overlay's speech bar shows what was heard, the step in progress, and any que
 
 | When needed | Device | Keyboard |
 | --- | --- | --- |
-| Choose | Dial, stick or R1 / R2 | ↑ ↓ |
+| Choose | Dial, stick or D-pad | ↑ ↓ |
 | Confirm | Confirm button | Return |
 | Stop | Back button (ESC on VibeKey) | Esc |
 

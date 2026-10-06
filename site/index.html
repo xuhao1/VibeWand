@@ -50,7 +50,7 @@
 <section class="hero">
     <div class="wrap">
         <img class="hero-icon" src="img/icon.webp" alt="" width="112" height="112">
-        <div><span class="pill"><span lang="zh">当前版本</span><span lang="en">Current release</span><b>0.10.1</b></span></div>
+        <div><span class="pill"><span lang="zh">当前版本</span><span lang="en">Current release</span><b>0.10.2</b></span></div>
         <h1 class="wordmark">Vibe<span>Wand</span></h1>
         <p class="cn-name" lang="zh">如意魔棒</p>
         <p class="tagline">One wand to command them all.</p>
@@ -70,9 +70,9 @@
         <p class="caption" lang="zh">还有 iTerm2 里的 Claude Code、Codex、OpenCode，以及 Edge、Brave、Firefox、Opera、Vivaldi。</p>
         <p class="caption" lang="en">Also Claude Code, Codex and OpenCode in iTerm2, and Edge, Brave, Firefox, Opera and Vivaldi.</p>
         <div class="cta">
-            <a class="btn primary" href="https://github.com/xuhao1/vibewand-site/releases/download/v0.10.1/VibeWand-0.10.1-macOS-arm64.zip">
+            <a class="btn primary" href="https://github.com/xuhao1/vibewand-site/releases/download/v0.10.2/VibeWand-0.10.2-macOS-arm64.zip">
                 <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v8.5M4.5 7.5 8 11l3.5-3.5M3 14h10"/></svg>
-                <span lang="zh">下载 0.10.1（Apple Silicon）</span><span lang="en">Download 0.10.1 (Apple Silicon)</span>
+                <span lang="zh">下载 0.10.2（Apple Silicon）</span><span lang="en">Download 0.10.2 (Apple Silicon)</span>
             </a>
             <a class="btn" href="#apps"><span lang="zh">在每个应用里能做什么</span><span lang="en">What it does in each app</span></a>
         </div>
@@ -219,6 +219,12 @@
         <p class="note" lang="en"><strong>No device needed.</strong> On the keyboard six key combinations stand for the buttons, and any key, a custom keyboard's extra keys included, is recorded by pressing it; a physical custom keyboard has not been tried.</p>
         <p class="note" lang="zh">几个设备可以同时连着。在哪个上面按键，面板和按键布局就跟到哪个，不用进设置切换。蓝牙手柄闲置十来分钟会自己关机，设置里有个“保持手柄唤醒”的开关。</p>
         <p class="note" lang="en">Several devices can stay connected at once. Press a button on one and the overlay and button layout follow it; there is nothing to switch in Settings. A Bluetooth controller powers itself off after about ten idle minutes, so Settings has a “Keep the controller awake” switch.</p>
+        <figure class="controls">
+            <img lang="zh" src="img/controls-zh.webp" width="2160" height="1360" loading="lazy" alt="VibeWand 0.10.2 手柄默认布局的按键一览，离屏渲染">
+            <img lang="en" src="img/controls-en.webp" width="2160" height="1360" loading="lazy" alt="The controls card of VibeWand 0.10.2 with the controller's default layout, rendered off screen">
+            <figcaption class="caption" lang="zh">忘了哪个键是干什么的，随时可以调出按键一览：每个键旁边写着它现在的作用，按到哪个哪个亮。图为 0.10.2 的手柄默认布局，由应用自己的视图离屏渲染。</figcaption>
+            <figcaption class="caption" lang="en">Forgot what a button does? Bring up the controls card: each control with what it does right now, and whatever you press lights up. Shown is the controller's default layout in 0.10.2, rendered off screen from the app's own view.</figcaption>
+        </figure>
         <p class="disclaimer" lang="zh">VibeWand 是独立项目，与 Ulanzi、Sony、小米及其他设备厂商没有隶属、合作、赞助或背书关系。产品名称与商标归各自所有者。设备图为示意渲染，不是产品照片。</p>
         <p class="disclaimer" lang="en">VibeWand is an independent project. It is not affiliated with, sponsored by or endorsed by Ulanzi, Sony, Xiaomi or any other device maker. Product names and trademarks belong to their owners. Device images are illustrative renders, not product photographs.</p>
     </div>
@@ -275,8 +281,8 @@
             </table>
         </div>
 
-        <p class="note" lang="zh">不在表里的应用也有三件事能用：听写跟着键盘焦点走，松开后文字就在输入框里；双击切换 macOS 应用；手柄触摸板移动指针和点击。想让别的应用也响应切换会话和换模型这两个键，在设置里添加它并指定快捷键。每个应用的适配都能在设置里单独关掉。</p>
-        <p class="note" lang="en">Three things work in apps that are not in the table. Dictation follows the keyboard focus, and the text is in the field when you release. A double press switches macOS apps. The controller's touchpad moves the pointer and clicks. To make another app answer the chat and model buttons, add it in Settings and assign the shortcuts. Each app's support can be turned off in Settings.</p>
+        <p class="note" lang="zh">不在表里的应用也有三件事能用：听写跟着键盘焦点走，松开后文字就在输入框里；切换 macOS 应用；手柄触摸板移动指针和点击。想让别的应用也响应切换会话和换模型这两个键，在设置里添加它并指定快捷键。每个应用的适配都能在设置里单独关掉。</p>
+        <p class="note" lang="en">Three things work in apps that are not in the table. Dictation follows the keyboard focus, and the text is in the field when you release. Switching macOS apps works everywhere. The controller's touchpad moves the pointer and clicks. To make another app answer the chat and model buttons, add it in Settings and assign the shortcuts. Each app's support can be turned off in Settings.</p>
         <p class="disclaimer" lang="zh">浏览器里没有模型可换，同一个键改为跳到地址栏。微信的聊天控件读不到，会话键只是打开它自己的搜索，选择结果还没有在真实应用里验证过。应用的名称和图标是各自所有者的商标，这里只用来说明兼容性；VibeWand 与它们没有隶属、赞助或背书关系。</p>
         <p class="disclaimer" lang="en">A browser has no model to change, so the same button jumps to the address bar. WeChat's chat controls cannot be read, so the chat button only opens WeChat's own search, and choosing a result there has not been verified in the real app. App names and icons are trademarks of their owners, shown only to indicate compatibility; VibeWand is not affiliated with, sponsored by or endorsed by them.</p>
     </div>
@@ -366,11 +372,11 @@
                 <p lang="zh">需要 macOS 26 以上和 M 系列芯片。解压后把 <strong>VibeWand.app</strong> 拖进“应用程序”并打开。第一次打开会出现引导，带你走完权限、设备、语音输入和命令模式，每一步都可以跳过。</p>
                 <p lang="en">Requires macOS 26 or later on an M-series Mac. Unzip, drag <strong>VibeWand.app</strong> into Applications and open it. The first launch shows a guide that walks you through permission, your device, voice input and command mode; every step can be skipped.</p>
                 <div class="cta">
-                    <a class="btn primary" href="https://github.com/xuhao1/vibewand-site/releases/download/v0.10.1/VibeWand-0.10.1-macOS-arm64.zip">
+                    <a class="btn primary" href="https://github.com/xuhao1/vibewand-site/releases/download/v0.10.2/VibeWand-0.10.2-macOS-arm64.zip">
                         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v8.5M4.5 7.5 8 11l3.5-3.5M3 14h10"/></svg>
-                        <span lang="zh">下载 VibeWand 0.10.1</span><span lang="en">Download VibeWand 0.10.1</span>
+                        <span lang="zh">下载 VibeWand 0.10.2</span><span lang="en">Download VibeWand 0.10.2</span>
                     </a>
-                    <a class="btn" href="https://github.com/xuhao1/vibewand-site/releases/tag/v0.10.1"><span lang="zh">说明与校验和</span><span lang="en">Notes and checksum</span></a>
+                    <a class="btn" href="https://github.com/xuhao1/vibewand-site/releases/tag/v0.10.2"><span lang="zh">说明与校验和</span><span lang="en">Notes and checksum</span></a>
                 </div>
                 <p class="fine" lang="zh">这个版本是临时签名，没有做 Apple 公证。首次打开如果被 macOS 阻止，在“系统设置 → 隐私与安全性”里允许，见 <a href="https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unidentified-developer-mh40616/mac">Apple 的说明</a>。</p>
                 <p class="fine" lang="en">This build is ad-hoc signed and not notarized by Apple. If macOS blocks the first launch, allow it under System Settings → Privacy &amp; Security; see <a href="https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unidentified-developer-mh40616/mac">Apple's guide</a>.</p>

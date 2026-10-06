@@ -4,7 +4,7 @@
 
 ## 1. 下载并打开
 
-从 [GitHub Releases](https://github.com/xuhao1/VibeWand/releases/latest) 下载 **[VibeWand-0.10.1-macOS-arm64.zip](https://github.com/xuhao1/VibeWand/releases/download/v0.10.1/VibeWand-0.10.1-macOS-arm64.zip)**。本包要求 **macOS 26+**、**Apple Silicon Mac**，不含 Intel 可执行文件，下载约 106 MB（内含命令模式的内核和本机 SenseVoice 的识别程序）；macOS 13–15 请使用 [0.8.4](https://github.com/xuhao1/VibeWand/releases/tag/v0.8.4)。
+从 [GitHub Releases](https://github.com/xuhao1/VibeWand/releases/latest) 下载 **[VibeWand-0.10.2-macOS-arm64.zip](https://github.com/xuhao1/VibeWand/releases/download/v0.10.2/VibeWand-0.10.2-macOS-arm64.zip)**。本包要求 **macOS 26+**、**Apple Silicon Mac**，不含 Intel 可执行文件，下载约 106 MB（内含命令模式的内核和本机 SenseVoice 的识别程序）；macOS 13–15 请使用 [0.8.4](https://github.com/xuhao1/VibeWand/releases/tag/v0.8.4)。
 
 1. 在 Finder 中双击 ZIP，解压得到 **VibeWand.app**。
 2. 拖入「应用程序」。
@@ -50,14 +50,16 @@
 
 打开「设置 → 语音输入」。外置模式继续使用 Typeless、豆包等，需让输入法接受「按住 Fn」触发。内置模式可选择 macOS 系统听写、阿里 Qwen 实时语音，或兼容语音转文字 API。密钥进入钥匙串，不随配置导出。先用设置页的「开始测试」检查识别与权限。
 
-聚焦可编辑输入框，按住 VibeKey 麦克风键或手柄 △，说完松开，检查文字后再发送。内置模式默认用按下听写键的设备自带的麦克风（例如 VibeKey），设备没有麦克风时用 macOS 默认输入；可在「语音输入」改为始终使用系统声音输入，并填写自己的词表和领域提示。「设备与按键」提供可选 DualSense 蓝牙语音，要求与操作见[接入说明](dualsense-microphone-integration.md)；USB 手柄音频需单独检查系统输入设备列表。详见[语音输入](voice-input.md)。
+聚焦可编辑输入框，按住 VibeKey 麦克风键或手柄 △（0.10.2 起 R2 也行），说完松开，检查文字后再发送。内置模式默认用按下听写键的设备自带的麦克风（例如 VibeKey），设备没有麦克风时用 macOS 默认输入；可在「语音输入」改为始终使用系统声音输入，并填写自己的词表和领域提示。「设备与按键」提供可选 DualSense 蓝牙语音，要求与操作见[接入说明](dualsense-microphone-integration.md)；USB 手柄音频需单独检查系统输入设备列表。详见[语音输入](voice-input.md)。
 
 ## 5. 试一次默认流程
 
-1. 切到[支持的应用](applications.md#支持的程序一览)，例如 Codex 或 Claude，阅读回复。转动旋钮或使用 R1 / R2 滚屏。
+1. 切到[支持的应用](applications.md#支持的程序一览)，例如 Codex 或 Claude，阅读回复。转动旋钮，或用手柄的方向键、摇杆滚屏。
 2. 聚焦草稿，按住听写键说话，再松开。有字且被识别的草稿中，导航移动光标。
 3. 准备好再确认：VibeKey 使用 OK，手柄使用 ○；Return 的发送 / 换行行为由目标应用决定。
-4. 双击旋钮或手柄 × 打开应用切换，导航后确认，返回键取消。
+4. 双击旋钮打开应用切换，导航后确认，返回键取消；手柄是按住 L2，左右选，松开切换。
+
+上面手柄的操作是 0.10.2 的布局，在手柄上按 ☰ 可以看到整张[按键一览](core-experience.md#按键一览)；0.10.1 及以前滚屏用 R1 / R2，切应用是双击 ×。
 
 悬浮面板显示输入和场景，不抢键盘焦点。齿轮打开设置，× 隐藏面板，菜单栏可重新显示。
 

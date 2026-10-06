@@ -118,6 +118,9 @@ final class BridgeRuntime {
     private var languageObserver: NSObjectProtocol?
     private var presentationScope = GestureScope.reading
     private var presentationProfile = ApplicationProfile.codex
+    /// The scene the controls card shows; nil while it is closed.
+    private var cardScene: GestureScope?
+    private var cardTried = ""
 
     init(source: (any HIDEventSource)? = nil, templates: DeviceTemplateStore = DeviceTemplateStore(),
          sourceFactory: ((HIDDeviceProfile?, DeviceTemplateID) throws -> any HIDEventSource)? = nil,
@@ -284,6 +287,38 @@ final class BridgeRuntime {
         }
         guard templates.selectedID == .vibeKey else { return nil }
         return SpeechAudioInput.deviceUID(vendorID: AU05HIDClient.vendorID, productID: AU05HIDClient.productID)
+    }
+
+    // MARK: Controls card
+
+    /// Opens the card on the scene the app in front is in, or closes it. While it is open the device only
+    /// turns its pages: a press lights its label up and reaches no app.
+    func toggleCard() {
+        guard cardScene == nil else { showCard(nil); return }
+        // The chat picker's page stands for every list.
+        showCard(ControlsCardSnapshot.scenes.contains(presentationScope) ? presentationScope
+                 : presentationScope == .global ? .reading : .sessions)
+    }
+    func showCard(_ scene: GestureScope?) {
+        if cardScene == nil, scene != nil { cancelAll() }
+        cardScene = scene; cardTried = ""; emit()
+    }
+    /// The card answers the device the way a list does: forwards and backwards turn its pages, back closes it.
+    private func turnCard(_ signal: GestureSignal, scene: GestureScope) {
+        let owner: DeviceControl = signal.kind == .heldLeft || signal.kind == .heldRight ? .dial : signal.control
+        let scenes = ControlsCardSnapshot.scenes, index = scenes.firstIndex(of: scene) ?? 0
+        switch signal.action == .showControls ? .cancelPicker : configuration.action(.models, owner, signal.kind) {
+        case .previousCandidate, .contextLeft: cardScene = scenes[max(0, index - 1)]
+        case .nextCandidate, .contextRight: cardScene = scenes[min(scenes.count - 1, index + 1)]
+        case .cancelPicker, .contextEscape, .escape: cardScene = nil
+        default: break
+        }
+        // What the press would have done on the page it was made on.
+        let action = configuration.action(scene, owner, signal.kind)
+        let name = HUDGuidance.shortName(owner, template: templates.selectedID)
+        cardTried = action == .none ? name : name + " · " + HUDGestureHint(kind: signal.kind, action: action,
+            caption: HUDGuidance.caption(action, scope: scene, profile: presentationProfile)).title
+        emit()
     }
 
     // MARK: Device following
@@ -606,6 +641,15 @@ final class BridgeRuntime {
         }
     }
     private func dispatch(_ signal: GestureSignal) {
+        // The touchpad stays a mouse, so the card's own tabs and close button can be clicked with it.
+        if let scene = cardScene, signal.action != .pointerClick {
+            if signal.phase == .down || signal.phase == .pulse { turnCard(signal, scene: scene) }
+            return
+        }
+        if signal.action == .showControls {
+            if signal.phase == .down || signal.phase == .pulse { toggleCard() }
+            return
+        }
         if signal.action == .command {
             guard !demo else { return }
             switch (signal.kind, signal.phase) {
@@ -877,6 +921,10 @@ final class BridgeRuntime {
             snapshot.status = voiceInput.displayMessage
         }
         snapshot.command = command.hud
+        // A question from the coordinator needs the device back.
+        if command.hud.capturesControls { cardScene = nil }
+        snapshot.card = cardScene.map { ControlsCardSnapshot(scene: $0, hints: HUDGuidance.hints(template: templates.selectedTemplate,
+            configuration: configuration, scope: $0, profile: presentationProfile), tried: cardTried) }
         snapshot.deviceTemplate = templates.selectedID
         snapshot.connectedTemplates = connectedTemplates
         snapshot.selection = demo || captureOnly ? "" : adapter.selectionTitle

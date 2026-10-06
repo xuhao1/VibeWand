@@ -30,7 +30,7 @@ struct CommandHUDSnapshot: Equatable {
 
 enum DeviceControl: String, CaseIterable, Codable {
     case dial, left, right, ok, escape, voice, settings, forceEscape
-    case l1, l2, leftStickPress, rightStickPress
+    case l1, l2, r1, r2, leftStickPress, rightStickPress
     case leftStickUp, leftStickDown, leftStickLeft, leftStickRight
     case rightStickUp, rightStickDown, rightStickLeft, rightStickRight
     case dpadUp, dpadDown, dpadLeft, dpadRight
@@ -44,15 +44,38 @@ enum DeviceControl: String, CaseIterable, Codable {
         default: return false
         }
     }
+
+    enum Direction { case up, down, left, right }
+    /// Where a stick tilt or a direction-pad button points.
+    var direction: Direction? {
+        switch self {
+        case .leftStickUp, .rightStickUp, .dpadUp: return .up
+        case .leftStickDown, .rightStickDown, .dpadDown: return .down
+        case .leftStickLeft, .rightStickLeft, .dpadLeft: return .left
+        case .leftStickRight, .rightStickRight, .dpadRight: return .right
+        default: return nil
+        }
+    }
 }
 
 enum InputPhase: String, Codable {
     case down, up, pulse, cancel
 }
 
+/// The controls card: the scene it shows, what every control does there, and the last thing tried on it.
+struct ControlsCardSnapshot: Equatable {
+    /// One page a scene. The chat picker stands for every list.
+    static let scenes: [GestureScope] = [.reading, .editing, .sessions, .applications]
+    var scene: GestureScope
+    var hints: [DeviceControl: [HUDGestureHint]]
+    var tried = ""
+}
+
 struct HUDSnapshot {
     var voice = VoiceHUDSnapshot()
     var command = CommandHUDSnapshot()
+    /// Present while the controls card is open.
+    var card: ControlsCardSnapshot?
     var deviceTemplate: DeviceTemplateID = .vibeKey
     var connectedTemplates: Set<DeviceTemplateID> = []
     /// Name of the chat or model currently highlighted in a picker.

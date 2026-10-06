@@ -38,8 +38,8 @@ struct DeviceArtwork {
             ])
         case .dualSense:
             return DeviceArtwork(imageName: "gamepad", aspectRatio: 1536.0 / 1024.0, hotspots: [
-                .left: CGPoint(x: 0.782, y: 0.136),
-                .right: CGPoint(x: 0.783, y: 0.070),
+                .r1: CGPoint(x: 0.782, y: 0.136),
+                .r2: CGPoint(x: 0.783, y: 0.070),
                 .dial: CGPoint(x: 0.7305, y: 0.3711),
                 .ok: CGPoint(x: 0.7956, y: 0.4697),
                 .escape: CGPoint(x: 0.860, y: 0.3711),

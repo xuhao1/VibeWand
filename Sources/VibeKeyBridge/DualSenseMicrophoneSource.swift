@@ -125,7 +125,7 @@ final class DualSenseMicrophoneSource: HIDEventSource {
         buttons[.dpadDown] = [3,4,5].contains(hat)
         buttons[.dpadLeft] = [5,6,7].contains(hat)
         for (control, down) in [(.dial,b0 & 0x10 != 0),(.ok,b0 & 0x20 != 0),(.escape,b0 & 0x40 != 0),(.voice,b0 & 0x80 != 0),
-                                (.l1,b1 & 0x01 != 0),(.left,b1 & 0x02 != 0),(.l2,report[state+4] > 32),(.right,report[state+5] > 32),
+                                (.l1,b1 & 0x01 != 0),(.r1,b1 & 0x02 != 0),(.l2,report[state+4] > 32),(.r2,report[state+5] > 32),
                                 (.create,b1 & 0x10 != 0),(.options,b1 & 0x20 != 0),(.leftStickPress,b1 & 0x40 != 0),(.rightStickPress,b1 & 0x80 != 0),
                                 (.home,b2 & 0x01 != 0),(.touchpad,b2 & 0x02 != 0),(.mute,b2 & 0x04 != 0)] as [(AU05Control,Bool)] {
             buttons[control] = down

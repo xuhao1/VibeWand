@@ -11,7 +11,8 @@ struct HUDGestureHint: Equatable {
         case .double: gesture = L10n.tr("双击", "Double")
         case .long: gesture = L10n.tr("长按", "Long")
         case .hold: gesture = L10n.tr("按住", "Hold")
-        case .rotate: gesture = L10n.tr("拨动", "Move")
+        // A step is the plain press of its button or the tilt of its stick: the caption says it all.
+        case .rotate: return caption
         case .heldLeft: gesture = L10n.tr("按住左旋", "Hold + left")
         case .heldRight: gesture = L10n.tr("按住右旋", "Hold + right")
         }
@@ -25,7 +26,7 @@ enum HUDGuidance {
     static func hints(template: DeviceTemplate, configuration: GestureConfiguration,
                       scope: GestureScope, profile: ApplicationProfile) -> [DeviceControl: [HUDGestureHint]] {
         Dictionary(uniqueKeysWithValues: template.controls.map { item in
-            (item.control, item.gestures.compactMap { kind in
+            (item.control, configuration.live(scope, item.control, item.gestures).compactMap { kind in
                 let action = configuration.action(scope, item.control, kind)
                 let deletes = action == .deleteBackward || (action == .contextEscape && scope == .editing)
                 return action == .none ? nil : HUDGestureHint(kind: kind, action: action,
@@ -38,6 +39,27 @@ enum HUDGuidance {
     static func primary(_ control: DeviceControl, snapshot: HUDSnapshot) -> HUDGestureHint? {
         let hints = snapshot.controlHints[control] ?? []
         return hints.first(where: { $0.kind == .hold }) ?? hints.first
+    }
+
+    /// Two opposite controls said in one breath where their actions are a pair, e.g. "↑↓ Scroll".
+    static func pair(_ first: HUDGestureHint?, _ second: HUDGestureHint?, _ names: (String, String)) -> String? {
+        switch (first?.action, second?.action) {
+        case (nil, nil): return nil
+        case (.scrollUp?, .scrollDown?): return names.0 + names.1 + " " + L10n.tr("滚屏", "Scroll")
+        case (.cursorLeft?, .cursorRight?): return names.0 + names.1 + " " + L10n.tr("移动光标", "Move caret")
+        case (.previousCandidate?, .nextCandidate?), (.previousApplication?, .nextApplication?):
+            return names.0 + names.1 + " " + L10n.tr("上一个 / 下一个", "Previous / next")
+        default: return "\(names.0) \(first?.caption ?? "—") · \(names.1) \(second?.caption ?? "—")"
+        }
+    }
+    /// What the four directions of a stick or the direction pad do, on as few lines as say it.
+    static func directions(_ hints: [DeviceControl: [HUDGestureHint]], up: DeviceControl, down: DeviceControl,
+                           left: DeviceControl, right: DeviceControl) -> [String] {
+        let vertical = pair(hints[up]?.first, hints[down]?.first, ("↑", "↓"))
+        let sideways = pair(hints[left]?.first, hints[right]?.first, ("←", "→"))
+        // In a list all four step through it.
+        if let vertical, let sideways, vertical.dropFirst(2) == sideways.dropFirst(2), vertical.hasPrefix("↑↓") { return ["↑↓←→" + vertical.dropFirst(2)] }
+        return [vertical, sideways].compactMap { $0 }
     }
 
     static func caption(_ action: GestureAction, scope: GestureScope, profile: ApplicationProfile) -> String {
@@ -75,6 +97,9 @@ enum HUDGuidance {
         case .nextCandidate, .nextApplication: return L10n.tr("下一个", "Next")
         case .switchApplications: return L10n.tr("切应用", "Switch apps")
         case .confirmApplication: return L10n.tr("确认切换", "Switch")
+        case .showControls: return L10n.tr("按键一览", "Controls")
+        case .toggleOverlay: return L10n.tr("显示 / 隐藏面板", "Overlay")
+        case .openSettings: return L10n.tr("设置", "Settings")
         default: return action.label
         }
     }
@@ -115,8 +140,10 @@ enum HUDGuidance {
             case .ok: return "×"
             case .escape: return "○"
             case .voice: return "△"
-            case .left: return "R1"
-            case .right: return "R2"
+            case .options: return "☰"
+            case .touchpad: return L10n.tr("触摸板", "Touchpad")
+            case .leftStickPress: return "L3"
+            case .rightStickPress: return "R3"
             default: break
             }
         }

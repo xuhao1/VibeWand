@@ -329,7 +329,11 @@ struct KeysStep: View {
     @ObservedObject var guide: OnboardingModel
     /// The six inputs every layout has, in the order the hand meets them.
     private static let core: [DeviceControl] = [.voice, .dial, .left, .right, .ok, .escape]
-    private var keys: [DeviceTemplateControl] { Self.core.compactMap { control in model.template.controls.first { $0.control == control } } }
+    private var keys: [DeviceTemplateControl] {
+        // A controller is told by its shoulders, which talk and switch, and by the two buttons that confirm and go back.
+        let wanted = model.template.id == .dualSense ? [.r1, .r2, .l1, .l2, .escape, .ok] : Self.core
+        return wanted.compactMap { control in model.template.controls.first { $0.control == control } }
+    }
 
     /// Where an action sits on this layout, with the command key as it will be once command mode is live.
     private func bound(_ action: GestureAction) -> String? {
@@ -372,6 +376,7 @@ struct KeysStep: View {
                     }.labelsHidden().fixedSize()
                 }
                 Spacer(minLength: 0)
+                Button(tr("按键一览", "Controls")) { model.runtime.toggleCard() }
                 Button(tr("自定义按键…", "Customise…")) { guide.openSettings?(.devices) }
             }
             .padding(14).frame(maxWidth: .infinity, alignment: .leading).settingsGlass(cornerRadius: 16, prominent: true)

@@ -173,10 +173,16 @@ final class TerminalLiveTests: XCTestCase {
             try step(); runtime.handle(control, phase: .down); try await pause(seconds); runtime.handle(control, phase: .up)
         }
         func turn(_ control: DeviceControl, _ count: Int) async throws {
-            for _ in 0..<count { try step(); runtime.handle(control, phase: .pulse); try await pause(0.2) }
+            for _ in 0..<count {
+                // The controller has no dial: its direction pad steps, once for a press shorter than its repeat.
+                if controller { try await tap(control == .left ? .dpadLeft : .dpadRight) }
+                else { try step(); runtime.handle(control, phase: .pulse) }
+                try await pause(0.2)
+            }
         }
-        func openChats() async throws { if controller { try await hold(.ok, 0.9) } else { try await tap(.dial) } }
-        func openModels() async throws { try await hold(controller ? .escape : .dial, 0.9) }
+        // On the controller L1 is the main key: a press for chats, a long press for models.
+        func openChats() async throws { try await tap(controller ? .l1 : .dial) }
+        func openModels() async throws { try await hold(controller ? .l1 : .dial, 0.9) }
         func dictate(_ text: String) async throws {
             try step(); transcript.text = text
             runtime.replaySpeech(duration: 0.25)
@@ -225,9 +231,7 @@ final class TerminalLiveTests: XCTestCase {
             try await turn(.right, 2)
             try await turn(.left, 1)
             XCTAssertEqual(runtime.snapshot.scope, scope)
-            // In its chat list the controller cancels with ○; × confirms there.
-            let leave: DeviceControl = controller && scope == .sessions ? .escape : escape
-            for _ in 0..<3 where runtime.snapshot.scope != .reading { try await tap(leave); try await pause(1) }
+            for _ in 0..<3 where runtime.snapshot.scope != .reading { try await tap(escape); try await pause(1) }
             try await wait("\(scope.rawValue) list left") { runtime.snapshot.scope == .reading && terminal.screen?.prompt() == .empty }
         }
 

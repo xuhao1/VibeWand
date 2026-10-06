@@ -41,6 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         super.init()
     }
     private var overlay: OverlayController!
+    private lazy var card = ControlsCardController { [weak self] in self?.runtime.showCard($0) }
     private var statusItem: NSStatusItem!
     private var settings: SettingsController?
     private var onboarding: OnboardingController?
@@ -67,6 +68,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             self.overlay.update(state)
             self.overlay.showForCommand(state.command.active)
+            self.card.update(state)
             self.settings?.update(state)
             self.onboarding?.update(state)
             self.connectionItem?.title = state.captureOnly ? L10n.tr("仅采集物理事件", "Input capture only") : state.demo ? L10n.tr("演示模式", "Demo mode") : state.connected ? L10n.tr("设备已连接", "Device connected") : L10n.tr("等待设备连接", "Waiting for device")
@@ -176,6 +178,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         connectionItem = NSMenuItem(title: L10n.tr("等待设备连接", "Waiting for device"), action: nil, keyEquivalent: ""); connectionItem.isEnabled = false; menu.addItem(connectionItem)
         menu.addItem(.separator())
         showItem = item(L10n.tr("显示悬浮面板", "Show overlay"), #selector(toggleOverlay), in: menu)
+        item(L10n.tr("按键一览", "Controls"), #selector(toggleCard), in: menu)
         item(L10n.tr("设置…", "Settings…"), #selector(openSettings), key: ",", in: menu)
         item(L10n.tr("关于 VibeWand", "About VibeWand"), #selector(openAbout), in: menu)
         item(L10n.tr("重新连接设备", "Reconnect device"), #selector(reconnectDevice), in: menu)
@@ -207,6 +210,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         UserDefaults.standard.set(false, forKey: "hudVisible")
         updateMenu(); settings?.refresh()
     }
+    @objc private func toggleCard() { runtime.toggleCard() }
     @objc private func reconnectDevice() { runtime.reconnectDevice() }
     @objc private func quit() { NSApp.terminate(nil) }
     @objc private func languageChanged() { buildMenu(); updateMenu(); settings?.refresh() }

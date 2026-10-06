@@ -197,7 +197,7 @@ extension DeviceInputTests {
             XCTAssertEqual(runtime.snapshot.deviceTemplate, .dualSense)
             XCTAssertEqual(frames.last, .dualSense)
             XCTAssertFalse(runtime.snapshot.connected)
-            XCTAssertEqual(runtime.snapshot.controlActions[.rightStickUp], GestureAction.scrollDown.label)
+            XCTAssertEqual(runtime.snapshot.controlActions[.rightStickUp], GestureAction.scrollUp.label)
             try runtime.selectTemplate(.xiaomiRemote)
             XCTAssertEqual(frames.last, .xiaomiRemote)
             XCTAssertEqual(runtime.snapshot.controlActions[.dial], GestureAction.contextConfirm.label)
