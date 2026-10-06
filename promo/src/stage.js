@@ -2,6 +2,9 @@
 // names, so a frame can be rendered at any time, in any order, by any number of browsers at once.
 const Film = (() => {
   const DATA = window.DATA;
+  /// The film is made in Chinese and in English; a scene writes both and this picks one.
+  const lang = DATA.language, L = (zh, en) => (lang === 'en' ? en : zh);
+  document.documentElement.lang = lang === 'en' ? 'en' : 'zh-Hans';
   const tl = gsap.timeline({ paused: true, defaults: { ease: 'power3.out' } });
   const hooks = [];
   const cues = [];
@@ -43,12 +46,15 @@ const Film = (() => {
   const vo = id => DATA.vo[id];
   /// When the narrator reaches some text: the start of the spoken word in which its `nth` occurrence begins.
   const word = (id, text, nth = 0) => {
-    const words = vo(id).words, joined = words.map(w => w[0]).join('');
+    // Chinese is matched as a run of characters; English word by word, whatever the case and punctuation.
+    const words = vo(id).words, gap = lang === 'zh' ? '' : ' ';
+    const plain = s => (lang === 'zh' ? s : s.toLowerCase().replace(/[^a-z0-9' ]/g, '').trim());
+    const joined = gap + words.map(w => plain(w[0])).join(gap), wanted = gap + plain(text);
     let from = -1;
-    for (let i = 0; i <= nth; i++) from = joined.indexOf(text, from + 1);
+    for (let i = 0; i <= nth; i++) from = joined.indexOf(wanted, from + 1);
     if (from < 0) { console.warn('no word', id, text); return vo(id).at; }
     let seen = 0;
-    for (const w of words) { seen += w[0].length; if (from < seen) return w[1]; }
+    for (const w of words) { seen += plain(w[0]).length + gap.length; if (from < seen) return w[1]; }
     return vo(id).at;
   };
 
@@ -70,7 +76,7 @@ const Film = (() => {
     const index = clamp(Math.round(clipTime * info.fps) + 1, 1, info.frames);
     if (img._index === index && img._take === take) return;
     img._index = index; img._take = take;
-    img.src = `../../output/promo/seq/${take}/${String(index).padStart(5, '0')}.png`;
+    img.src = `../../output/promo/seq/${info.frames_in}/${String(index).padStart(5, '0')}.png`;
     pending.push(img.decode().catch(() => {}));
   };
   /// When something happened in a take, in the take's own seconds.
@@ -79,13 +85,28 @@ const Film = (() => {
   // Subtitles follow the narration; a spoken command is shown by its scene instead.
   const captions = () => {
     const layer = document.getElementById('captions');
-    for (const [id, line] of Object.entries(DATA.vo)) {
-      if (line.role !== 'narrator') continue;
-      const text = line.text.replace(/[。]$/u, '').replace(/——$/u, '');
+    const show = (text, from, to) => {
       const row = el('div', 'caption', layer, `<span>${text}</span>`);
       gsap.set(row, { autoAlpha: 0, y: 8 });
-      tl.to(row, { autoAlpha: 1, y: 0, duration: 0.18 }, line.at - 0.06)
-        .to(row, { autoAlpha: 0, duration: 0.2, ease: 'power1.in' }, line.at + line.seconds + 0.12);
+      tl.to(row, { autoAlpha: 1, y: 0, duration: 0.18 }, from - 0.06).to(row, { autoAlpha: 0, duration: 0.2, ease: 'power1.in' }, to + 0.12);
+    };
+    for (const [id, line] of Object.entries(DATA.vo)) {
+      if (line.role !== 'narrator') continue;
+      if (lang === 'zh') { show(line.text.replace(/[。]$/u, '').replace(/——$/u, ''), line.at, line.at + line.seconds); continue; }
+      // English runs longer than a line of subtitle holds: sentences are shown in turn, short ones together,
+      // each for as long as its words are spoken.
+      const parts = [];
+      for (const sentence of line.text.split(/(?<=[.?!:])\s+/)) {
+        if (parts.length && (parts[parts.length - 1] + ' ' + sentence).length <= 64) parts[parts.length - 1] += ' ' + sentence; else parts.push(sentence);
+      }
+      const counts = parts.map(part => part.split(/\s+/).length);
+      if (counts.reduce((a, b) => a + b, 0) !== line.words.length) { show(line.text, line.at, line.at + line.seconds); continue; }
+      let first = 0;
+      parts.forEach((part, i) => {
+        const last = line.words[first + counts[i] - 1], next = line.words[first + counts[i]];
+        show(part.replace(/[.:]$/, ''), line.words[first][1], next ? next[1] - 0.14 : last[1] + last[2] + 0.1);
+        first += counts[i];
+      });
     }
   };
 
@@ -112,7 +133,7 @@ const Film = (() => {
     document.fonts.ready.then(() => { window.filmReady = true; });
   };
 
-  return { DATA, tl, el, sfx, clamp, lerp, ease, span, along, reach, random, vo, word, scene, showTake, takeEvents, ready, frame: fn => hooks.push(fn) };
+  return { DATA, lang, L, tl, el, sfx, clamp, lerp, ease, span, along, reach, random, vo, word, scene, showTake, takeEvents, ready, frame: fn => hooks.push(fn) };
 })();
 
 // What lies behind everything: a dark field with slow light and a few stars, brighter when a scene asks.

@@ -6,11 +6,11 @@ Everything the promotional film is made from, so that the film can be built agai
 
 | File / 文件 | What it is / 内容 |
 | --- | --- |
-| `script.zh.md` | The screenplay, scene by scene / 分场剧本 |
-| `vo.zh.json`, `timeline.zh.json` | Narration lines and voices; when each scene and line starts / 旁白文字与音色；每场、每句的起始时间 |
-| `vo/zh/` | The narration as recorded, and when each word is spoken / 旁白录音，以及每个词的时间 |
-| `takes/` | The filmed overlay (VP9 with transparency) and what the script did when / 录下的悬浮窗（带透明通道的 VP9）及脚本的动作时间 |
-| `src/` | The page that draws every frame: `stage.js` (timeline, subtitles, backdrop), `mock.js` (shared pieces), `scenes/*.js` / 逐帧绘制画面的页面 |
+| `script.zh.md`, `script.en.md` | The screenplay of each version, scene by scene / 中文版和英文版的分场剧本 |
+| `vo.<language>.json`, `timeline.<language>.json` | Narration lines and voices; when each scene and line starts (`zh`, `en`) / 旁白文字与音色；每场、每句的起始时间（`zh`、`en`） |
+| `vo/<language>/` | The narration as recorded, and when each word is spoken / 旁白录音，以及每个词的时间 |
+| `takes/` | The filmed overlay (VP9 with transparency) and what the script did when; `<take>.webm` with the app in Chinese, `<take>.en.webm` in English / 录下的悬浮窗（带透明通道的 VP9）及脚本的动作时间；`<take>.webm` 是中文界面，`<take>.en.webm` 是英文界面 |
+| `src/` | The page that draws every frame, in either language: `stage.js` (timeline, subtitles, backdrop), `mock.js` (shared pieces), `scenes/*.js` / 逐帧绘制画面的页面，两种语言共用 |
 | `film/*.json` | Scripts the film build of VibeWand plays while its overlay is recorded / 录制悬浮窗时由拍摄版 VibeWand 执行的脚本 |
 | `tools/` | Setup, sound, rendering, encoding; recording and speech for making new material / 安装、声音、渲染、编码；以及重新录制和配音用的工具 |
 
@@ -23,11 +23,12 @@ Needs Node.js 22, [uv](https://docs.astral.sh/uv/), ffmpeg (with libvpx and libx
 ```sh
 bash promo/tools/setup.sh                        # pinned libraries, fonts and Python packages, into ignored folders
 bash promo/tools/build.sh zh VibeWand-promo-zh   # → output/promo/cut/VibeWand-promo-zh.mp4 and …-no-narration.mp4
+bash promo/tools/build.sh en VibeWand-promo-en   # the English version
 ```
 
-`setup.sh` fetches from the npm registry; `NPM_REGISTRY=https://registry.npmmirror.com bash promo/tools/setup.sh` uses a mirror. `build.sh` unpacks the takes, works out the page's data and sound cues, computes the sound, renders 11,184 frames in headless Chrome and encodes them twice; about ten minutes on an M2 Max. Nothing in it needs the network, a microphone, a device or VibeWand itself. Two builds have the same sound, sample for sample; their pictures differ only in a few pixels of blurred edges, which Chrome's compositor does not draw the same way twice.
+`setup.sh` fetches from the npm registry; `NPM_REGISTRY=https://registry.npmmirror.com bash promo/tools/setup.sh` uses a mirror. `build.sh` unpacks the takes, works out the page's data and sound cues, computes the sound, renders every frame in headless Chrome (11,184 of them for the Chinese version) and encodes them twice; about ten minutes on an M2 Max. Nothing in it needs the network, a microphone, a device or VibeWand itself. Two builds have the same sound, sample for sample; their pictures differ only in a few pixels of blurred edges, which Chrome's compositor does not draw the same way twice.
 
-`setup.sh` 从 npm 源下载；用镜像时 `NPM_REGISTRY=https://registry.npmmirror.com bash promo/tools/setup.sh`。`build.sh` 解开悬浮窗素材，生成页面数据和音效时间点，计算声音，在无头 Chrome 里渲染 11,184 帧并编码两次，M2 Max 上约十分钟。这一步不需要网络、麦克风、设备，也不需要 VibeWand 本身。两次构建的声音逐个采样相同；画面只在模糊边缘的少量像素上有肉眼看不出的差别，因为 Chrome 的合成器每次画得不完全一样。
+`setup.sh` 从 npm 源下载；用镜像时 `NPM_REGISTRY=https://registry.npmmirror.com bash promo/tools/setup.sh`。`build.sh` 解开悬浮窗素材，生成页面数据和音效时间点，计算声音，在无头 Chrome 里逐帧渲染（中文版 11,184 帧）并编码两次，M2 Max 上约十分钟。这一步不需要网络、麦克风、设备，也不需要 VibeWand 本身。两次构建的声音逐个采样相同；画面只在模糊边缘的少量像素上有肉眼看不出的差别，因为 Chrome 的合成器每次画得不完全一样。
 
 To look at single moments: `node promo/tools/render.mjs --stills 12.5,48 --scale 0.5`, then `bash promo/tools/sheet.sh` lays them out on one sheet.
 
@@ -56,8 +57,8 @@ Only needed when the narration or the overlay itself should change; the results 
 只在要改旁白或悬浮窗画面时才需要；结果会替换 `vo/` 和 `takes/` 里的文件。
 
 ```sh
-# Narration: edit vo.zh.json, then (uses the online service; changed lines only)
-output/promo-tools/venv/bin/python promo/tools/tts.py zh
+# Narration: edit vo.zh.json or vo.en.json, then (uses the online service; changed lines only)
+output/promo-tools/venv/bin/python promo/tools/tts.py zh   # or en
 
 # Overlay: the film build of the app, the recorder, then one take per script (macOS 26, Screen Recording allowed)
 VIBEWAND_REUSE_HELPER=1 VIBEWAND_APP_PATH="$PWD/dist/film/VibeWand.app" bash scripts/build-app.sh
@@ -66,8 +67,14 @@ bash promo/tools/overlay-take.sh ov-core promo/film/ov-core.json 28.5 -hudExpand
 bash promo/tools/overlay-take.sh ov-templates promo/film/ov-templates.json 21 -hudExpanded YES -hudDisplayMode full
 bash promo/tools/overlay-take.sh ov-cmd-music promo/film/ov-cmd-music.json 17.5 -hudExpanded YES -hudDisplayMode full
 bash promo/tools/overlay-take.sh ov-cmd-keynote promo/film/ov-cmd-keynote.json 18.5 -hudExpanded YES -hudDisplayMode full
+
+# The same four with the app in English: the take is named <take>.en, and the two command scripts have English words
+bash promo/tools/overlay-take.sh ov-core.en promo/film/ov-core.json 28.5 -hudExpanded YES -hudDisplayMode full -vibeWand.language english
+bash promo/tools/overlay-take.sh ov-templates.en promo/film/ov-templates.json 21 -hudExpanded YES -hudDisplayMode full -vibeWand.language english
+bash promo/tools/overlay-take.sh ov-cmd-music.en promo/film/ov-cmd-music.en.json 17.5 -hudExpanded YES -hudDisplayMode full -vibeWand.language english
+bash promo/tools/overlay-take.sh ov-cmd-keynote.en promo/film/ov-cmd-keynote.en.json 18.5 -hudExpanded YES -hudDisplayMode full -vibeWand.language english
 ```
 
-`overlay-take.sh` quits a running VibeWand first (two cannot share the devices; open yours again afterwards), places the overlay and records a rectangle around it, then packs the take into `takes/`. The placement and rectangle default to the author's second display and are set with `VIBEWAND_FILM_ANCHOR` and `VIBEWAND_FILM_RECT`. A new take differs from the old one by a few frames of timing, which the scenes follow by themselves: they read the times from the take.
+`overlay-take.sh` quits a running VibeWand first (two cannot share the devices; open yours again afterwards), places the overlay and records a rectangle around it, then packs the take into `takes/`. Film mode draws the overlay dark whatever the system's appearance. The placement and rectangle default to the author's second display and are set with `VIBEWAND_FILM_ANCHOR` and `VIBEWAND_FILM_RECT`. A new take differs from the old one by a few frames of timing, which the scenes follow by themselves: they read the times from the take.
 
-`overlay-take.sh` 会先退出正在运行的 VibeWand（两个实例不能共用设备，录完请自行重新打开），摆好悬浮窗并录下它周围的一块矩形，再把素材打包进 `takes/`。摆放位置和矩形默认是作者的第二块屏幕，可用 `VIBEWAND_FILM_ANCHOR` 和 `VIBEWAND_FILM_RECT` 修改。重新录的素材在时间上会差几帧，场景会自己跟上：它们从素材里读取时间。
+`overlay-take.sh` 会先退出正在运行的 VibeWand（两个实例不能共用设备，录完请自行重新打开），摆好悬浮窗并录下它周围的一块矩形，再把素材打包进 `takes/`。拍摄模式下悬浮窗总是深色，与系统外观无关。摆放位置和矩形默认是作者的第二块屏幕，可用 `VIBEWAND_FILM_ANCHOR` 和 `VIBEWAND_FILM_RECT` 修改。重新录的素材在时间上会差几帧，场景会自己跟上：它们从素材里读取时间。

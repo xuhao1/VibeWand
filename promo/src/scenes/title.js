@@ -1,6 +1,6 @@
 // The turn: the knob is given a new soul, and the name arrives.
 Film.scene('title', ({ root, start, end, frame }) => {
-  const { tl, el, vo, word, clamp, random } = Film, mood = Backdrop.mood;
+  const { tl, el, vo, word, clamp, random, L } = Film, mood = Backdrop.mood;
   const impact = vo('turn1').at + vo('turn1').seconds + 0.25;
 
   Film.sfx('riser', start + 0.1, 1); Film.sfx('impact', impact, 1.2); Film.sfx('shimmer', impact + 0.3, 0.8); Film.sfx('whoosh', end - 0.6, 0.6);
@@ -16,7 +16,8 @@ Film.scene('title', ({ root, start, end, frame }) => {
     .to(knob.root, { scale: 0.86, duration: impact - start, ease: 'power2.in' }, start)
     .to(knob.root, { scale: 2.6, autoAlpha: 0, filter: 'blur(30px)', duration: 0.5, ease: 'power2.out' }, impact);
 
-  Mock.kinetic(root, 'turn1', [['所以，', '我给它'], ['换了个', '<span class="grad">灵魂</span>。']], { cls: 'zh-l', x: 150, y: 400, out: impact - 0.12 });
+  Mock.kinetic(root, 'turn1', L([['所以，', '我给它'], ['换了个', '<span class="grad">灵魂</span>。']],
+    [[['So I gave it', 'So']], [['a new ', 'a new'], '<span class="grad">soul</span>.']]), { cls: 'zh-l', x: 150, y: 400, out: impact - 0.12 });
 
   // Code pours into the dial.
   const canvas = el('canvas', 'abs', root); canvas.width = 1920; canvas.height = 1080;
@@ -60,7 +61,7 @@ Film.scene('title', ({ root, start, end, frame }) => {
     span.style.cssText = `background:linear-gradient(180deg,#fff 30%,${i < 4 ? '#d9d0ff' : '#9d8bff'} 100%);-webkit-background-clip:text;background-clip:text;color:transparent`;
     tl.fromTo(span, { autoAlpha: 0, y: 120, rotationX: -80, scale: 0.7 }, { autoAlpha: 1, y: 0, rotationX: 0, scale: 1, duration: 0.8, ease: 'back.out(1.7)' }, impact + 0.28 + i * 0.055);
   });
-  const zh = el('div', 'abs zh-m', lockup, '如意魔棒'); zh.style.cssText = 'left:0;right:0;top:668px;text-align:center;letter-spacing:.62em;text-indent:.62em;color:#cfc8ff;font-weight:700;font-size:54px';
+  const zh = el('div', 'abs zh-m', lockup, L('如意魔棒', '')); zh.style.cssText = 'left:0;right:0;top:668px;text-align:center;letter-spacing:.62em;text-indent:.62em;color:#cfc8ff;font-weight:700;font-size:54px';
   tl.fromTo(zh, { autoAlpha: 0, letterSpacing: '1.6em', textIndent: '1.6em' }, { autoAlpha: 1, letterSpacing: '.62em', textIndent: '.62em', duration: 1.3, ease: 'power3.out' }, impact + 0.95);
   // The line, spoken.
   const line = el('div', 'abs en-m', lockup); line.style.cssText = 'left:0;right:0;top:800px;text-align:center;font-size:54px;font-weight:600;color:#fff';

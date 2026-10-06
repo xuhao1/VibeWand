@@ -8,7 +8,11 @@ cd "$task_root"
 task_language="$1"; task_name="$2"
 task_python="output/promo-tools/venv/bin/python"
 for task_take in promo/takes/*.webm; do
-  task_frames="output/promo/seq/$(basename "${task_take%.webm}")"
+  task_stem="$(basename "${task_take%.webm}")"
+  # <take>.webm is the Chinese overlay, <take>.<language>.webm the same take in another language.
+  case "$task_stem" in *.*) task_spoken="${task_stem##*.}" ;; *) task_spoken=zh ;; esac
+  [ "$task_spoken" = "$task_language" ] || continue
+  task_frames="output/promo/seq/$task_stem"
   # Unpacked again only when the take is newer than its frames. The libvpx decoder is the one that reads transparency.
   if [ ! -f "$task_frames/.unpacked" ] || [ "$task_take" -nt "$task_frames/.unpacked" ]; then
     rm -rf "$task_frames"; mkdir -p "$task_frames"
@@ -17,7 +21,7 @@ for task_take in promo/takes/*.webm; do
   fi
 done
 "$task_python" promo/tools/build-data.py "$task_language"
-node promo/tools/render.mjs --cues output/promo/cues.json
+node promo/tools/render.mjs --cues "output/promo/cues.$task_language.json"
 "$task_python" promo/tools/sound.py "$task_language"
 rm -rf "output/promo/frames-$task_language"
 node promo/tools/render.mjs --frames --fps 60 --workers 8 --out "output/promo/frames-$task_language" | tail -1

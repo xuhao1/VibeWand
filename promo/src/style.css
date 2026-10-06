@@ -93,3 +93,12 @@ body { font-family: var(--zh); color: var(--ink); -webkit-font-smoothing: antial
 .menu h6 { font: 500 13px/1 var(--zh); letter-spacing: .14em; color: #6e6c8e; padding: 10px 12px; }
 .menu .row { padding: 15px 16px; border-radius: 9px; color: #c9c7e2; display: flex; justify-content: space-between; }
 .menu .row.on { background: rgba(139,108,255,.4); color: #fff; }
+
+/* English: the same classes, set in Sora and smaller, since a line of English runs longer. */
+html[lang="en"] .zh-xl { font: 800 120px/1.1 var(--en); letter-spacing: -.035em; }
+html[lang="en"] .zh-l { font: 800 86px/1.14 var(--en); letter-spacing: -.03em; }
+html[lang="en"] .zh-m { font: 800 46px/1.25 var(--en); letter-spacing: -.02em; }
+html[lang="en"] .zh-s { font: 600 30px/1.4 var(--en); letter-spacing: 0; }
+html[lang="en"] .caption span { font: 600 29px/1.35 var(--en); letter-spacing: 0; max-width: 1560px; text-align: center; }
+html[lang="en"] .chip { font: 600 25px/1 var(--en); letter-spacing: 0; }
+html[lang="en"] .tag { font: 600 17px/1 var(--en); letter-spacing: .06em; }

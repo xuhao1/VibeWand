@@ -1,7 +1,7 @@
 // The core loop: turn to read, hold to speak, press to switch. The overlay on the right is VibeWand's own,
 // filmed while the scripted device pressed these very controls; the app window on the left is drawn to follow it.
 Film.scene('core', ({ root, start, end, frame }) => {
-  const { tl, el, vo, word, along, reach, showTake, clamp } = Film, mood = Backdrop.mood;
+  const { tl, el, vo, word, along, reach, showTake, clamp, lang, L } = Film, mood = Backdrop.mood;
   const take = 'ov-core', events = Film.DATA.takes[take]?.events || [];
   tl.to(mood, { glow: 0.62, hue: 248, duration: 1 }, start);
 
@@ -13,16 +13,16 @@ Film.scene('core', ({ root, start, end, frame }) => {
   const sessionsAt = dialDowns[0] ?? 9.71, modelsAt = dialDowns[1] ?? 14.37;
   const release = said.at + said.seconds + 0.3;
   const map = [[start, voiceDown - 4.3], [start + 0.4, 1.2], [start + 4.1, voiceDown - 0.2], [c2a - 0.02, voiceDown - 0.16], [c2a + 0.12, voiceDown],
-    [release, voiceUp], [release + 1.4, voiceUp + 1.0], [c3 - 0.1, sessionsAt - 0.2], [c3 + 0.1, sessionsAt], [word('core3', '长按') - 0.05, sessionsAt + 3.9],
-    [word('core3', '长按') + 0.1, modelsAt], [vo('core4').at - 0.1, modelsAt + 6.0], [end, modelsAt + 6.6]];
+    [release, voiceUp], [release + 1.4, voiceUp + 1.0], [c3 - 0.1, sessionsAt - 0.2], [c3 + 0.1, sessionsAt], [word('core3', L('长按', 'Hold')) - 0.05, sessionsAt + 3.9],
+    [word('core3', L('长按', 'Hold')) + 0.1, modelsAt], [vo('core4').at - 0.1, modelsAt + 6.0], [end, modelsAt + 6.6]];
   const filmAt = clip => reach(map, clip);
 
   const stage = el('div', 'abs', root); stage.style.cssText = 'inset:0;transform-origin:50% 46%';
-  const app = Mock.win(stage, { x: 70, y: 96, w: 1190, h: 800, title: 'AI 编程助手' });
+  const app = Mock.win(stage, { x: 70, y: 96, w: 1190, h: 800, title: L('AI 编程助手', 'AI coding agent') });
   const chat = Mock.chat(app.body);
-  const tag = el('div', 'abs tag', stage, '应用窗口 · 界面示意'); tag.style.cssText += 'left:70px;top:912px';
+  const tag = el('div', 'abs tag', stage, L('应用窗口 · 界面示意', 'APP WINDOW · ILLUSTRATION')); tag.style.cssText += 'left:70px;top:912px';
   const overlay = Mock.overlay(stage, { x: 1310 - 166 * 1.38, y: 332 - 30 * 1.38, w: 580 * 1.38 });
-  const tag2 = el('div', 'abs tag', stage, 'VibeWand 悬浮窗 · 实机录制（演示模式）'); tag2.style.cssText += 'left:1310px;top:1000px';
+  const tag2 = el('div', 'abs tag', stage, L('VibeWand 悬浮窗 · 实机录制（演示模式）', 'VIBEWAND OVERLAY · FILMED IN THE APP (DEMO MODE)')); tag2.style.cssText += 'left:1310px;top:1000px';
   frame(t => showTake(overlay.img, take, along(map, t)));
   tl.fromTo(app.root, { autoAlpha: 0, x: -80, scale: 0.96 }, { autoAlpha: 1, x: 0, scale: 1, duration: 0.7 }, start + 0.05)
     .fromTo(overlay.root, { autoAlpha: 0, x: 80 }, { autoAlpha: 1, x: 0, duration: 0.7 }, start + 0.2)
@@ -30,16 +30,16 @@ Film.scene('core', ({ root, start, end, frame }) => {
 
   // The verb of the moment, large, above the overlay.
   const verb = (glyph, sub, from, to, cls = 'grad') => {
-    const box = el('div', 'abs', stage); box.style.cssText = 'left:1310px;top:88px;width:540px;display:flex;align-items:flex-end;gap:26px';
-    el('div', cls, box, glyph).style.cssText = 'font:900 180px/1 var(--zh)';
-    el('div', '', box, sub).style.cssText = 'font:700 38px/1.3 var(--zh);letter-spacing:.05em;color:#d9d4ff;padding-bottom:22px';
+    const box = el('div', 'abs', stage); box.style.cssText = L('left:1310px;top:88px;width:540px;display:flex;align-items:flex-end;gap:26px', 'left:1310px;top:78px;width:580px;display:flex;flex-direction:column;gap:4px');
+    el('div', cls, box, glyph).style.cssText = L('font:900 180px/1 var(--zh)', 'font:800 106px/1.08 var(--en);letter-spacing:-.035em;width:fit-content;padding-right:8px');
+    el('div', '', box, sub).style.cssText = L('font:700 38px/1.3 var(--zh);letter-spacing:.05em;color:#d9d4ff;padding-bottom:22px', 'font:600 31px/1.28 var(--en);color:#d9d4ff');
     tl.fromTo(box, { autoAlpha: 0, y: 40, filter: 'blur(12px)' }, { autoAlpha: 1, y: 0, filter: 'blur(0px)', duration: 0.45, ease: 'back.out(1.6)' }, from)
       .to(box, { autoAlpha: 0, y: -30, duration: 0.3, ease: 'power2.in' }, to);
   };
-  verb('转', '读回复', vo('core1').at - 0.15, c2a - 0.35);
-  verb('说', '松手，字就在<br>输入框里', c2a - 0.05, c3 - 0.4);
-  verb('按', '换对话<br>长按，换模型', c3 - 0.1, vo('core4').at - 0.35);
-  verb('靠', '活儿照样在干', vo('core4').at - 0.05, end - 0.4, 'grad-hot');
+  verb(L('转', 'Turn'), L('读回复', 'to read the reply'), vo('core1').at - 0.15, c2a - 0.35);
+  verb(L('说', 'Speak'), L('松手，字就在<br>输入框里', 'let go, and the words<br>are in the box'), c2a - 0.05, c3 - 0.4);
+  verb(L('按', 'Press'), L('换对话<br>长按，换模型', 'to switch chats<br>hold, to switch models'), c3 - 0.1, vo('core4').at - 0.35);
+  verb(L('靠', 'Lean back'), L('活儿照样在干', 'the work goes on'), vo('core4').at - 0.05, end - 0.4, 'grad-hot');
 
   // Reading: every detent of the dial moves the conversation.
   let scroll = 0;
@@ -53,23 +53,24 @@ Film.scene('core', ({ root, start, end, frame }) => {
 
   // Speaking: the sentence arrives in the composer word by word while the key is held.
   const sentence = said.words.map(w => w[0]);
-  const marks = { 3: '，', [sentence.length - 1]: '。' };
+  // Chinese gets its punctuation back by position; English words are set apart and the full sentence lands at the end.
+  const marks = lang === 'zh' ? { 3: '，', [sentence.length - 1]: '。' } : {}, gap = L('', ' ');
   let typed = '';
   tl.set(chat.text, { innerHTML: '' }, c2a + 0.1);
   said.words.forEach((w, i) => {
-    typed += w[0] + (marks[i] || '');
+    typed += (i ? gap : '') + w[0] + (marks[i] || '');
     const snapshot = typed;
     tl.set(chat.text, { innerHTML: `<span style="color:#b8f3ff">${snapshot}</span>` }, w[1] + 0.18);
   });
-  tl.set(chat.text, { innerHTML: typed }, release)
+  tl.set(chat.text, { innerHTML: L(typed, said.text) }, release)
     .fromTo(chat.composer, { boxShadow: '0 -30px 40px #12121c, 0 0 0 0 rgba(98,230,255,0)' }, { boxShadow: '0 -30px 40px #12121c, 0 0 0 3px rgba(98,230,255,.85)', duration: 0.25 }, c2a + 0.1)
     .to(chat.composer, { boxShadow: '0 -30px 40px #12121c, 0 0 0 0 rgba(98,230,255,0)', duration: 0.5 }, release + 0.2)
     .to(chat.thread, { y: 0, duration: 0.01 }, c3 - 0.3);
   // What was said, as a voice.
   const bubble = el('div', 'abs', stage); bubble.style.cssText = 'left:160px;top:560px;width:1010px;padding:26px 34px;border-radius:26px;background:rgba(14,30,44,.92);border:1px solid rgba(98,230,255,.5);box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 60px rgba(98,230,255,.2);display:flex;align-items:center;gap:26px';
   const wave = el('canvas', '', bubble); wave.width = 150; wave.height = 70;
-  const quote = el('div', '', bubble); quote.style.cssText = 'font:700 36px/1.3 var(--zh);letter-spacing:.03em;color:#eafcff';
-  const spans = said.words.map((w, i) => { const span = el('span', 'word', quote, w[0] + (marks[i] || '')); tl.fromTo(span, { autoAlpha: 0.0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.2 }, w[1]); return span; });
+  const quote = el('div', '', bubble); quote.style.cssText = L('font:700 36px/1.3 var(--zh);letter-spacing:.03em;color:#eafcff', 'font:600 33px/1.3 var(--en);color:#eafcff');
+  const spans = said.words.map((w, i) => { const span = el('span', 'word', quote, w[0] + (marks[i] || '') + gap); tl.fromTo(span, { autoAlpha: 0.0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.2 }, w[1]); return span; });
   Film.sfx('whoosh', start, 0.6); Film.sfx('rec-on', c2a + 0.12, 0.9); Film.sfx('rec-off', release, 0.9); Film.sfx('pop', release + 0.05, 0.6);
   tl.fromTo(bubble, { autoAlpha: 0, y: 30, scale: 0.96 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.35 }, said.at - 0.25)
     .to(bubble, { autoAlpha: 0, y: 40, scale: 0.92, duration: 0.35, ease: 'power2.in' }, release + 0.05);
@@ -81,12 +82,12 @@ Film.scene('core', ({ root, start, end, frame }) => {
   });
 
   // Switching chats: the app's own list, chosen with the dial.
-  const other = el('div', 'thread', chat.main, `<div class="you">悬浮窗的旋钮提示，换成“读 / 说 / 切”三个字会不会更清楚？</div><div class="ai"><p>会。现在的提示按功能列了五行，第一次看要读完才知道该按哪个。</p><h5>建议</h5><p>把最常用的三件事放到最上面，用动词开头：<b>转 · 读回复</b>、<b>按住 · 说话</b>、<b>按一下 · 换对话</b>。其余的收进展开面板。</p><pre><span class="c">// OverlayGuidance.swift</span>\n<span class="k">let</span> primary: [Hint] = [.read, .speak, .switchChat]\n<span class="k">let</span> secondary = Hint.allCases.<span class="f">filter</span> { !primary.<span class="f">contains</span>($0) }</pre><p>我先改提示的顺序，再出一版截图给你看。</p></div>`);
+  const other = el('div', 'thread', chat.main, L(`<div class="you">悬浮窗的旋钮提示，换成“读 / 说 / 切”三个字会不会更清楚？</div><div class="ai"><p>会。现在的提示按功能列了五行，第一次看要读完才知道该按哪个。</p><h5>建议</h5><p>把最常用的三件事放到最上面，用动词开头：<b>转 · 读回复</b>、<b>按住 · 说话</b>、<b>按一下 · 换对话</b>。其余的收进展开面板。</p><pre><span class="c">// OverlayGuidance.swift</span>\n<span class="k">let</span> primary: [Hint] = [.read, .speak, .switchChat]\n<span class="k">let</span> secondary = Hint.allCases.<span class="f">filter</span> { !primary.<span class="f">contains</span>($0) }</pre><p>我先改提示的顺序，再出一版截图给你看。</p></div>`, `<div class="you">Would the overlay's hints be clearer as three verbs: read, speak, switch?</div><div class="ai"><p>Yes. The hints list five rows by function today, and a first-time reader has to get through all of them to know which control to press.</p><h5>Suggestion</h5><p>Put the three things people do most at the top, verb first: <b>Turn · read the reply</b>, <b>Hold · speak</b>, <b>Press · switch chats</b>. The rest goes into the expanded panel.</p><pre><span class="c">// OverlayGuidance.swift</span>\n<span class="k">let</span> primary: [Hint] = [.read, .speak, .switchChat]\n<span class="k">let</span> secondary = Hint.allCases.<span class="f">filter</span> { !primary.<span class="f">contains</span>($0) }</pre><p>I will reorder the hints first, then show you a screenshot.</p></div>`));
   chat.main.insertBefore(other, chat.composer);
   const palette = el('div', 'palette', chat.main);
-  el('div', 'q', palette, '切换会话…');
-  const names = ['修复登录页 401', '重构支付模块', 'VibeWand 交互设计'];
-  const rows = names.map((name, i) => el('div', 'row' + (i === 0 ? ' on' : ''), palette, `<span>${name}</span><small>${['刚刚', '2 小时前', '昨天'][i]}</small>`));
+  el('div', 'q', palette, L('切换会话…', 'Switch chat…'));
+  const names = L(['修复登录页 401', '重构支付模块', 'VibeWand 交互设计'], ['Fix login page 401', 'Refactor payments', 'VibeWand interaction design']);
+  const rows = names.map((name, i) => el('div', 'row' + (i === 0 ? ' on' : ''), palette, `<span>${name}</span><small>${L(['刚刚', '2 小时前', '昨天'], ['just now', '2 h ago', 'yesterday'])[i]}</small>`));
   const turns = events.filter(e => e.event === 'turn' && e.t > sessionsAt && e.t < modelsAt).map(e => e.t);
   const mturns = events.filter(e => e.event === 'turn' && e.t > modelsAt).map(e => e.t);
   const oks = events.filter(e => e.event === 'down' && e.control === 'ok').map(e => e.t);
@@ -101,28 +102,29 @@ Film.scene('core', ({ root, start, end, frame }) => {
   tl.to(palette, { autoAlpha: 0, scale: 0.97, duration: 0.2 }, picked + 0.05)
     .set(chat.items[0], { className: '' }, picked + 0.1).set(chat.items[2], { className: 'on' }, picked + 0.1)
     .to(chat.thread, { autoAlpha: 0, duration: 0.15 }, picked + 0.05)
-    .set(chat.text, { innerHTML: '<span class="hint">继续说点什么…</span>' }, picked + 0.2)
+    .set(chat.text, { innerHTML: `<span class="hint">${L('继续说点什么…', 'Say something…')}</span>` }, picked + 0.2)
     .fromTo(other, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3 }, picked + 0.22);
 
   // Long press: the model, then how hard it thinks.
   const menu = el('div', 'menu', chat.main); menu.style.cssText += 'left:46px;bottom:128px';
-  const head = el('h6', '', menu, '模型');
+  const head = el('h6', '', menu, L('模型', 'MODEL'));
   const options = ['Flash', 'Pro', 'Max'].map((name, i) => el('div', 'row' + (i === 1 ? ' on' : ''), menu, `<span>${name}</span>`));
   gsap.set(menu, { autoAlpha: 0 });
   tl.fromTo(menu, { autoAlpha: 0, y: 16 }, { autoAlpha: 1, y: 0, duration: 0.22 }, filmAt(modelsAt + 0.75));
   if (mturns[0]) tl.set(options[1], { className: 'row' }, filmAt(mturns[0]) + 0.05).set(options[2], { className: 'row on' }, filmAt(mturns[0]) + 0.05);
   if (oks[1]) {
     const at = filmAt(oks[1]) + 0.06;
-    tl.set(chat.modelPill, { innerHTML: '模型 · Max' }, at).set(head, { innerHTML: '思考强度' }, at);
-    ['低', '中', '高'].forEach((name, i) => tl.set(options[i], { innerHTML: `<span>${name}</span>`, className: 'row' + (i === 1 ? ' on' : '') }, at));
+    tl.set(chat.modelPill, { innerHTML: L('模型 · Max', 'Model · Max') }, at).set(head, { innerHTML: L('思考强度', 'REASONING EFFORT') }, at);
+    L(['低', '中', '高'], ['Low', 'Medium', 'High']).forEach((name, i) => tl.set(options[i], { innerHTML: `<span>${name}</span>`, className: 'row' + (i === 1 ? ' on' : '') }, at));
   }
   if (mturns[1]) tl.set(options[1], { className: 'row' }, filmAt(mturns[1]) + 0.05).set(options[2], { className: 'row on' }, filmAt(mturns[1]) + 0.05);
-  if (oks[2]) tl.set(chat.effortPill, { innerHTML: '强度 · 高' }, filmAt(oks[2]) + 0.06).to(menu, { autoAlpha: 0, y: 12, duration: 0.2 }, filmAt(oks[2]) + 0.08);
+  if (oks[2]) tl.set(chat.effortPill, { innerHTML: L('强度 · 高', 'Effort · High') }, filmAt(oks[2]) + 0.06).to(menu, { autoAlpha: 0, y: 12, duration: 0.2 }, filmAt(oks[2]) + 0.08);
   [chat.modelPill, chat.effortPill].forEach((pill, i) => { const at = filmAt(oks[1 + i] ?? 0) + 0.06; tl.fromTo(pill, { backgroundColor: '#62e6ff', color: '#06202a' }, { backgroundColor: '#2a2940', color: '#b9b6dc', duration: 0.9 }, at); });
 
   // Lean back: the work goes on by itself.
   const back = vo('core4').at;
-  const lines = ['<span class="a">✓</span> 调整提示顺序', '<span class="a">✓</span> 更新 OverlayGuidanceTests', '<span class="a">✓</span> swift test · 214 个用例通过', '<span class="c">正在生成新截图…</span>'];
+  const lines = L(['<span class="a">✓</span> 调整提示顺序', '<span class="a">✓</span> 更新 OverlayGuidanceTests', '<span class="a">✓</span> swift test · 214 个用例通过', '<span class="c">正在生成新截图…</span>'],
+    ['<span class="a">✓</span> Reordered the hints', '<span class="a">✓</span> Updated OverlayGuidanceTests', '<span class="a">✓</span> swift test · 214 tests passed', '<span class="c">Rendering new screenshots…</span>']);
   Film.sfx('whoosh-soft', back - 0.2, 0.7); lines.forEach((_, i) => Film.sfx('blip', back + 0.3 + i * 0.75, 0.5));
   tl.to(stage, { scale: 0.9, y: 14, duration: 1.6, ease: 'power2.inOut' }, back - 0.2)
     .to(mood, { glow: 0.85, hue: 268, duration: 1.6 }, back - 0.2);

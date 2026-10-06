@@ -1,0 +1,46 @@
+{
+  "narrator": { "voice": "en-US-AndrewNeural", "rate": "-14%", "pitch": "+0Hz" },
+  "tagline": { "voice": "en-US-ChristopherNeural", "rate": "-8%", "pitch": "-2Hz" },
+  "user": { "voice": "en-US-AndrewNeural", "rate": "-10%", "pitch": "+0Hz" },
+  "lines": [
+    { "id": "hook1", "role": "narrator", "text": "I spent good money on a knob." },
+    { "id": "hook2", "role": "narrator", "text": "They said it was made for vibe coding." },
+    { "id": "hook3", "role": "narrator", "text": "Turns out its driver can do exactly one thing:" },
+    { "id": "hook4", "role": "narrator", "text": "pretend to be a few keys on a keyboard." },
+    { "id": "hook5", "role": "narrator", "text": "So why not just press the keyboard?" },
+
+    { "id": "turn1", "role": "narrator", "text": "So I gave it a new soul." },
+    { "id": "title", "role": "tagline", "text": "One wand, to command them all." },
+
+    { "id": "insight1", "role": "narrator", "text": "When you vibe code, you barely type." },
+    { "id": "insight2", "role": "narrator", "text": "You read. You wait. You switch. And now and then, you say a sentence." },
+    { "id": "insight3", "role": "narrator", "text": "All of that takes one hand." },
+
+    { "id": "core1", "role": "narrator", "text": "Turn it, to read the reply." },
+    { "id": "core2a", "role": "narrator", "text": "Hold, and speak." },
+    { "id": "core2b", "role": "narrator", "text": "Let go. The words are in the box." },
+    { "id": "core3", "role": "narrator", "text": "Press once to switch chats. Hold, to switch models." },
+    { "id": "core4", "role": "narrator", "text": "Lean back. The work goes on." },
+
+    { "id": "apps1", "role": "narrator", "text": "But the tools keep multiplying. Codex. Claude. DeepSeek Harness. Claude Code in a terminal. Browsers. WeChat. Feishu." },
+    { "id": "apps2", "role": "narrator", "text": "And every one has its own set of shortcuts." },
+    { "id": "apps3", "role": "narrator", "text": "VibeWand replaces none of them. It puts them all behind the same few motions." },
+    { "id": "apps4", "role": "narrator", "text": "One wand, for all of them." },
+
+    { "id": "cmd1", "role": "narrator", "text": "Then I thought: it already listens to me talk. Why not let it take orders?" },
+    { "id": "cmd2", "role": "narrator", "text": "Behind it is an agent that runs on DeepSeek Harness. The model is yours to choose." },
+    { "id": "cmd3", "role": "narrator", "text": "By default it takes no screenshots. It reads the structure of the interface, as the system describes it. And before it sends or deletes anything, it asks you." },
+    { "id": "cmd4", "role": "narrator", "text": "VibeWand. Your word is its command." },
+
+    { "id": "dev1", "role": "narrator", "text": "And there is more than one wand." },
+    { "id": "dev2", "role": "narrator", "text": "The VibeKey dial. A PS5 controller, microphone included. A Xiaomi remote. Or just the keyboard on your desk." },
+    { "id": "dev3", "role": "narrator", "text": "Use whatever you have." },
+
+    { "id": "end1", "role": "narrator", "text": "VibeWand. Still in development. Come and play." },
+    { "id": "end2", "role": "narrator", "text": "Oh, and this video? I said a few sentences, and Claude Code made it." },
+
+    { "id": "say_dictate", "role": "user", "text": "Fix the error on the login page, and add the unit tests while you are at it." },
+    { "id": "say_music", "role": "user", "text": "Put on some music for coding." },
+    { "id": "say_keynote", "role": "user", "text": "New Keynote deck. Title it: One wand to command them all." }
+  ]
+}

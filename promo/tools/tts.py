@@ -37,7 +37,7 @@ def cut(source, target, words):
     begin = max(0.0, words[0][1] - 0.04)
     end = words[-1][1] + words[-1][2] + 0.18
     subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(source), "-ss", f"{begin:.3f}", "-to", f"{end:.3f}",
-                    "-af", "afade=t=in:d=0.01", "-ar", "24000", "-ac", "1", "-c:a", "flac", "-compression_level", "8", str(target)], check=True)
+                    "-af", "afade=t=in:d=0.01", "-ar", "24000", "-ac", "1", "-sample_fmt", "s16", "-c:a", "flac", "-compression_level", "8", str(target)], check=True)
     return round(end - begin, 3), [[w, round(at - begin, 3), round(length, 3)] for w, at, length in words]
 
 

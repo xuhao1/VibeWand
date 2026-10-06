@@ -1,7 +1,7 @@
 // Pieces the scenes share: text that lands on the narrator's words, the devices, and the pretend desktop
 // (windows and apps drawn here are illustrations; VibeWand's own overlay is always the filmed one).
 const Mock = (() => {
-  const { el, tl, word, vo, clamp } = Film;
+  const { el, tl, word, vo, clamp, lang, L } = Film;
 
   /// Lines of large text whose pieces arrive as the narrator says them.
   /// rows: [[piece, ...], ...]; a piece is "text", ["text", "spoken text to wait for", which occurrence] or ["text", seconds].
@@ -13,7 +13,8 @@ const Mock = (() => {
     for (const row of rows) {
       const line = el('div', '', box);
       for (const piece of row) {
-        const [html, cue, nth = 0] = Array.isArray(piece) ? piece : [piece, piece.replace(/<[^>]+>/g, '').replace(/[，。？！：、——…\s]/gu, '')];
+        const bare = piece => piece.replace(/<[^>]+>/g, '');
+        const [html, cue, nth = 0] = Array.isArray(piece) ? piece : [piece, lang === 'zh' ? bare(piece).replace(/[，。？！：、——…\s]/gu, '') : bare(piece)];
         const at = typeof cue === 'number' ? cue : word(lineId, cue, nth);
         last = Math.max(last, at);
         const span = el('span', 'word', line, html);
@@ -100,18 +101,53 @@ Tests  <span class="a">3 passed</span> · 0 failed</pre>
 <p>要我把这个也一起提交吗？</p>
 </div>`;
 
+  const replyEn = `
+<div class="you">The login page throws a 401 now and then. Can you find out why?</div>
+<div class="ai">
+<p>Found it. The login page itself is fine; the trouble is when the token gets refreshed: <b>two requests notice the expired token at the same moment</b>, each refreshes it, and the later one invalidates the earlier one.</p>
+<h5>1. Reproduce</h5>
+<p>Set the token lifetime to 5 seconds and open two authenticated pages at once. The 401 shows up every time.</p>
+<pre><span class="c">// auth/session.ts (before)</span>
+<span class="k">export async function</span> <span class="f">ensureFresh</span>(session) {
+  <span class="k">if</span> (session.expiresAt &lt; Date.now()) {
+    <span class="d">- session.token = await refresh(session.refreshToken)</span>
+    <span class="a">+ session.token = await single(() =&gt; refresh(session.refreshToken))</span>
+  }
+  <span class="k">return</span> session.token
+}</pre>
+<h5>2. Fix</h5>
+<p>Share one in-flight promise between concurrent refreshes: the first request refreshes, the others wait for its result.</p>
+<pre><span class="k">let</span> pending: Promise&lt;string&gt; | <span class="k">null</span> = <span class="k">null</span>
+<span class="k">function</span> <span class="f">single</span>(run: () =&gt; Promise&lt;string&gt;) {
+  pending ??= run().<span class="f">finally</span>(() =&gt; { pending = <span class="k">null</span> })
+  <span class="k">return</span> pending
+}</pre>
+<h5>3. Verify</h5>
+<p>I added a concurrency test: 20 requests trigger a refresh together, and the refresh endpoint must be called once.</p>
+<pre><span class="a">✓</span> refresh is shared by concurrent requests <span class="c">(12 ms)</span>
+<span class="a">✓</span> a failed refresh is retried by the next request <span class="c">(8 ms)</span>
+<span class="a">✓</span> login page recovers after token expiry <span class="c">(31 ms)</span>
+
+Tests  <span class="a">3 passed</span> · 0 failed</pre>
+<h5>4. What else could be done</h5>
+<p>A failed refresh currently sends the user straight back to the login page. Retrying once before giving up would be kinder; say the word and I will add it.</p>
+<pre><span class="c">// retry once, then give up</span>
+<span class="k">const</span> token = <span class="k">await</span> <span class="f">retry</span>(() =&gt; <span class="f">single</span>(refreshNow), { times: <span class="s">1</span> })</pre>
+<p>Shall I commit this as well?</p>
+</div>`;
+
   /// The pretend AI coding app: chats on the left, a long reply to read, a composer at the bottom.
-  const chat = (body, { chats = ['修复登录页 401', '重构支付模块', 'VibeWand 交互设计', '整理实验记录'], active = 0, model = 'Pro', effort = '高' } = {}) => {
+  const chat = (body, { chats = L(['修复登录页 401', '重构支付模块', 'VibeWand 交互设计', '整理实验记录'], ['Fix login page 401', 'Refactor payments', 'VibeWand interaction design', 'Tidy lab notes']), active = 0, model = 'Pro', effort = L('高', 'High') } = {}) => {
     const root = el('div', 'chat', body);
-    const side = el('div', 'side', root, '<h6>会话</h6>');
+    const side = el('div', 'side', root, `<h6>${L('会话', 'CHATS')}</h6>`);
     const items = chats.map((name, i) => el('div', i === active ? 'on' : '', side, name));
     const main = el('div', 'main', root);
-    const thread = el('div', 'thread', main, reply);
+    const thread = el('div', 'thread', main, L(reply, replyEn));
     const composer = el('div', 'composer', main);
-    const text = el('span', '', composer, '<span class="hint">继续说点什么…</span>');
+    const text = el('span', '', composer, `<span class="hint">${L('继续说点什么…', 'Say something…')}</span>`);
     const caret = el('span', 'caret', composer);
     const meta = el('div', 'meta', composer);
-    const modelPill = el('span', 'pill', meta, '模型 · ' + model), effortPill = el('span', 'pill', meta, '强度 · ' + effort);
+    const modelPill = el('span', 'pill', meta, L('模型 · ', 'Model · ') + model), effortPill = el('span', 'pill', meta, L('强度 · ', 'Effort · ') + effort);
     return { root, side, items, main, thread, composer, text, caret, modelPill, effortPill };
   };
 

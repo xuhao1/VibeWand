@@ -1,0 +1,51 @@
+[
+ {
+  "at": 1.2,
+  "say": [
+   "Put on",
+   "Put on some music",
+   "Put on some music for",
+   "Put on some music for coding"
+  ],
+  "command": true,
+  "simulate": [
+   {
+    "after": 1.0,
+    "tool": "list_targets"
+   },
+   {
+    "after": 0.9,
+    "tool": "activate_app"
+   },
+   {
+    "after": 1.0,
+    "tool": "search_in_app"
+   },
+   {
+    "after": 1.0,
+    "tool": "ui_type"
+   },
+   {
+    "after": 1.1,
+    "tool": "ui_snapshot"
+   },
+   {
+    "after": 1.0,
+    "tool": "ui_press"
+   }
+  ],
+  "summary": "Playing the “Coding Focus” playlist in Music"
+ },
+ {
+  "at": 1.4,
+  "settle": 30
+ },
+ {
+  "at": 1.5,
+  "note": "linger"
+ },
+ {
+  "at": 60,
+  "quit": true
+ }
+]

@@ -1,6 +1,6 @@
 // Many tools, each with shortcuts of its own; one set of motions for all of them.
 Film.scene('apps', ({ root, start, end, frame }) => {
-  const { tl, el, vo, word, random } = Film, mood = Backdrop.mood;
+  const { tl, el, vo, word, random, L } = Film, mood = Backdrop.mood;
   const a1 = vo('apps1'), a2 = vo('apps2'), a3 = vo('apps3'), a4 = vo('apps4');
   tl.to(mood, { glow: 0.5, hue: 222, duration: 0.8 }, start)
     .to(mood, { glow: 0.75, hue: 338, duration: 1.2 }, a2.at)
@@ -10,10 +10,10 @@ Film.scene('apps', ({ root, start, end, frame }) => {
     { name: 'Codex', hue: 212, cue: ['Codex', 0], at: [120, 250, -5] },
     { name: 'Claude', hue: 22, cue: ['Claude', 0], at: [660, 180, 4] },
     { name: 'DeepSeek Harness', hue: 232, cue: ['DeepSeek', 0], at: [1240, 250, -3] },
-    { name: '终端 · Claude Code', hue: 140, cue: ['终端', 0], at: [330, 540, 6], mono: true },
-    { name: '浏览器', hue: 188, cue: ['浏览器', 0], at: [900, 470, -6] },
-    { name: '微信', hue: 128, cue: ['微信', 0], at: [1380, 590, 5] },
-    { name: '飞书', hue: 204, cue: ['飞书', 0], at: [640, 690, -2] },
+    { name: L('终端 · Claude Code', 'Terminal · Claude Code'), hue: 140, cue: L(['终端', 0], ['Claude', 1]), at: [330, 540, 6], mono: true },
+    { name: L('浏览器', 'Browsers'), hue: 188, cue: [L('浏览器', 'Browsers'), 0], at: [900, 470, -6] },
+    { name: L('微信', 'WeChat'), hue: 128, cue: [L('微信', 'WeChat'), 0], at: [1380, 590, 5] },
+    { name: L('飞书', 'Feishu'), hue: 204, cue: [L('飞书', 'Feishu'), 0], at: [640, 690, -2] },
   ];
   const W = 500, H = 310;
   const wins = apps.map((app, i) => {
@@ -30,8 +30,9 @@ Film.scene('apps', ({ root, start, end, frame }) => {
     return { node, lines, app };
   });
 
-  Mock.kinetic(root, 'apps1', [['可是，', '工具', '<span class="hl">越来越多</span>。']], { cls: 'zh-l', x: 110, y: 60, out: a2.at - 0.3 });
-  Mock.kinetic(root, 'apps2', [['每一个，', '都有', [' 自己的', '自己'], '<span class="grad-hot">一套快捷键</span>。']], { cls: 'zh-l', x: 110, y: 60, out: a3.at - 0.3 });
+  Mock.kinetic(root, 'apps1', L([['可是，', '工具', '<span class="hl">越来越多</span>。']], [[['But the tools ', 'But'], ['keep ', 'keep'], '<span class="hl">multiplying</span>.']]), { cls: 'zh-l', x: 110, y: 60, out: a2.at - 0.3 });
+  Mock.kinetic(root, 'apps2', L([['每一个，', '都有', [' 自己的', '自己'], '<span class="grad-hot">一套快捷键</span>。']],
+    [[['And every one ', 'And'], ['has its own ', 'has'], ['<span class="grad-hot">shortcuts</span>.', 'shortcuts']]]), { cls: 'zh-l', x: 110, y: 60, out: a3.at - 0.3 });
 
   // The shortcuts pile up.
   const r = random(21);
@@ -82,13 +83,14 @@ Film.scene('apps', ({ root, start, end, frame }) => {
       }
     });
   });
-  Mock.kinetic(root, 'apps3', [[['不替代', '不'], '它们。']], { cls: 'zh-m', x: 150, y: 760, out: a4.at - 0.3 });
-  Mock.kinetic(root, 'apps3', [[['收进', '收进']], [['<span class="grad">同一套手势</span>。', '同']]], { cls: 'zh-m', x: 1290, y: 730, out: a4.at - 0.3 });
+  Mock.kinetic(root, 'apps3', L([[['不替代', '不'], '它们。']], [[['Replaces', 'replaces']], [['none of them.', 'none']]]), { cls: 'zh-m', x: 150, y: L(760, 812), out: a4.at - 0.3 });
+  Mock.kinetic(root, 'apps3', L([[['收进', '收进']], [['<span class="grad">同一套手势</span>。', '同']]], [[['The same', 'same']], [['<span class="grad">few motions</span>.', 'few']]]), { cls: 'zh-m', x: L(1290, 1380), y: L(730, 812), out: a4.at - 0.3 });
 
   // The line.
   const dimmed = [...wins.map(w => w.node), beams];
   tl.to(dimmed, { opacity: 0.2, filter: 'blur(5px)', duration: 0.6 }, a4.at - 0.25);
-  Mock.kinetic(root, 'apps4', [[['一根', '一'], '<span class="grad">魔棒</span>，'], ['号令', '<span class="grad-hot">所有</span>。']], { cls: 'zh-xl', x: 0, y: 190, align: 'center', out: end - 0.5 });
+  Mock.kinetic(root, 'apps4', L([[['一根', '一'], '<span class="grad">魔棒</span>，'], ['号令', '<span class="grad-hot">所有</span>。']],
+    [[['One ', 'One'], '<span class="grad">wand</span>,'], [['for ', 'for'], ['<span class="grad-hot">all of them</span>.', 'all']]]), { cls: 'zh-xl', x: 0, y: 190, align: 'center', out: end - 0.5 });
   const en = el('div', 'abs en-m', root, 'One wand to command them all.'); en.style.cssText += 'left:0;right:0;top:520px;text-align:center;color:#d9d4ff;letter-spacing:.02em';
   tl.fromTo(en, { autoAlpha: 0, y: 20 }, { autoAlpha: 1, y: 0, duration: 0.6 }, a4.at + 1.5).to(en, { autoAlpha: 0, duration: 0.4 }, end - 0.5);
   tl.to([knob.root, ...dimmed], { autoAlpha: 0, duration: 0.45, ease: 'power2.in' }, end - 0.5).to(mood, { grid: 0, duration: 0.5 }, end - 0.5);

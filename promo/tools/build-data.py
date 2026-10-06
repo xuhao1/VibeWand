@@ -22,9 +22,12 @@ for (first, a), (second, b) in zip(ordered, ordered[1:]):
     if a["at"] + a["seconds"] > b["at"] + 0.01:
         print(f"overlap: {first} runs to {a['at'] + a['seconds']:.2f}, {second} starts at {b['at']:.2f}")
 
+# A take filmed with the app in another language is named <take>.<language>; the scenes ask for it by <take>.
 takes = {}
 for record in sorted((root / "promo/takes").glob("*.json")):
-    takes[record.stem] = json.loads(record.read_text())
+    name, _, spoken_in = record.stem.partition(".")
+    if (spoken_in or "zh") == language:
+        takes[name] = {**json.loads(record.read_text()), "frames_in": record.stem}
 
 data = {"fps": timeline["fps"], "duration": timeline["duration"], "scenes": timeline["scenes"], "vo": lines, "takes": takes, "language": language}
 (root / "promo/src/data.js").write_text("window.DATA = " + json.dumps(data, ensure_ascii=False) + ";\n")
