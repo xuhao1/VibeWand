@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<title>VibeWand cover</title>
+<link rel="stylesheet" href="vendor/noto-sans-sc/chinese-simplified-700.css">
+<link rel="stylesheet" href="vendor/noto-sans-sc/chinese-simplified-900.css">
+<link rel="stylesheet" href="vendor/sora/600.css">
+<link rel="stylesheet" href="vendor/sora/800.css">
+<style>
+  :root { --zh: "Noto Sans SC", "PingFang SC", sans-serif; --en: "Sora", "Noto Sans SC", sans-serif; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #000; overflow: hidden; font-family: var(--zh); color: #fff; -webkit-font-smoothing: antialiased; }
+  #cover { position: relative; overflow: hidden; background:
+    radial-gradient(60% 70% at var(--glow-x) var(--glow-y), rgba(128,96,255,.62), rgba(70,40,190,.22) 46%, transparent 72%),
+    radial-gradient(46% 52% at 8% 96%, rgba(60,200,255,.26), transparent 70%),
+    radial-gradient(40% 46% at 100% 0%, rgba(255,90,210,.22), transparent 70%),
+    linear-gradient(180deg, #05051a, #0a0826 55%, #06051a); }
+  .abs { position: absolute; }
+  /* A floor of lines running to the horizon, under everything. */
+  #floor { left: -20%; right: -20%; bottom: 0; height: 46%; opacity: .5; transform: perspective(700px) rotateX(62deg); transform-origin: 50% 100%;
+    background: repeating-linear-gradient(90deg, rgba(150,140,255,.34) 0 2px, transparent 2px 92px), repeating-linear-gradient(0deg, rgba(150,140,255,.34) 0 2px, transparent 2px 92px);
+    -webkit-mask-image: linear-gradient(0deg, #000, transparent 88%); }
+  #grain { inset: 0; background-image: url("noise.png"); opacity: .06; mix-blend-mode: overlay; }
+  #shade { inset: 0; background: radial-gradient(120% 120% at 50% 45%, transparent 55%, rgba(0,0,0,.55)); }
+
+  #brand { display: flex; align-items: center; gap: 20px; }
+  #brand img { width: 92px; height: 92px; filter: drop-shadow(0 8px 30px rgba(120,90,255,.9)); }
+  #brand b { font: 800 56px/1 var(--en); letter-spacing: -.02em; }
+  #brand span { font: 700 31px/1 var(--zh); letter-spacing: .34em; color: #cfc8ff; margin-left: 6px; }
+
+  #headline { font: 900 174px/1.13 var(--zh); letter-spacing: .005em; white-space: nowrap; }
+  #headline div { filter: drop-shadow(0 6px 0 rgba(8,6,30,.9)) drop-shadow(0 18px 44px rgba(0,0,0,.6)); }
+  #headline .hot { background: linear-gradient(96deg, #6ff0ff 0%, #9d8bff 48%, #ff7ad9 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  #headline .hot i { font: 800 1em/1 var(--en); font-style: normal; letter-spacing: -.03em; }
+
+  .chip { display: inline-flex; align-items: center; gap: 14px; padding: 16px 30px 18px; border-radius: 999px; font: 900 42px/1 var(--zh); letter-spacing: .03em; white-space: nowrap;
+    background: rgba(255,255,255,.1); border: 2px solid rgba(255,255,255,.3); box-shadow: 0 14px 40px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.2); }
+  .chip.sun { background: linear-gradient(96deg, #ffd66b, #ff9a5a); color: #1a0f2e; border-color: rgba(255,255,255,.6); }
+  #chips { display: flex; gap: 18px; }
+  #badge { display: inline-flex; align-items: center; gap: 18px; padding: 14px 34px 14px 16px; border-radius: 30px; white-space: nowrap;
+    background: linear-gradient(96deg, rgba(40,70,255,.5), rgba(90,60,220,.34)); border: 2px solid rgba(140,170,255,.85); box-shadow: 0 0 60px rgba(80,110,255,.55), inset 0 1px 0 rgba(255,255,255,.25); }
+  #badge img { width: 76px; height: 76px; }
+  #badge small { display: block; font: 700 25px/1.2 var(--zh); letter-spacing: .1em; color: #c9d6ff; }
+  #badge b { display: block; font: 800 44px/1.15 var(--en); letter-spacing: -.01em; }
+  #devices-line { font: 700 30px/1 var(--zh); letter-spacing: .08em; color: rgba(255,255,255,.72); white-space: nowrap; }
+
+  /* The picture: three devices, the apps above them, and a line of light to each. */
+  #picture { width: 1000px; height: 760px; transform-origin: 0 0; }
+  #picture svg { position: absolute; inset: 0; overflow: visible; }
+  #picture .aura { left: 190px; top: 250px; width: 640px; height: 520px; border-radius: 50%; background: radial-gradient(closest-side, rgba(150,120,255,.75), rgba(90,220,255,.2) 58%, transparent 74%); filter: blur(26px); }
+  #picture .device { filter: drop-shadow(0 34px 44px rgba(0,0,0,.6)) drop-shadow(0 0 30px rgba(140,110,255,.5)); }
+  #picture .app { width: 112px; height: 112px; margin: -56px 0 0 -56px; filter: drop-shadow(0 14px 22px rgba(0,0,0,.55)) drop-shadow(0 0 22px rgba(130,200,255,.5)); }
+  #say { display: inline-flex; align-items: center; gap: 14px; padding: 13px 26px; border-radius: 28px 28px 28px 6px; font: 900 34px/1 var(--zh); white-space: nowrap; color: #eafcff;
+    background: rgba(10,34,52,.92); border: 2px solid rgba(98,230,255,.8); box-shadow: 0 0 40px rgba(98,230,255,.4); }
+  .en #headline { font-family: var(--en); font-weight: 800; letter-spacing: -.035em; line-height: 1.06; }
+  .en .chip { font: 800 36px/1 var(--en); letter-spacing: -.01em; padding: 15px 28px 16px; }
+  .en #chips { gap: 14px; }
+  .en #badge small { font: 600 23px/1.2 var(--en); letter-spacing: .01em; }
+  .en #devices-line { font: 600 27px/1 var(--en); letter-spacing: .01em; }
+  .en #say { font: 800 31px/1 var(--en); }
+  #say i { display: inline-block; width: 6px; border-radius: 3px; background: #62e6ff; }
+</style>
+</head>
+<body>
+<div id="cover">
+  <div id="floor" class="abs"></div>
+  <div id="picture" class="abs">
+    <div class="aura abs"></div>
+    <svg viewBox="0 0 1000 760"><defs><linearGradient id="ray" gradientUnits="userSpaceOnUse" x1="500" y1="520" x2="500" y2="120"><stop offset="0" stop-color="#7ff0ff" stop-opacity=".95"/><stop offset="1" stop-color="#a08cff" stop-opacity=".25"/></linearGradient></defs><g id="rays"></g></svg>
+    <img class="device abs" src="../../assets/device/controller.png" style="left:30px;top:176px;height:580px;transform:rotate(-17deg)">
+    <img class="device abs" src="../../assets/device/remote.png" style="left:646px;top:226px;height:520px;transform:rotate(15deg)">
+    <img class="device abs" src="../../assets/device/gamepad.png" style="left:150px;top:330px;width:700px;transform:rotate(-6deg)">
+    <div id="apps"></div>
+    <div id="say" class="abs"><span id="bars"></span><span id="say-text"></span></div>
+  </div>
+  <div id="brand" class="abs"><img src="../../assets/app-icon/AppIcon.png"><b>VibeWand</b><span id="brand-name"></span></div>
+  <div id="headline" class="abs"></div>
+  <div id="chips" class="abs"><span class="chip sun" id="chip-1"></span><span class="chip" id="chip-2"></span></div>
+  <div id="badge" class="abs"><img src="../../assets/apps/deepseek-harness.png"><div><small id="badge-text"></small><b>DeepSeek Harness</b></div></div>
+  <div id="devices-line" class="abs"></div>
+  <div id="shade" class="abs"></div>
+  <div id="grain" class="abs"></div>
+</div>
+<script>
+  // One design, laid out for the shape and written in the language asked for: cover.html?shape=16x9|4x3&lang=zh|en.
+  const asked = new URLSearchParams(location.search), shape = asked.get('shape') || '16x9', lang = asked.get('lang') || 'zh';
+  const words = {
+    zh: { name: '如意魔棒', headline: '<div>一根魔棒</div><div class="hot">号令所有 <i>AI</i></div>', size: 174, chips: ['不摸键盘 Vibe Coding', '一句话操作电脑'],
+      badge: '号令模式的 Agent 由它驱动', devices: 'PS5 手柄 · VibeKey 旋钮 · 小米遥控器 · 键盘', say: '按住，说一句话' },
+    en: { name: '', headline: '<div>One wand</div><div class="hot">to command</div><div class="hot">them all</div>', size: 138, chips: ['Keyboard-free vibe coding', 'Say it, and your Mac does it'],
+      badge: 'Command mode’s agent runs on', devices: 'PS5 controller · VibeKey dial · Xiaomi remote · keyboard', say: 'Hold and speak' },
+  }[lang];
+  document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : 'en';
+  const put = (id, html) => { document.getElementById(id).innerHTML = html; };
+  put('brand-name', words.name); put('headline', words.headline); put('chip-1', words.chips[0]); put('chip-2', words.chips[1]);
+  put('badge-text', words.badge); put('devices-line', words.devices); put('say-text', words.say);
+  const layout = {
+    '16x9': { size: [1920, 1080], glow: ['72%', '52%'], brand: [84, 58], headline: [80, 196, 1], chips: [84, 640, 'row'], badge: [84, 790], line: [88, 968, 900], picture: [946, 196, 0.98], say: [540, 640] },
+    '4x3': { size: [1600, 1200], glow: ['64%', '68%'], brand: [70, 52], headline: [66, 172, 0.92], chips: [70, 576, 'column'], badge: [70, 1046], line: [72, 912, 460], picture: [566, 474, 1.0], say: [580, 628] },
+  }[shape];
+  const cover = document.getElementById('cover'), at = (id, [x, y]) => Object.assign(document.getElementById(id).style, { left: x + 'px', top: y + 'px' });
+  Object.assign(cover.style, { width: layout.size[0] + 'px', height: layout.size[1] + 'px' });
+  cover.style.setProperty('--glow-x', layout.glow[0]); cover.style.setProperty('--glow-y', layout.glow[1]);
+  at('brand', layout.brand); at('headline', layout.headline); at('chips', layout.chips); at('badge', layout.badge); at('devices-line', layout.line); at('picture', layout.picture); at('say', layout.say);
+  Object.assign(document.getElementById('devices-line').style, { width: layout.line[2] + 'px', whiteSpace: 'normal', lineHeight: 1.7 });
+  document.getElementById('headline').style.fontSize = words.size * layout.headline[2] + 'px';
+  Object.assign(document.getElementById('chips').style, { flexDirection: lang === 'en' ? 'column' : layout.chips[2], alignItems: 'flex-start' });
+  if (lang === 'en') { document.body.classList.add('en'); if (shape === '16x9') at('badge', [84, 826]); }
+  document.getElementById('picture').style.transform = `scale(${layout.picture[2]})`;
+  // The apps on an arc over the devices, each joined to the controller by a line of light.
+  const apps = ['codex', 'claude', 'deepseek-harness', 'iterm2', 'chrome', 'wechat', 'feishu'], holder = document.getElementById('apps'), rays = document.getElementById('rays');
+  apps.forEach((name, i) => {
+    const angle = (-57 + i * 19) * Math.PI / 180, x = 500 + Math.sin(angle) * 440, y = 540 - Math.cos(angle) * 440;
+    const icon = document.createElement('img'); icon.className = 'app abs'; icon.src = `../../assets/apps/${name}.png`;
+    Object.assign(icon.style, { left: x + 'px', top: y + 'px', transform: `scale(${name === 'deepseek-harness' ? 1.28 : 1})` });
+    holder.appendChild(icon);
+    rays.insertAdjacentHTML('beforeend', `<line x1="500" y1="500" x2="${x}" y2="${y + 40}" stroke="url(#ray)" stroke-width="${name === 'deepseek-harness' ? 5 : 3}" stroke-linecap="round"/>`);
+  });
+  const bars = document.getElementById('bars');
+  [14, 30, 44, 24, 38, 18, 32, 12].forEach(h => bars.insertAdjacentHTML('beforeend', `<i style="height:${h}px;margin-right:5px;vertical-align:middle"></i>`));
+  document.fonts.ready.then(() => { window.coverReady = true; });
+</script>
+</body>
+</html>

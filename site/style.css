@@ -325,10 +325,22 @@ h3 {
     margin: 0 auto 6px;
 }
 
+.cover {
+    max-width: 1168px;
+    margin: 52px auto 0;
+    padding: 0 24px;
+}
+
+.cover img {
+    width: 100%;
+    height: auto;
+    border-radius: 28px;
+    box-shadow: 0 34px 90px rgba(76, 52, 190, 0.3), 0 6px 18px rgba(18, 22, 43, 0.2);
+}
+
 .scenes {
     max-width: 1280px;
-    margin: 44px auto 0;
-    padding: 0 12px;
+    margin: 28px auto 40px;
 }
 
 .scenes img {
@@ -339,6 +351,7 @@ h3 {
 
 .scenes .caption {
     margin-top: 6px;
+    text-align: center;
 }
 
 /* Why */
@@ -867,8 +880,16 @@ footer .credit {
         font-size: 11px;
     }
 
+    .cover {
+        margin-top: 36px;
+        padding: 0 14px;
+    }
+
+    .cover img {
+        border-radius: 16px;
+    }
+
     .scenes {
-        padding: 0;
         overflow: hidden;
     }
 

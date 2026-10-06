@@ -2,6 +2,8 @@
 
 **One wand to command them all.**
 
+![VibeWand 如意魔棒：一根魔棒，号令所有 AI](docs/images/cover-zh.jpg)
+
 一个旋钮、手柄、遥控器，或者就用键盘，再加一句话，操作 Mac 上的各种 AI 工具：Codex、Claude、DeepSeek Harness、WorkBuddy，终端里的 Claude Code、Codex、OpenCode，以及浏览器、微信和飞书。
 
 [English](README.md) · [快速开始](docs/getting-started.md) · [支持的应用](#支持的应用) · [Computer use](#computer-use) · [文档目录](docs/README.md) · [项目主页](https://vibewand.xuhao1.me)
@@ -20,13 +22,13 @@
 </tr>
 </table>
 
-![用旋钮阅读、用手柄编辑与听写、用遥控器确认执行](docs/images/workflow-hero-v2.png)
-
 Vibe coding 的大部分时间其实不在打字：读回复、翻会话、换模型、说一句话，然后等。这些事一只手就够了。VibeWand 把它们放到一个旋钮或手柄上，人可以靠在椅背上干活。
 
 工具越来越多，每个都有自己的会话列表、模型菜单和快捷键。VibeWand 不替代其中任何一个，只把它们收到同一组动作后面：在哪个应用里都是同一个旋钮读、同一个键说、同一下切换，活儿还是你选的那个软件干。统一的是入口，不是功能，这就是 “One wand to command them all”。
 
 ## 能做什么
+
+![示意图：用旋钮阅读、用手柄编辑与听写、用遥控器确认执行](docs/images/workflow-hero-v2.png)
 
 - **读**：转旋钮或推摇杆滚动对话。输入框里有字时，同一个动作改成移动光标。
 - **说**：按住麦克风键说话，松开后文字出现在输入框里，不会替你发送。可以用自带的识别，它用你手里那个设备的麦克风录音：系统听写或你自己的语音 API，能填自己的词表；或者在本机运行的 SenseVoice，不用密钥也不用联网。也可以继续用 Typeless、豆包这类输入法。

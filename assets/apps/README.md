@@ -1,6 +1,6 @@
 # Supported-app icons
 
-These PNGs are the icons of the applications VibeWand works with, shown in both READMEs and on the project site (`site/img/apps/` holds WebP conversions) to say which apps are supported. They are not VibeWand artwork: each icon and name belongs to its owner, is not covered by this repository's license, and is not copied into the application bundle.
+These PNGs are the icons of the applications VibeWand works with, shown in both READMEs and on the project site (`site/img/apps/` holds WebP conversions) to say which apps are supported, and in the cover picture that is their title image (`promo/src/cover.html`). They are not VibeWand artwork: each icon and name belongs to its owner, is not covered by this repository's license, and is not copied into the application bundle.
 
 Each file is the icon macOS shows in Finder for the app installed on the development Mac, rendered at 256 px through `NSWorkspace.shared.icon(forFile:)` on 2026-10-06 and scaled to 128 px with `sips`. Nothing was redrawn or retouched.
 

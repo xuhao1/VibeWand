@@ -2,6 +2,8 @@
 
 **One wand to command them all.**
 
+![VibeWand: one wand to command them all](docs/images/cover-en.jpg)
+
 A dial, a game controller, a remote or just the keyboard, plus a spoken sentence, for driving the AI tools on your Mac: Codex, Claude, DeepSeek Harness and WorkBuddy, Claude Code, Codex and OpenCode in a terminal, and browsers, WeChat and Feishu.
 
 [简体中文](README.zh-CN.md) · [Get started](docs/getting-started.en.md) · [Apps](#apps) · [Computer use](#computer-use) · [Documentation](docs/README.md) · [Project site](https://vibewand.xuhao1.me)
@@ -20,13 +22,13 @@ A dial, a game controller, a remote or just the keyboard, plus a spoken sentence
 </tr>
 </table>
 
-![Read with a dial, edit and dictate with a controller, confirm with a remote](docs/images/workflow-hero-v2.png)
-
 Most of vibe coding is not typing. You read a reply, flip between chats, change the model, say a sentence, and wait. One hand is enough for all of that. VibeWand puts it on a dial or a controller so you can lean back while you work.
 
 The tools keep multiplying, and each has its own chat list, model menu and shortcuts. VibeWand replaces none of them. It puts them behind one set of motions: the same dial reads, the same button listens and the same press switches in every app, and the work is still done by the software you chose. What is unified is the way in, not the features. That is what "One wand to command them all" means.
 
 ## What it does
+
+![Illustration: read with a dial, edit and dictate with a controller, confirm with a remote](docs/images/workflow-hero-v2.png)
 
 - **Read.** Turn the dial or push a stick to scroll the conversation. Once the draft has text in it, the same motion moves the cursor instead.
 - **Speak.** Hold the microphone button and talk. When you let go, the text is in the composer, and nothing is sent for you. Use the built-in recognition, which records from the microphone of the device you are holding: macOS dictation or your own speech API, both of which take your own vocabulary, or SenseVoice running on this Mac with no key and no network. Or keep using an input method such as Typeless.

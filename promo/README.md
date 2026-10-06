@@ -33,6 +33,12 @@ To look at single moments: `node promo/tools/render.mjs --stills 12.5,48 --scale
 
 只看某几个时刻：`node promo/tools/render.mjs --stills 12.5,48 --scale 0.5`，再用 `bash promo/tools/sheet.sh` 拼成一张总览。
 
+## Cover / 封面
+
+`node promo/tools/cover.mjs` renders `src/cover.html` in Chinese and English, 16:9 and 4:3, into `output/promo/cover/`. The 16:9 pictures are also the title picture of the READMEs and the site; `docs/images/README.md` says how those copies are made.
+
+`node promo/tools/cover.mjs` 把 `src/cover.html` 渲染成中英文、16:9 和 4:3 共四张封面，放在 `output/promo/cover/`。16:9 的两张同时是 README 和项目主页的题图，副本的生成方式见 `docs/images/README.md`。
+
 ## What is real / 哪些是真实画面
 
 - **VibeWand's overlay is filmed.** `Sources/VibeKeyBridge/Film.swift` adds a `--film <script.json>` mode to the app: a scripted device presses the controls, a replayed recogniser supplies the words, a kernel names its steps without performing them, and `tools/wincap.swift` records the overlay window alone, with transparency. The takes run in demo mode, where no action reaches any app. The film labels them as such.
