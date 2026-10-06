@@ -25,9 +25,9 @@ bash promo/tools/setup.sh                        # pinned libraries, fonts and P
 bash promo/tools/build.sh zh VibeWand-promo-zh   # → output/promo/cut/VibeWand-promo-zh.mp4 and …-no-narration.mp4
 ```
 
-`setup.sh` fetches from the npm registry; `NPM_REGISTRY=https://registry.npmmirror.com bash promo/tools/setup.sh` uses a mirror. `build.sh` unpacks the takes, works out the page's data and sound cues, computes the sound, renders 11,184 frames in headless Chrome and encodes them twice; about ten minutes on an M2 Max. Nothing in it needs the network, a microphone, a device or VibeWand itself, and the same inputs give the same frames and the same sound.
+`setup.sh` fetches from the npm registry; `NPM_REGISTRY=https://registry.npmmirror.com bash promo/tools/setup.sh` uses a mirror. `build.sh` unpacks the takes, works out the page's data and sound cues, computes the sound, renders 11,184 frames in headless Chrome and encodes them twice; about ten minutes on an M2 Max. Nothing in it needs the network, a microphone, a device or VibeWand itself. Two builds have the same sound, sample for sample; their pictures differ only in a few pixels of blurred edges, which Chrome's compositor does not draw the same way twice.
 
-`setup.sh` 从 npm 源下载；用镜像时 `NPM_REGISTRY=https://registry.npmmirror.com bash promo/tools/setup.sh`。`build.sh` 解开悬浮窗素材，生成页面数据和音效时间点，计算声音，在无头 Chrome 里渲染 11,184 帧并编码两次，M2 Max 上约十分钟。这一步不需要网络、麦克风、设备，也不需要 VibeWand 本身；输入不变，画面和声音就不变。
+`setup.sh` 从 npm 源下载；用镜像时 `NPM_REGISTRY=https://registry.npmmirror.com bash promo/tools/setup.sh`。`build.sh` 解开悬浮窗素材，生成页面数据和音效时间点，计算声音，在无头 Chrome 里渲染 11,184 帧并编码两次，M2 Max 上约十分钟。这一步不需要网络、麦克风、设备，也不需要 VibeWand 本身。两次构建的声音逐个采样相同；画面只在模糊边缘的少量像素上有肉眼看不出的差别，因为 Chrome 的合成器每次画得不完全一样。
 
 To look at single moments: `node promo/tools/render.mjs --stills 12.5,48 --scale 0.5`, then `bash promo/tools/sheet.sh` lays them out on one sheet.
 
