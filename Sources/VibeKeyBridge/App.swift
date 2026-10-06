@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var replayURL: URL?
     private var transcriptReplayDuration: Double?
     private var speechTestWindow: NSWindow?
+    private var film: FilmDirector?
     override init() {
         let arguments = CommandLine.arguments
         if let index = arguments.firstIndex(of: "--replay-transcript"), arguments.indices.contains(index + 1),
@@ -33,6 +34,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 SpeechAudioReplayEngine(url: url, configuration: configuration, credentials: credentials)
             })
             runtime = BridgeRuntime(source: UnconfiguredHIDSource(template: DeviceTemplateID.vibeKey.template), voiceInput: voice)
+        } else if let index = arguments.firstIndex(of: "--film"), arguments.indices.contains(index + 1),
+                  let director = try? FilmDirector(script: URL(fileURLWithPath: arguments[index + 1])) {
+            film = director; runtime = director.makeRuntime()
         } else { runtime = BridgeRuntime() }
         super.init()
     }
@@ -123,8 +127,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             source.setEventHandler { NSApp.terminate(nil) }; source.resume(); signalSources.append(source)
         }
         updateMenu()
+        film?.onExpanded = { [weak self] in self?.overlay.setExpanded($0) }
+        film?.start(runtime)
         // The guide opens by itself for someone new, and never during a scripted run of the app.
-        let scripted = ["--demo", "--capture-only", "--settings", "--replay-transcript", "--replay-speech", "--speech-test-editor", "--diagnostics-path",
+        let scripted = ["--film", "--demo", "--capture-only", "--settings", "--replay-transcript", "--replay-speech", "--speech-test-editor", "--diagnostics-path",
                         "--render-dark", "--render-overlay", "--render-settings", "--render-audit"].contains(where: CommandLine.arguments.contains)
         if CommandLine.arguments.contains("--onboarding") || (guideOwed && !scripted) { presentOnboarding() }
         if CommandLine.arguments.contains("--settings") { openSettings() }
