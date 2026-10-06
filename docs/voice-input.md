@@ -173,3 +173,95 @@ Codex 的 ProseMirror 编辑器使用正常粘贴事件接收文字，临时剪�
 “设置 → 语音输入 → 写入方式”可以改成“始终粘贴”或“模拟键入”。
 
 Built-in dictation no longer needs the target app to support in-place edits. Native fields still fill in as you speak through accessibility writes limited to the dictated range. Every other app gets one paste on release: the clipboard is saved, restored afterwards, and marked as transient for clipboard managers. An app whose field ignores accessibility writes is remembered until quit and pasted into directly next time. Password fields never receive dictation. Apps that expose no readable editor are pasted into at the caret as well, without read-back confirmation. "Settings → Voice input → How text is inserted" can force paste or simulated typing.
+
+## 在任何应用里边说边写 / Typing as you speak in any app
+
+尚未发布，在 0.10.0 之后的开发版里。“设置 → 语音输入 → 写入方式”里有一个开关，默认关闭。开启后，听写的文字在说话时就出现在目标输入框的光标处，带下划线表示还会变；识别修正时原地改，松开并整理完成后整段换成最终文字。Codex、Claude、终端、浏览器等不接受辅助功能写入的应用也一样，不经过剪贴板。取消听写、识别失败或 VibeWand 退出时，输入框里不留下任何文字。
+
+**这不是靠语音接口做到的。**识别一直是流式的，悬浮窗里的预览就是它。缺的是往别的应用的输入框里写“还会变的文字”的途径：macOS 上这条途径是输入法接口（InputMethodKit 的 marked text），键盘输入法自带的语音输入用的就是它。所以这个开关会在 `~/Library/Input Methods` 里装一个 VibeWand 输入法组件（`VibeWandInput.app`，约 2 MB）。它是 palette 类型，和 macOS 自带听写的 `DictationIM` 同类，见 Apple 的 [QA1810](https://developer.apple.com/library/archive/qa/qa1810/_index.html)：
+
+- 和正在用的键盘输入法并存，不替换它，也不切换输入源；
+- 不向系统申请任何按键事件，没有窗口，不联网，不读输入框里已有的内容；
+- 写出的永远是一行字：换行和制表符一律写成空格，所以它没有办法“按下回车”，在终端里也就不会把说的话当命令执行；
+- 只接受本机 VibeWand 主程序经 Unix socket（`~/Library/Application Support/VibeWand/input.sock`，仅当前用户可访问）发来的文字，写进有焦点的输入框。
+
+**为什么不是别的办法。**模拟键入（带 Unicode 字符的按键事件）会先经过正在用的键盘输入法：拼音输入法把英文字母当成拼音开始组字，标点也可能被改写，中英混说的听写因此会乱。听写期间临时切到 ABC 再切回来也不行：用 `TISSelectInputSource` 切回中日韩输入法时，菜单栏图标变了而前台应用实际没有切换，这个问题在 macOS 26 上仍然存在。逐段粘贴则要在整段听写期间反复占用剪贴板。palette 输入法不经过键盘输入法，也不需要切换输入源。
+
+**文字是怎么出现的。**识别器一次给出一个短语；`TranscriptTypewriter` 以每秒 30 步把它打出来，积压多时一步多打几个字，识别器改口时在原位置改掉而不是退回重打。松开后，最终文字（原词或整理后的）一步替换掉已显示的全部内容。
+
+**带换行的结果照旧粘贴。**最终文字里有换行时（整理成几段的长听写），已显示的文字先收回，再按原来的方式粘贴一次，段落因此得以保留，终端里也仍然由“括号粘贴”保护。输入框若根本不接受待定文字，输入法组件在头几个字就会告诉主程序，这次听写同样改为松开后粘贴。
+
+**一次听写只写进开始时的那个输入框。**说话途中焦点离开，或输入框自己结束了待定文字（例如在里面点了一下），已显示的文字原样保留，之后的内容不再写入，也不会再插入一份最终稿。开始听写时输入法组件没有连上，或它当前对着的不是前台应用，这一次就走原来的路：原生输入框经辅助功能边说边写，其余应用松开后粘贴。密码框不接收听写。“写入方式”选了“始终粘贴”或“模拟键入”时不使用输入法组件。
+
+关闭开关会取消选中并删除这个组件。
+
+Not released yet; in the development build after 0.10.0. Settings → Voice input → How text is inserted has a switch, off by default. With it on, dictated text appears at the caret of the target field while you speak, underlined while it may still change; a revised word is put right in place, and after you release and polishing finishes the finished text replaces all of it in one step. Apps that take no accessibility write (Codex, Claude, terminals, browsers) behave the same, and the clipboard is not used. A cancelled or failed dictation, or VibeWand quitting, leaves nothing in the field.
+
+**No speech interface does this.** Recognition has always streamed; the overlay preview is that stream. What was missing is a way to write text that may still change into another app's field, which on macOS is the input method interface (InputMethodKit's marked text), the one a keyboard input method's own voice input uses. The switch therefore installs a VibeWand input method in `~/Library/Input Methods` (`VibeWandInput.app`, about 2 MB). It is a palette, the kind macOS's own `DictationIM` is (Apple's [QA1810](https://developer.apple.com/library/archive/qa/qa1810/_index.html)): it runs beside the keyboard input method in use without replacing it or switching the input source; it asks for no key events, has no window, makes no network connection and does not read what a field already holds; what it writes is always one line, line breaks and tabs becoming spaces, so it has no way of pressing Return and cannot run what was said in a terminal; and it takes text only from the VibeWand app on this Mac, over a Unix socket that only the current user can reach (`~/Library/Application Support/VibeWand/input.sock`).
+
+**Why not another way.** Simulated typing (key events carrying Unicode text) passes through the keyboard input method in use: a pinyin input method takes Latin letters as pinyin and starts composing, and may rewrite punctuation, so a dictation that mixes Chinese and English comes out wrong. Switching to ABC for the length of a dictation and back fails too: selecting a Chinese, Japanese or Korean input method with `TISSelectInputSource` changes the menu bar icon while the frontmost app stays on the previous one, which is still so on macOS 26. Pasting piece by piece would hold the clipboard for the whole dictation. A palette input method goes through no keyboard input method and needs no input source switched.
+
+**How the text appears.** A recogniser hands over a phrase at a time; `TranscriptTypewriter` types it out at thirty steps a second, several characters to a step when there is a backlog, and puts a revised word right where it stands instead of deleting and retyping. On release the finished text, verbatim or polished, replaces everything shown in one step.
+
+**Text with line breaks is pasted as before.** When the finished text has line breaks in it (a long dictation polished into paragraphs), what was shown is taken back and the text is pasted once the earlier way, which keeps the paragraphs and leaves a terminal protected by bracketed paste. A field that takes no provisional text at all is reported by the input method at the first words, and that dictation is pasted on release as well.
+
+**A dictation writes only into the field it started in.** If the focus leaves, or the field ends the provisional text by itself (a click inside it does), what was shown stays as written, nothing more is written, and the finished text is not inserted a second time. If the input method is not connected when a dictation begins, or is not facing the frontmost app, that dictation takes the earlier route: accessibility writes in native fields, one paste on release elsewhere. Password fields never receive dictation. "Always paste" and "Simulated typing" do not use the input method.
+
+Turning the switch off deselects and deletes the input method.
+
+### 工程结构 / Structure
+
+| 位置 | 内容 |
+| --- | --- |
+| `Sources/InputLink` | 两端共用的连线：socket 位置、逐行 JSON 的消息（`InputMessage`）、`InputLine` / `InputListener`，以及输入法的全部行为 `InputComposer`（对着一个 `InputTextClient` 协议，不依赖 InputMethodKit，所以有单元测试）。只依赖 Foundation。 |
+| `Sources/VibeWandInput` | 输入法组件本身：一个 `IMKInputController` 子类把 `InputTextClient` 接到 `setMarkedText` / `insertText` / `markedRange`，加上启动 `IMKServer` 和监听 socket 的几行；带 `select` 或 `deselect` 参数运行时，它只在 macOS 里选中或取消选中自己，然后退出。只链接 Foundation、AppKit、InputMethodKit 和 Carbon（Text Input Sources）。 |
+| `Sources/VibeKeyBridge/InputMethod.swift` | 主程序一侧：把组件放进 `~/Library/Input Methods`、运行它的 `select` / `deselect`、连接，以及一次听写的 `begin` / `show` / `commit` / `cancel`。 |
+| `Sources/SpeechInput/TranscriptTypewriter.swift` | 把成段到达的识别结果匀成逐字出现；辅助功能写入的那条路也用它。 |
+
+输入法组件只认 bundle identifier 为 `org.vibekey.bridge` 的进程发来的连接。它随主程序一起构建和签名，放在 `VibeWand.app/Contents/Helpers/VibeWandInput.app`；主程序启动时若发现已安装的那份和自带的不一样，就换成自带的。
+
+在 macOS 27 beta 上实测得到的几条系统行为，代码按它们写：
+
+- `InputMethodConnectionName` 用“bundle identifier + `_Connection`”，这是 InputMethodKit 自己推导的名字。
+- palette 只需要“选中”（`TISSelectInputSource`）。先调用 `TISEnableInputSource` 会让 macOS 把“系统设置 → 键盘”弹到最前，而且没有别的效果：装在这台 Mac 上的 palette 一直算作已启用，`TISDisableInputSource` 的结果也留不住。
+- 刚把组件放进 `Input Methods` 并注册它的那个应用进程，自己再去选中是留不住的；之后启动的另一个进程去选中则可以。所以选中和取消选中由组件自己带参数运行一次来完成。
+- 选中后，macOS 在某个应用的输入框需要时才启动组件；主程序会先把它启动起来，免得第一次听写落空。Chromium 内核的应用只在页面里有输入框获得焦点时才启用输入法，所以组件面对的应用可能是空的。
+
+The link both ends share is `Sources/InputLink`: where the socket is, the messages (`InputMessage`, one JSON object per line), `InputLine` / `InputListener`, and everything the input method does, `InputComposer`, written against an `InputTextClient` protocol rather than InputMethodKit so that it is unit-tested. `Sources/VibeWandInput` is the input method itself: an `IMKInputController` subclass that joins `InputTextClient` to `setMarkedText` / `insertText` / `markedRange`, and the few lines that start `IMKServer` and listen on the socket; run with `select` or `deselect` it only has macOS select or deselect it, and leaves. It links Foundation, AppKit, InputMethodKit and Carbon (Text Input Sources) only. `Sources/VibeKeyBridge/InputMethod.swift` is the app's side: placing the component in `~/Library/Input Methods`, running its `select` / `deselect`, the connection, and a dictation's `begin` / `show` / `commit` / `cancel`. `TranscriptTypewriter` in `SpeechInput` does the pacing, for the accessibility route as well. The input method admits a connection only from a process whose bundle identifier is `org.vibekey.bridge`. It is built and signed with the app, kept in `VibeWand.app/Contents/Helpers/VibeWandInput.app`, and replaced at launch when the installed copy differs from the one the app carries.
+
+What macOS 27 beta was observed to do, and the code follows: the connection name is the bundle identifier and `_Connection`, the name InputMethodKit derives itself. A palette only needs selecting (`TISSelectInputSource`); calling `TISEnableInputSource` first brings System Settings → Keyboard to the front and has no other effect, since a palette on this Mac always counts as enabled and `TISDisableInputSource` does not last. A selection asked for by the app process that has just placed and registered the component does not hold, while one asked for by a process started afterwards does, which is why the component selects and deselects itself in a run of its own. Once selected, macOS starts the component only when some app's text field needs it, so the app starts it at once and the first dictation finds it. A Chromium app activates input methods only while an editable element in the page has the focus, so the component may be facing no app at all.
+
+### 验证 / Verification
+
+2026-10-06，开发构建，macOS 27.0 beta（26A5378j），键盘输入法为豆包输入法 1.0.1 且全程保持选中。听写用 `--replay-transcript` 回放五段逐步变长的预览（没有麦克风、识别服务和真人语音，也没有经过自动整理），目标窗口都是为测试单独打开的：
+
+| 目标 | 读回的结果 |
+| --- | --- |
+| VibeWand 自带的测试窗口（原生 `NSTextView`，`--speech-test-editor`） | 截图里预览文字带下划线出现在已有草稿之后；结束后是不带下划线的一份完整文字，原有草稿保留。诊断里 `insertion` 为 `input-method`。 |
+| Chromium 的 `contenteditable`（独立临时配置的 Google Chrome 154，本地测试页自己记录事件） | 1 次 `compositionstart`、30 次 `compositionupdate`（29 个字符逐个增长，相邻两次相隔约 33 毫秒）、1 次 `compositionend`；没有 `keydown` 和 `paste` 事件；最终内容是草稿加一份文字。 |
+| iTerm2 3.7.3（窗口里只运行一个记录原始字节的程序） | 预览期间程序没有收到任何字节，下划线文字只画在光标处；结束时收到一次写入，正是整句的 UTF-8，没有回车或换行。 |
+
+从未安装的状态开始，主程序自己的安装路径也跑过：组件被放进 `Input Methods`、被选中并保持选中，过程中没有弹出系统设置；换一个构建启动时，已安装的组件被换成新构建自带的并重新选中。组件的 `select` / `deselect` 两个参数单独运行过并读回了结果。
+
+单元测试覆盖输入法的行为（待定文字的显示与替换、取消不留字、不跟随焦点、输入框自行结束后不重复写入、不接受待定文字的输入框交还主程序、换行与制表符写成空格）、真实 Unix socket 上的收发与拒绝未被接纳的进程、主程序一侧的连接与中断、放置组件时去掉隔离标记、逐字节奏。
+
+**还没有验证的：**真人对着麦克风说话的完整听写；自动整理后最终文字与预览不同的那次替换（回放里两者相同）；Codex、Claude、飞书、微信等真实应用里的显示效果（Chromium 把待定文字画成浅蓝底加下划线）；在设置页里点击“开启”和“关闭并移除”按钮（上面走的是同一段安装代码，由已保存的开关在启动时触发）；隔离标记只在单元测试里用临时文件验证过，没有用下载的安装包实测。
+
+开发过程中的一次失误也记在这里：第一次启用时还调用了 `TISEnableInputSource`，macOS 把系统设置弹到最前，同一次启动里回放的听写因此对着系统设置发了一次粘贴，没有看到任何内容被写入。之后每次回放前都先确认前台应用就是测试窗口。
+
+As of 2026-10-06, on a development build, macOS 27.0 beta (26A5378j), with Doubao Input Method 1.0.1 as the keyboard input method and selected throughout. The dictation was a replay (`--replay-transcript`) of five previews of growing length, with no microphone, recogniser, human voice or polishing, into windows opened for the check:
+
+| Target | What was read back |
+| --- | --- |
+| VibeWand's own test window (a native `NSTextView`, `--speech-test-editor`) | In a screenshot the preview stands underlined after the existing draft; afterwards there is one copy of the text, not underlined, and the draft is kept. Diagnostics give `insertion` as `input-method`. |
+| A Chromium `contenteditable` (Google Chrome 154 on a throwaway profile; a local page recording its own events) | One `compositionstart`, 30 `compositionupdate` (29 characters arriving one at a time, about 33 ms apart), one `compositionend`; no `keydown` and no `paste`; the final content is the draft and one copy of the text. |
+| iTerm2 3.7.3 (the window ran only a program recording raw bytes) | No byte reached the program during the preview, the underlined text being drawn at the cursor only; at the end one write arrived, the sentence in UTF-8, with no carriage return or line feed. |
+
+The app's own install path was run from a state without the component: it was placed in `Input Methods`, selected and stayed selected, and System Settings did not appear; starting another build replaced the installed component with that build's and selected it again. The component's `select` and `deselect` runs were made by themselves and their result read back.
+
+Unit tests cover the input method's behaviour (showing and replacing provisional text, a cancel leaving nothing, not following the focus, not writing again after a field ended composition by itself, handing a field that takes no provisional text back to the app, line breaks and tabs written as spaces), messages over a real Unix socket including the refusal of a process that is not admitted, the app's side of the connection and its interruption, placing the component without its quarantine mark, and the pacing.
+
+**Not yet verified:** a whole dictation spoken into a microphone; the replacement by a polished text that differs from the preview (in the replay the two are the same); how Codex, Claude, Feishu, WeChat and other real apps draw the provisional text (Chromium draws it on a pale blue ground, underlined); pressing "Turn on" and "Turn off and remove" in Settings (the same install code ran above, set off at launch by the saved switch); the quarantine mark was checked in a unit test on temporary files only, not with a downloaded package.
+
+One mistake made while developing is recorded here too: the first attempt still called `TISEnableInputSource`, macOS brought System Settings to the front, and the dictation replayed in that same launch sent one paste at System Settings; nothing was seen to arrive. Every later replay first checked that the frontmost app was the test window.
+

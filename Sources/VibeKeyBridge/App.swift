@@ -92,6 +92,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.addObserver(self, selector: #selector(languageChanged), name: L10n.languageDidChange, object: nil)
         overlay.setVisible(UserDefaults.standard.object(forKey: "hudVisible") as? Bool ?? true)
         runtime.captureOnly = CommandLine.arguments.contains("--capture-only")
+        runtime.inputMethod.start()
         runtime.start(demo: CommandLine.arguments.contains("--demo") || (!runtime.adapter.trusted && !runtime.captureOnly))
         if CommandLine.arguments.contains("--speech-test-editor") {
             let window = NSWindow(contentRect: NSRect(x: 180, y: 200, width: 760, height: 400),

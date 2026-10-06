@@ -89,6 +89,33 @@ final class StreamingAndPolishingTests: XCTestCase {
         config.polishing = SpeechPolishingConfiguration(provider: .chatCompletions, endpoint: "https://another.example/v1", model: "text")
         XCTAssertNotEqual(config.effectivePolishing?.credentialAccount, config.credentialAccount)
     }
+    func testABurstIsTypedOutAndARevisionIsPutRightInPlace() {
+        var typewriter = TranscriptTypewriter()
+        XCTAssertNil(typewriter.advance())
+        typewriter.aim("今天天器")
+        var steps: [String] = []
+        while let text = typewriter.advance() { steps.append(text) }
+        XCTAssertEqual(steps, ["今", "今天", "今天天", "今天天器"])
+        // The recogniser changes its mind and goes on: the wrong character is replaced where it stands,
+        // nothing already shown is typed again.
+        typewriter.aim("今天天气不错")
+        XCTAssertEqual(typewriter.advance(), "今天天气不")
+        XCTAssertEqual(typewriter.advance(), "今天天气不错")
+        XCTAssertNil(typewriter.advance())
+        // A reading that got shorter is shown once, as it is.
+        typewriter.aim("今天")
+        XCTAssertEqual(typewriter.advance(), "今天")
+        XCTAssertNil(typewriter.advance())
+    }
+    func testALongBacklogIsCaughtUpInAFewSteps() {
+        var typewriter = TranscriptTypewriter()
+        let sentence = String(repeating: "这是一段每秒才来一次的预览。", count: 6)
+        typewriter.aim(sentence)
+        var steps = 0
+        while typewriter.advance() != nil { steps += 1 }
+        XCTAssertEqual(typewriter.shown, sentence)
+        XCTAssertLessThan(steps, 30, "under a second at thirty steps a second")
+    }
     func testPartialCallbacksAndStyleSwitchDuringRecording() async {
         let engine = await MainActor.run { PreviewEngine() }
         let processor = MemoryPolisher()

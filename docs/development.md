@@ -125,6 +125,8 @@ VIBEWAND_COMMAND_LIVE=textedit,keyboard,code,codex,search-claude DEEPSEEK_VIBEWA
 | `Sources/WandAgent` | UI-independent command mode: the harness and its profile, kernel process and protocol, the coordinator's prompt, tool catalog and socket, gateway, task records, Codex chat list |
 | `kernel` | The coordinator bundle (`coordinator`), the overlay for a harness's own tools (`overlay`), the shipped kernel's locked package set, the harness's SenseVoice plug-in among it, and its boot check |
 | `Sources/VibeKeyBridge` | App UI, gestures, application adapters, overlay, voice orchestration, text delivery, application switching, and what command mode's tools do on the desktop |
+| `Sources/InputLink` | The wire between the app and its input method, and that input method's whole behaviour (`InputComposer`); Foundation only |
+| `Sources/VibeWandInput` | VibeWand's input method: a palette that writes a dictation into the focused text field as it is spoken; a thin shell over `InputComposer` |
 | `Sources/SpeechAPICheck` | Explicit audio-file checks of a speech API, reading credentials only from Keychain, and of the SenseVoice recogniser |
 | `Sources/AU05Capture` | Command-line input capture |
 | `Tests` | Protocol, lifecycle, gesture, adapter, and interaction tests |

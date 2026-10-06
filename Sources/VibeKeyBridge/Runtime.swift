@@ -55,6 +55,11 @@ final class BridgeRuntime {
     private var liveDraftDiverged = false
     private var lastInsertion = ""
     private var liveDraft: LiveDictationDraft?
+    let inputMethod: InputMethod
+    /// This dictation is shown in the target's text field through the input method.
+    private var liveInput = false
+    private var typewriter = TranscriptTypewriter()
+    private var typing: Timer?
     private var pendingDictationPreview: String?
     private var pendingDictationFinal: String?
     private var draftUpdateInFlight = false
@@ -116,9 +121,10 @@ final class BridgeRuntime {
 
     init(source: (any HIDEventSource)? = nil, templates: DeviceTemplateStore = DeviceTemplateStore(),
          sourceFactory: ((HIDDeviceProfile?, DeviceTemplateID) throws -> any HIDEventSource)? = nil,
-         voiceInput: VoiceInputController? = nil,
+         voiceInput: VoiceInputController? = nil, inputMethod: InputMethod? = nil,
          command: ((AccessibilityAdapter, VoiceInputController) -> CommandController)? = nil) {
         self.voiceInput = voiceInput ?? VoiceInputController()
+        self.inputMethod = inputMethod ?? InputMethod()
         makeCommand = command
         self.templates = templates
         suppliedSource = source != nil
@@ -140,6 +146,13 @@ final class BridgeRuntime {
         self.voiceInput.onPartialTranscript = { [weak self] text in self?.previewDictation(text) }
         self.voiceInput.onCancel = { [weak self] in
             self?.cancelLiveDraft(); self?.dictationTarget = nil; self?.generation &+= 1
+        }
+        self.inputMethod.onEnded = { [weak self] kept in
+            // This may come while the finished text is already on its way, so it is not tied to `liveInput`.
+            guard let self, self.dictationTarget != nil else { return }
+            // A field that took nothing still gets the finished text, pasted; one that kept its text does not.
+            self.liveInput = false
+            if kept { self.liveDraftDiverged = true; self.lastDictationFailure = "target-changed" }
         }
         adapter.onStatus = { [weak self] status in
             guard let self else { return }
@@ -785,8 +798,9 @@ final class BridgeRuntime {
         value["vibeKeyBattery"] = vibeKeyBattery ?? ""
         value["selecting"] = !snapshot.selection.isEmpty
         value["speech"] = ["state": String(describing: voiceInput.state), "previewCharacters": voiceInput.liveTranscript.count,
-            "liveInsertion": liveDraft != nil, "style": voiceInput.configuration.effectiveTextStyle.rawValue,
+            "liveInsertion": liveDraft != nil || liveInput, "style": voiceInput.configuration.effectiveTextStyle.rawValue,
             "failure": lastDictationFailure, "insertion": lastInsertion, "message": voiceInput.displayMessage, "frontApp": NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? ""]
+        value["inputMethod"] = ["enabled": inputMethod.enabled, "connected": inputMethod.connected, "client": inputMethod.client ?? ""]
         if let controller = device as? GameControllerInputSource {
             value["inputBackend"] = "GameController"
             value["controllerMetrics"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(controller.diagnostics))
@@ -890,6 +904,8 @@ final class BridgeRuntime {
             voiceInput.report(L10n.tr("请先切到要输入的应用", "Bring the app you want to type into to the front")); return
         }
         let bundleID = app.bundleIdentifier ?? ""
+        // An input method that was restarted is joined again here, in time to say which text field it faces.
+        inputMethod.connect()
         dictationTargetAdapter.requestRefresh { [weak self] observation in
             guard let self, self.generation == token, replay || !self.dictationHolders.isEmpty else { return }
             guard observation.pid != nil, let identity = observation.identity else {
@@ -903,9 +919,11 @@ final class BridgeRuntime {
             }
             self.dictationTarget = identity
             self.dictationApp = (identity.pid, bundleID)
-            // Text appears in the field while speaking only where a direct
-            // accessibility write is known to work; other apps get one paste at the end.
-            if let editor = observation.editor, TextInserter.supportsDirectWrites(bundleID) {
+            // Text appears in the field while speaking through VibeWand's input method where that is switched
+            // on, and otherwise where a direct accessibility write is known to work; other apps get one paste
+            // at the end.
+            if TextInserter.method == .automatic, self.inputMethod.begin(bundleID) { self.liveInput = true }
+            else if let editor = observation.editor, TextInserter.supportsDirectWrites(bundleID) {
                 self.liveDraft = LiveDictationDraft(field: AccessibilityDictationField(element: editor, pid: identity.pid),
                                                     settlementTimeout: 0.6)
             }
@@ -913,12 +931,38 @@ final class BridgeRuntime {
         }
     }
     private func previewDictation(_ text: String) {
-        guard dictationTarget != nil, liveDraft != nil else { return }
-        pendingDictationPreview = text
-        flushDictationDraft()
+        guard dictationTarget != nil, liveInput || liveDraft != nil else { return }
+        typewriter.aim(text)
+        guard typing == nil else { return }
+        typing = Timer.scheduledTimer(withTimeInterval: 1.0 / 30, repeats: true) { [weak self] _ in MainActor.assumeIsolated { self?.type() } }
     }
+    /// One step of the text growing in the field: a recogniser's phrases are typed, not dropped in whole.
+    private func type() {
+        guard liveInput || liveDraft != nil, let text = typewriter.advance() else { typing?.invalidate(); typing = nil; return }
+        if liveInput { inputMethod.show(text) } else { pendingDictationPreview = text; flushDictationDraft() }
+    }
+    private func stopTyping() { typing?.invalidate(); typing = nil; typewriter = TranscriptTypewriter() }
     private func deliverDictation(_ text: String) {
         guard dictationTarget != nil else { return }
+        stopTyping()
+        if liveInput {
+            // The finished text takes the place of everything shown so far, in one step.
+            liveInput = false
+            let token = generation
+            // An input method's line break is a pressed Return to a terminal, so text with lines in it is
+            // pasted, as it always was.
+            guard text == UnicodeTextDelivery.safeCharacters(text) else {
+                inputMethod.cancel { [weak self] in if let self, self.generation == token { self.insertFinal(text) } }
+                return
+            }
+            inputMethod.commit(text) { [weak self] written in
+                guard let self, self.generation == token else { return }
+                guard written else { self.deliverDictation(text); return }
+                self.lastInsertion = "input-method"
+                self.finishDictation(L10n.tr("听写已完成，请检查后发送", "Dictation complete; review before sending"))
+            }
+            return
+        }
         if liveDraft != nil { pendingDictationFinal = text; flushDictationDraft(); return }
         if liveDraftDiverged {
             finishDictation(L10n.tr("草稿在听写时被修改，已保留写入的文字", "The draft changed while dictating; the text already written was kept"))
@@ -955,7 +999,7 @@ final class BridgeRuntime {
         }
     }
     private func finishDictation(_ message: String) {
-        liveDraft = nil; dictationTarget = nil; dictationApp = nil; liveDraftDiverged = false
+        liveDraft = nil; liveInput = false; dictationTarget = nil; dictationApp = nil; liveDraftDiverged = false
         pendingDictationPreview = nil; pendingDictationFinal = nil; draftUpdateInFlight = false
         voiceInput.report(message)
     }
@@ -1005,6 +1049,8 @@ final class BridgeRuntime {
         if let text { deliverDictation(text) }
     }
     private func cancelLiveDraft() {
+        if liveInput { inputMethod.cancel(); liveInput = false }
+        stopTyping()
         if let target = dictationTarget, let draft = liveDraft,
            NSWorkspace.shared.frontmostApplication?.processIdentifier == target.pid,
            dictationStillFocused(target) { _ = draft.rollback() }

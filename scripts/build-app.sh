@@ -79,6 +79,34 @@ cat > "$task_staged_app/Contents/Info.plist" <<'PLIST'
 <key>NSSpeechRecognitionUsageDescription</key><string>使用 macOS 语音识别，将你主动录制的语音转换为文字。</string>
 </dict></plist>
 PLIST
+# VibeWand's input method, a bundle of its own that Settings copies into ~/Library/Input Methods when the user
+# switches on typing as they speak. It is a palette: macOS runs it beside the keyboard input method in use.
+task_input="$task_staged_app/Contents/Helpers/VibeWandInput.app"
+mkdir -p "$task_input/Contents/MacOS" "$task_input/Contents/Resources"
+cp "$task_binary_dir/VibeWandInput" "$task_input/Contents/MacOS/VibeWandInput"
+cp "$task_staged_app/Contents/Resources/AppIcon.icns" "$task_input/Contents/Resources/AppIcon.icns"
+cat > "$task_input/Contents/Info.plist" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleName</key><string>VibeWand</string>
+<key>CFBundleDisplayName</key><string>VibeWand</string>
+<key>CFBundleIdentifier</key><string>org.vibekey.inputmethod.VibeWand</string>
+<key>CFBundleExecutable</key><string>VibeWandInput</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleIconFile</key><string>AppIcon</string>
+<key>LSMinimumSystemVersion</key><string>26.0</string>
+<key>LSBackgroundOnly</key><true/>
+<key>NSPrincipalClass</key><string>NSApplication</string>
+<key>InputMethodConnectionName</key><string>org.vibekey.inputmethod.VibeWand_Connection</string>
+<key>InputMethodServerControllerClass</key><string>VibeWandInputController</string>
+<key>InputMethodType</key><string>palette</string>
+<key>tsInputMethodIconFileKey</key><string>AppIcon.icns</string>
+</dict></plist>
+PLIST
+for task_key in CFBundleShortVersionString CFBundleVersion; do
+  plutil -insert "$task_key" -string "$(plutil -extract "$task_key" raw "$task_staged_app/Contents/Info.plist")" "$task_input/Contents/Info.plist"
+done
 task_signing_identity="${VIBEWAND_SIGNING_IDENTITY:-${VIBEKEY_SIGNING_IDENTITY:-}}"
 if [ -z "$task_signing_identity" ]; then
   task_identity_list="$(security find-identity -v -p codesigning | awk '/Apple Development:/ { print $2 }')"
@@ -95,6 +123,7 @@ if [ -z "$task_signing_identity" ]; then
 fi
 codesign --force --sign "$task_signing_identity" "$task_staged_app/Contents/Frameworks/libopus.0.dylib"
 codesign --force --sign "$task_signing_identity" "$task_staged_app/Contents/Helpers/VibeWandMic"
+codesign --force --sign "$task_signing_identity" --identifier org.vibekey.inputmethod.VibeWand "$task_input"
 codesign --force --sign "$task_signing_identity" --identifier org.vibekey.bridge "$task_staged_app"
 codesign --verify --deep --strict "$task_staged_app"
 if [ -d "$task_app" ]; then
