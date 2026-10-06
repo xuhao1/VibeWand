@@ -4,7 +4,7 @@ scenes ask for, and the narration placed where the timeline says. Nothing here i
 Usage: sound.py <language>
 Writes output/promo/audio/<language>/{music,sfx,voice,mix,mix-no-narration}.wav (48 kHz stereo).
 """
-import json, sys, wave
+import json, subprocess, sys, wave
 from pathlib import Path
 
 import numpy as np
@@ -14,7 +14,7 @@ SR = 48000
 root = Path(__file__).resolve().parents[2]
 language = sys.argv[1] if len(sys.argv) > 1 else "zh"
 timeline = json.loads((root / f"promo/timeline.{language}.json").read_text())
-spoken = json.loads((root / f"output/promo/vo/{language}/durations.json").read_text())
+spoken = json.loads((root / f"promo/vo/{language}/durations.json").read_text())
 script = {line["id"]: line for line in json.loads((root / f"promo/vo.{language}.json").read_text())["lines"]}
 cues = json.loads((root / "output/promo/cues.json").read_text())
 DURATION = timeline["duration"]
@@ -265,13 +265,12 @@ effects = reverb(effects, 1.1, 0.12)
 
 # ---------------------------------------------------------------- voice
 def read(path):
-    with wave.open(str(path)) as source:
-        data = np.frombuffer(source.readframes(source.getnframes()), dtype=np.int16).astype(np.float64) / 32768
-        return data.reshape(-1, source.getnchannels()).mean(1)
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", str(path), "-f", "s16le", "-ar", str(SR), "-ac", "1", "-"], capture_output=True, check=True).stdout
+    return np.frombuffer(raw, dtype=np.int16).astype(np.float64) / 32768
 
 narration, said = np.zeros((N, 2)), np.zeros((N, 2))
 for name, at in timeline["vo"].items():
-    voice = highpass(read(root / f"output/promo/vo/{language}/{name}.wav"), 70)
+    voice = highpass(read(root / f"promo/vo/{language}/{name}.flac"), 70)
     role = script[name]["role"]
     place(said if role == "user" else narration, voice, at, 0.95 if role == "narrator" else 0.85)
 narration = reverb(narration, 0.5, 0.035)

@@ -9,7 +9,7 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[2]
 language = sys.argv[1] if len(sys.argv) > 1 else "zh"
 timeline = json.loads((root / f"promo/timeline.{language}.json").read_text())
-spoken = json.loads((root / f"output/promo/vo/{language}/durations.json").read_text())
+spoken = json.loads((root / f"promo/vo/{language}/durations.json").read_text())
 script = {line["id"]: line for line in json.loads((root / f"promo/vo.{language}.json").read_text())["lines"]}
 
 lines = {}
@@ -23,18 +23,8 @@ for (first, a), (second, b) in zip(ordered, ordered[1:]):
         print(f"overlap: {first} runs to {a['at'] + a['seconds']:.2f}, {second} starts at {b['at']:.2f}")
 
 takes = {}
-for sequence in sorted((root / "output/promo/seq").glob("*/count")):
-    name = sequence.parent.name
-    start_file = root / f"output/promo/takes/{name}.mov.start"
-    if not start_file.exists():
-        start_file = root / f"output/promo/takes/{name}.start"
-    start = float(start_file.read_text().split(",")[0])
-    events = []
-    log = root / f"output/promo/takes/{name}.log.jsonl"
-    for row in (json.loads(line) for line in log.read_text().splitlines()) if log.exists() else []:
-        row["t"] = round(row["t"] - start, 3)
-        events.append(row)
-    takes[name] = {"frames": int(sequence.read_text()), "fps": 30, "events": events}
+for record in sorted((root / "promo/takes").glob("*.json")):
+    takes[record.stem] = json.loads(record.read_text())
 
 data = {"fps": timeline["fps"], "duration": timeline["duration"], "scenes": timeline["scenes"], "vo": lines, "takes": takes, "language": language}
 (root / "promo/src/data.js").write_text("window.DATA = " + json.dumps(data, ensure_ascii=False) + ";\n")

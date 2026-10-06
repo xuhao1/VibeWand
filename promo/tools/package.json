@@ -1,0 +1,12 @@
+{
+  "name": "vibewand-promo-tools",
+  "private": true,
+  "description": "What the promo film's page and renderer are built with, at the versions the film was made with.",
+  "dependencies": {
+    "@fontsource/jetbrains-mono": "5.3.0",
+    "@fontsource/noto-sans-sc": "5.3.0",
+    "@fontsource/sora": "5.3.0",
+    "gsap": "3.15.0",
+    "playwright-core": "1.63.0"
+  }
+}
