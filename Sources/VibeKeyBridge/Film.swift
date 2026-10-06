@@ -159,7 +159,8 @@ final class FilmDirector {
         if step.command == true {
             note("command", ["words": words.previews.last ?? ""])
             runtime.command.begin()
-            let listen = Double(words.previews.count) * 0.5 + 0.35
+            // The last preview must be in before the key comes up; a busy Mac delivers it late.
+            let listen = Double(words.previews.count) * 0.5 + 0.6
             Task { @MainActor in
                 try? await Task.sleep(nanoseconds: UInt64(listen * 1_000_000_000))
                 runtime.command.end(); self.note("released", [:])
