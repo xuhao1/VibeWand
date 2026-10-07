@@ -50,7 +50,7 @@
 <section class="hero">
     <div class="wrap">
         <img class="hero-icon" src="img/icon.webp" alt="" width="112" height="112">
-        <div><span class="pill"><span lang="zh">当前版本</span><span lang="en">Current release</span><b>0.10.2</b></span></div>
+        <div><span class="pill"><span lang="zh">当前版本</span><span lang="en">Current release</span><b>0.11.0</b></span></div>
         <h1 class="wordmark">Vibe<span>Wand</span></h1>
         <p class="cn-name" lang="zh">如意魔棒</p>
         <p class="tagline">One wand to command them all.</p>
@@ -70,14 +70,14 @@
         <p class="caption" lang="zh">还有 iTerm2 里的 Claude Code、Codex、OpenCode，以及 Edge、Brave、Firefox、Opera、Vivaldi。</p>
         <p class="caption" lang="en">Also Claude Code, Codex and OpenCode in iTerm2, and Edge, Brave, Firefox, Opera and Vivaldi.</p>
         <div class="cta">
-            <a class="btn primary" href="https://github.com/xuhao1/vibewand-site/releases/download/v0.10.2/VibeWand-0.10.2-macOS-arm64.zip">
+            <a class="btn primary" href="https://github.com/xuhao1/vibewand-site/releases/download/v0.11.0/VibeWand-0.11.0-macOS-arm64.zip">
                 <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v8.5M4.5 7.5 8 11l3.5-3.5M3 14h10"/></svg>
-                <span lang="zh">下载 0.10.2（Apple Silicon）</span><span lang="en">Download 0.10.2 (Apple Silicon)</span>
+                <span lang="zh">下载 0.11.0（Apple Silicon）</span><span lang="en">Download 0.11.0 (Apple Silicon)</span>
             </a>
             <a class="btn" href="#apps"><span lang="zh">在每个应用里能做什么</span><span lang="en">What it does in each app</span></a>
         </div>
-        <p class="caption" lang="zh">macOS 26 以上 · M 系列芯片 · 约 106 MB</p>
-        <p class="caption" lang="en">macOS 26 or later · M-series Mac · about 106 MB</p>
+        <p class="caption" lang="zh">macOS 26 以上 · M 系列芯片 · 约 105 MB</p>
+        <p class="caption" lang="en">macOS 26 or later · M-series Mac · about 105 MB</p>
     </div>
     <figure class="cover">
         <div class="film" lang="zh">
@@ -129,8 +129,8 @@
             </article>
             <article class="card">
                 <div class="verb"><span class="num">02</span><h3><span lang="zh">说</span><span lang="en">Speak</span></h3></div>
-                <p lang="zh">按住麦克风键说话，松开后文字出现在输入框里，不会替你发送。可以用自带的识别，它用你手里那个设备的麦克风录音：系统听写或你自己的语音 API，能填自己的词表；或者在本机运行的 SenseVoice，不用密钥也不用联网。也可以继续用 Typeless、豆包这类输入法。</p>
-                <p lang="en">Hold the microphone button and talk. When you let go, the text is in the composer, and nothing is sent for you. Use the built-in recognition, which records from the microphone of the device you are holding: macOS dictation or your own speech API, both of which take your own vocabulary, or SenseVoice running on this Mac with no key and no network. Or keep using an input method such as Typeless.</p>
+                <p lang="zh">按住麦克风键说话，松开后文字出现在输入框里，不会替你发送。可以用自带的识别，它用你手里那个设备的麦克风录音：系统听写或你自己的语音 API，能填自己的词表；或者在本机运行的 SenseVoice，不用密钥也不用联网。也可以继续用 Typeless、豆包这类输入法。打开词表学习后（默认关闭），你在输入框里改过的词，它会记进词表。</p>
+                <p lang="en">Hold the microphone button and talk. When you let go, the text is in the composer, and nothing is sent for you. Use the built-in recognition, which records from the microphone of the device you are holding: macOS dictation or your own speech API, both of which take your own vocabulary, or SenseVoice running on this Mac with no key and no network. Or keep using an input method such as Typeless. With vocabulary learning on (it is off by default), the words you correct in the field afterwards go into your vocabulary.</p>
             </article>
             <article class="card">
                 <div class="verb"><span class="num">03</span><h3><span lang="zh">切</span><span lang="en">Switch</span></h3></div>
@@ -148,6 +148,8 @@
                 <p lang="en">Hold the command key and say a sentence, and it finds it, opens it, or sets it in the menu that opens:</p>
                 <div class="say" lang="zh"><span>“切到 Codex 里讨论麦克风的那个会话”</span><span>“打开 Runtime.swift 那个标签页”</span><span>“强度调到最低”</span></div>
                 <div class="say" lang="en"><span>“Switch to the Codex chat about the microphone”</span><span>“Open the Runtime.swift tab”</span><span>“Set the effort to the lowest”</span></div>
+                <p lang="zh">用阿里的语音服务时，命令由它的模型直接听、直接做，再用语音回答你；声音可以挑，男声、女声、方言都有，说一句“换成男声”也行。说过的命令能重新播放原声。</p>
+                <p lang="en">With Alibaba's voice service, its model hears the command itself, acts, and answers you aloud; the voice is yours to pick, a man's, a woman's or a dialect, and “switch to a man's voice” does it too. A command you spoke can be played back as you said it.</p>
                 <p lang="zh">模型由你选：DeepSeek、OpenAI、Anthropic、本机模型或任何兼容的地址，配好就能用；也可以作为插件跑在你自己装的 DeepSeek Harness 上，在那里看每段对话、配模型。</p>
                 <p lang="en">The model is yours to choose: DeepSeek, OpenAI, Anthropic, a local model or any compatible address. It works as soon as one is set up, and can instead run as a plugin of a DeepSeek Harness you installed yourself, where each conversation can be read and models are set up.</p>
             </article>
@@ -320,8 +322,8 @@
                 <span class="status"><span lang="zh">已随 0.9.0 发布，配好模型后可用</span><span lang="en">Ships in 0.9.0; usable once a model is set up</span></span>
                 <dl>
                     <dt><span lang="zh">谁决定做什么</span><span lang="en">Who decides</span></dt>
-                    <dd lang="zh">你配置的模型，从 13 个工具里选。看窗口截图并在图上点击，以及插件模式下 Harness 自己的工具，要你打开才有。</dd>
-                    <dd lang="en">The model you configured, choosing among 13 tools. Seeing the window and clicking in its picture, and in plugin mode the harness's own tools, are added only if you turn them on.</dd>
+                    <dd lang="zh">你配置的模型，从 13 个工具里选。看窗口截图并在图上点击，以及插件模式下 Harness 自己的工具，要你打开才有；它用语音服务的声音说话时，另有一个换声音的工具。</dd>
+                    <dd lang="en">The model you configured, choosing among 13 tools. Seeing the window and clicking in its picture, and in plugin mode the harness's own tools, are added only if you turn them on; while it speaks in a voice of the voice service there is one more, for changing that voice.</dd>
                     <dt><span lang="zh">看什么</span><span lang="en">What it looks at</span></dt>
                     <dd lang="zh">应用、窗口和会话的标题；前台窗口里控件的类型、名称和状态；应用播报的状态行；打开看窗口后，还有窗口的截图和从图里认出的文字。</dd>
                     <dd lang="en">App, window and chat titles; the kind, name and state of the controls in the front window; the status line an app announces; with seeing turned on, a picture of the window and the text read in it.</dd>
@@ -372,11 +374,11 @@
                 <p lang="zh">需要 macOS 26 以上和 M 系列芯片。解压后把 <strong>VibeWand.app</strong> 拖进“应用程序”并打开。第一次打开会出现引导，带你走完权限、设备、语音输入和命令模式，每一步都可以跳过。</p>
                 <p lang="en">Requires macOS 26 or later on an M-series Mac. Unzip, drag <strong>VibeWand.app</strong> into Applications and open it. The first launch shows a guide that walks you through permission, your device, voice input and command mode; every step can be skipped.</p>
                 <div class="cta">
-                    <a class="btn primary" href="https://github.com/xuhao1/vibewand-site/releases/download/v0.10.2/VibeWand-0.10.2-macOS-arm64.zip">
+                    <a class="btn primary" href="https://github.com/xuhao1/vibewand-site/releases/download/v0.11.0/VibeWand-0.11.0-macOS-arm64.zip">
                         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v8.5M4.5 7.5 8 11l3.5-3.5M3 14h10"/></svg>
-                        <span lang="zh">下载 VibeWand 0.10.2</span><span lang="en">Download VibeWand 0.10.2</span>
+                        <span lang="zh">下载 VibeWand 0.11.0</span><span lang="en">Download VibeWand 0.11.0</span>
                     </a>
-                    <a class="btn" href="https://github.com/xuhao1/vibewand-site/releases/tag/v0.10.2"><span lang="zh">说明与校验和</span><span lang="en">Notes and checksum</span></a>
+                    <a class="btn" href="https://github.com/xuhao1/vibewand-site/releases/tag/v0.11.0"><span lang="zh">说明与校验和</span><span lang="en">Notes and checksum</span></a>
                 </div>
                 <p class="fine" lang="zh">这个版本是临时签名，没有做 Apple 公证。首次打开如果被 macOS 阻止，在“系统设置 → 隐私与安全性”里允许，见 <a href="https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unidentified-developer-mh40616/mac">Apple 的说明</a>。</p>
                 <p class="fine" lang="en">This build is ad-hoc signed and not notarized by Apple. If macOS blocks the first launch, allow it under System Settings → Privacy &amp; Security; see <a href="https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unidentified-developer-mh40616/mac">Apple's guide</a>.</p>
@@ -404,12 +406,12 @@
         <h2 lang="zh">没有服务器，不需要账号。</h2>
         <h2 lang="en">No server. No account.</h2>
         <div class="body" lang="zh">
-            <p>设备输入和配置都在本机处理。听写用外置输入法时，它只替你按住 Fn；用内置识别时，录音只留在内存里，系统听写能离线就离线，SenseVoice 始终在本机识别，语音 API 模式会把录音发到你自己填的地址。密钥存在 macOS 钥匙串里，导出配置不会带上。听写的文字只写进输入框，发不发由你决定。</p>
-            <p>命令模式默认开启，但在你配好模型之前什么都不做，也不联系任何服务。配好以后，你说出的命令、应用和会话的标题，以及操作界面时前台窗口控件上的文字，会发给你自己选的模型服务；输入框和文档的内容不会，除非你打开看窗口截图：发出去的是窗口当时的样子，和从图里认出的文字。每条命令的过程记录在本机，14 天后删除。</p>
+            <p>设备输入和配置都在本机处理。听写用外置输入法时，它只替你按住 Fn；用内置识别时，录音只留在内存里，系统听写能离线就离线，SenseVoice 始终在本机识别，语音 API 模式会把录音发到你自己填的地址。密钥存在 macOS 钥匙串里，导出配置不会带上。听写的文字只写进输入框，发不发由你决定。打开词表学习（默认关闭）后，你改过的听写先留在本机，整理词表时发给命令模式的模型服务，整理完删除。</p>
+            <p>命令模式默认开启，但在你配好模型之前什么都不做，也不联系任何服务。配好以后，你说出的命令、应用和会话的标题，以及操作界面时前台窗口控件上的文字，会发给你自己选的模型服务；输入框和文档的内容不会，除非你打开看窗口截图：发出去的是窗口当时的样子，和从图里认出的文字。“语音输入”用阿里 Qwen 实时语音时，默认由它的模型直接听命令，这些内容连同命令的录音就发给这个语音服务；改成多个模型组合时，发给语音服务的只有要读出来的那一句。每条命令的过程记录在本机，说出来的命令连录音一起（可以关掉），14 天后删除。</p>
         </div>
         <div class="body" lang="en">
-            <p>Device input and configuration stay on your Mac. With an external input method VibeWand only holds Fn for you. With built-in recognition, audio stays in memory; macOS dictation runs on device when it can, SenseVoice always does, and API mode sends audio to the endpoint you entered. Keys live in the macOS Keychain and are never part of an exported configuration. Dictated text goes into the field and no further; sending it is up to you.</p>
-            <p>Command mode is on by default, and until you set up a model it does nothing and contacts no service. After that, the words of your commands, the titles of apps and chats, and the labels of controls in the front window while the interface is operated are sent to the model service you chose yourself. The contents of fields and documents are not, unless you turn on seeing the window, which sends the model a picture of the window as it is and the text read in it. What each command did is recorded on your Mac and deleted after 14 days.</p>
+            <p>Device input and configuration stay on your Mac. With an external input method VibeWand only holds Fn for you. With built-in recognition, audio stays in memory; macOS dictation runs on device when it can, SenseVoice always does, and API mode sends audio to the endpoint you entered. Keys live in the macOS Keychain and are never part of an exported configuration. Dictated text goes into the field and no further; sending it is up to you. With vocabulary learning on (off by default), the dictations you corrected are kept on your Mac until the vocabulary is next brought up to date, sent then to the model service of command mode, and deleted.</p>
+            <p>Command mode is on by default, and until you set up a model it does nothing and contacts no service. After that, the words of your commands, the titles of apps and chats, and the labels of controls in the front window while the interface is operated are sent to the model service you chose yourself. The contents of fields and documents are not, unless you turn on seeing the window, which sends the model a picture of the window as it is and the text read in it. When Voice input uses Alibaba Qwen Realtime, its model hears commands itself by default, and all of this goes to that voice service together with the recording of the command; with several models instead, the voice service is sent only the line that is to be read out. What each command did is recorded on your Mac, a spoken command with its recording (which can be turned off), and deleted after 14 days.</p>
         </div>
     </div>
 </section>

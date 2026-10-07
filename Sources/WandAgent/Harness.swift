@@ -62,9 +62,12 @@ public struct Harness: Sendable {
     public var coordinator: URL
     /// The bundle that sets VibeWand on top of the harness's own agent and tools. nil for a harness that ships none.
     public var overlay: URL?
+    /// The bundle that shows command mode in the harness's own apps: a spoken command as a voice message that
+    /// plays its recording, and a mark on the conversations command mode started. nil for a harness without apps.
+    public var view: URL?
 
-    public init(command: [String], home: URL?, coordinator: URL, overlay: URL? = nil) {
-        self.command = command; self.home = home; self.coordinator = coordinator; self.overlay = overlay
+    public init(command: [String], home: URL?, coordinator: URL, overlay: URL? = nil, view: URL? = nil) {
+        self.command = command; self.home = home; self.coordinator = coordinator; self.overlay = overlay; self.view = view
     }
     public static let defaultHome = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(".dsh")
 
@@ -86,12 +89,13 @@ public struct Harness: Sendable {
     public static func installed(desktopApp: URL?, bundles: URL, home: URL = Harness.defaultHome) -> Harness? {
         let files = FileManager.default
         let coordinator = bundles.appendingPathComponent("coordinator"), overlay = bundles.appendingPathComponent("overlay")
+        let view = bundles.appendingPathComponent("view")
         guard files.fileExists(atPath: coordinator.appendingPathComponent("package.json").path) else { return nil }
         let carried = desktopApp?.appendingPathComponent("Contents/Resources/runtime/cli/bin/dsh")
         let terminal = ["/opt/homebrew/bin/dsh", "/usr/local/bin/dsh", NSHomeDirectory() + "/.local/bin/dsh"].map(URL.init(fileURLWithPath:))
         guard let launcher = ([carried].compactMap { $0 } + terminal).first(where: { files.isExecutableFile(atPath: $0.path) }) else { return nil }
-        return Harness(command: [launcher.path], home: home, coordinator: coordinator,
-                       overlay: files.fileExists(atPath: overlay.appendingPathComponent("package.json").path) ? overlay : nil)
+        func present(_ bundle: URL) -> URL? { files.fileExists(atPath: bundle.appendingPathComponent("package.json").path) ? bundle : nil }
+        return Harness(command: [launcher.path], home: home, coordinator: coordinator, overlay: present(overlay), view: present(view))
     }
 
     public var launcher: URL { URL(fileURLWithPath: command[0]) }
@@ -113,21 +117,54 @@ public struct Harness: Sendable {
     public static func speechData(in home: URL) -> URL { home.appendingPathComponent("speech-to-text/sensevoice") }
 
     /// The version the harness reports, or nil when it does not start.
-    public func version() async -> String? { await run(["--version"]).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.flatMap { $0.isEmpty ? nil : $0 } }
+    public func version() async -> String? {
+        let asked = await run(["--version"])
+        let version = asked.output.trimmingCharacters(in: .whitespacesAndNewlines)
+        return asked.done && !version.isEmpty ? version : nil
+    }
 
-    private func run(_ arguments: [String]) async -> String? {
+    /// Runs the harness's command to its end: whether it succeeded, what it printed, and what it complained of.
+    private func run(_ arguments: [String]) async -> (done: Bool, output: String, complaint: String) {
         await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
-                let process = Process(), output = Pipe()
+                let process = Process(), output = Pipe(), errors = Pipe()
                 process.executableURL = launcher; process.arguments = Array(command.dropFirst()) + arguments
                 process.environment = environment(home: home)
-                process.standardOutput = output; process.standardError = FileHandle.nullDevice
-                guard (try? process.run()) != nil else { return continuation.resume(returning: nil) }
+                process.standardOutput = output; process.standardError = errors
+                guard (try? process.run()) != nil else { return continuation.resume(returning: (false, "", "")) }
+                // Both are read to their end before the wait, so neither fills and stalls the command.
+                var complaint = Data()
+                let reading = DispatchGroup()
+                DispatchQueue.global(qos: .userInitiated).async(group: reading) { complaint = errors.fileHandleForReading.readDataToEndOfFile() }
                 let data = output.fileHandleForReading.readDataToEndOfFile()
-                process.waitUntilExit()
-                continuation.resume(returning: process.terminationStatus == 0 ? String(decoding: data, as: UTF8.self) : nil)
+                reading.wait(); process.waitUntilExit()
+                continuation.resume(returning: (process.terminationStatus == 0, String(decoding: data, as: UTF8.self), String(decoding: complaint, as: UTF8.self)))
             }
         }
+    }
+
+    // MARK: VibeWand's view in the harness's own apps
+
+    /// The name the view's bundle goes by, in a profile's list and on the harness's Plugins page.
+    public static let viewName = "vibewand-view"
+    /// The profiles the harness's own apps run on.
+    public static let apps = ["desktop", "web"]
+
+    /// Whether the app that runs on `profile` has been given VibeWand's view.
+    public func showsView(in profile: String) -> Bool {
+        guard let manifest = home?.appendingPathComponent("profiles/\(profile)/package.json"),
+              let listed = JSONValue(data: (try? Data(contentsOf: manifest)) ?? Data())?["dsh"]?["profile"]?["bundles"]?.array else { return false }
+        return listed.contains(.string(Self.viewName))
+    }
+    /// Gives the harness's app on `profile` VibeWand's view, or takes it away again, with the harness's own
+    /// plugin command, so that its Plugins page lists the view like any other the user added. Returns what the
+    /// harness said when it would not: its desktop app has to be closed while its profile is changed.
+    public func setView(_ shown: Bool, in profile: String) async -> String? {
+        guard let view else { return "" }
+        let asked = await run(["plugin", "--profile", profile, shown ? "add" : "remove", shown ? view.path : Self.viewName])
+        guard !asked.done else { return nil }
+        let said = asked.complaint.split(separator: "\n").last { $0.hasPrefix("dsh: Error: ") }.map { String($0.dropFirst("dsh: Error: ".count)) }
+        return said ?? String(asked.complaint.suffix(300))
     }
 
     /// The interactive profile whose model settings are followed: the desktop app's, else the web app's.
@@ -153,10 +190,11 @@ public struct Harness: Sendable {
     /// `VibeWand` subfolder is the working directory, which is no project of the user's, so an installed
     /// harness's apps file the conversations under no project. `keeping` names the conversation that may be
     /// taken up again; in the shipped harness's store, which nothing else reads, the others are spent and removed.
-    /// `hearing` says the model is one that hears the user's recording and speaks its answers.
+    /// `hearing` says the model is one that hears the user's recording and speaks its answers. `prompt` takes the
+    /// place of the coordinator's rules for a job that is not a command, such as the vocabulary's upkeep.
     public func launch(version: String, allowUnverified: Bool = false, support: URL, models: Models, tools: Tools = .own,
                        permission: PermissionMode = .risky, instructions: String = "", sight: Bool = false, hearing: Bool = false,
-                       keeping: String? = nil) throws -> KernelLaunch {
+                       prompt: String? = nil, keeping: String? = nil) throws -> KernelLaunch {
         guard Self.verified.contains(version) || allowUnverified else { throw Failure.unverified(version) }
         guard let bundle = tools == .all ? overlay : coordinator else { throw Failure.noTools }
         let files = FileManager.default
@@ -202,7 +240,7 @@ public struct Harness: Sendable {
         if Self.verified.contains(version) { try? files.removeItem(at: exemption) }
         else { try Data(JSONValue.object(["\(package)@\(release)": [.string(version)]]).text.utf8).write(to: exemption) }
 
-        environment["VIBEWAND_SYSTEM_PROMPT"] = CoordinatorPrompt.system(instructions: instructions, tools: tools, sight: sight, hearing: hearing)
+        environment["VIBEWAND_SYSTEM_PROMPT"] = prompt ?? CoordinatorPrompt.system(instructions: instructions, tools: tools, sight: sight, hearing: hearing)
         environment["VIBEWAND_MODEL"] = JSONValue.object(["provider": .string(chosen.provider), "model": .string(chosen.model)]).text
         // The harness's own tools run inside its sandbox, and it asks before a step leaves it.
         if tools == .all { environment["DSH_PERMISSION_MODE"] = permission.sandbox }

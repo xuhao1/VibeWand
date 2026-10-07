@@ -35,6 +35,8 @@ final class CommandTools: ToolHost {
     var ask: ((CommandQuestion) async -> Int?)?
     /// The user has let the model see the window it operates, and point in it.
     var sight = false
+    /// Lists the voices VibeWand can speak in, or changes to the one named.
+    var voice: ((String?) -> ToolOutcome)?
 
     init(adapter: AccessibilityAdapter) { self.adapter = adapter }
 
@@ -138,6 +140,7 @@ final class CommandTools: ToolHost {
         case "ui_key": return await key(arguments)
         case "ui_menu": return await menu(arguments)
         case "ui_type": return await type(arguments)
+        case "set_voice": return voice?(arguments["voice"]?.string) ?? .failure("\(tool) is not available.")
         default: return .failure("\(tool) is not available.")
         }
     }

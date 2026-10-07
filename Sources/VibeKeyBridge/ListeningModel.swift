@@ -65,10 +65,11 @@ struct ModelExchange: Equatable {
 final class ListeningModel {
     /// Tokens the model was seen to take in one conversation. The service does not say what it holds.
     static let contextWindow = 120_000
-    /// A session that has called tools, and the calls whose results it is waiting for.
+    /// A session that has called tools, the calls whose results it is waiting for, and the voice it was opened in.
     private struct Live {
         var conversation: QwenRealtimeConversation
         var pending: Set<String> = []
+        var voice = ""
     }
     private var live: Live?
     /// The command being run: the message the kernel sends for it, and the recording that message was recognised in.
@@ -79,7 +80,7 @@ final class ListeningModel {
     /// Whether the model is to speak its answers, and where the speech goes as it arrives.
     var speaks: () -> Bool = { false }
     /// The voice it speaks in, by the service's name for it. Empty leaves the model's own.
-    var voice: () -> String = { QwenRealtimeReader.voice }
+    var voice: () -> String = { QwenRealtimeConversation.voice }
     var onSound: ((Data) -> Void)?
 
     init(service: @escaping () async throws -> (SpeechConfiguration, String)) { self.service = service }
@@ -93,12 +94,17 @@ final class ListeningModel {
         return ModelRoute(wire: .openAIChat, baseURL: endpoint!.baseURL, model: model, key: endpoint!.key, contextWindow: Self.contextWindow)
     }
 
-    /// Has a line of VibeWand's own, a question or a result, said in the voice the model answers in. The
-    /// model itself might answer such a line instead of reading it, so the voice service's synthesis reads it.
-    func read(_ line: String, sound: (Data) -> Void) async throws {
+    /// Has the model say a line of VibeWand's own, a question or a result, in the voice it answers in. It is
+    /// asked in a session of its own, so that the line is said and not acted on.
+    func say(_ line: String, sound: (Data) -> Void) async throws {
         let (configuration, key) = try await service()
-        let chosen = voice()
-        try await QwenRealtimeReader.read(line, voice: chosen.isEmpty ? QwenRealtimeReader.voice : chosen, configuration: configuration, apiKey: key, sound: sound)
+        try await QwenRealtimeConversation.say(line, voice: voice().isEmpty ? nil : voice(), configuration: configuration, apiKey: key, sound: sound)
+    }
+    /// The same line as the voice service's synthesis reads it in `voice`, for when a model with no voice of
+    /// its own did the work.
+    func read(_ line: String, voice: String) async throws -> Data {
+        let (configuration, key) = try await service()
+        return try await QwenSpeechSynthesis.read(line, voice: voice, configuration: configuration, apiKey: key)
     }
 
     /// Says which message of the kernel's the recording belongs to. The model hears it and reads the message.
@@ -115,8 +121,9 @@ final class ListeningModel {
             let usage = try await held.conversation.respond { event in
                 switch event {
                 case .words(let text): reply.words(text)
-                // A command that was stopped meanwhile says nothing more.
-                case .sound(let sound): if heard != nil { onSound?(sound) }
+                // A command that was stopped meanwhile says nothing more, and neither does a session whose voice
+                // the user has since changed: what it has to say is then said in the new one.
+                case .sound(let sound): if heard != nil, held.voice == voice() { onSound?(sound) }
                 case .call(let id, let name, let arguments): held.pending.insert(id); reply.call(id: id, name: name, arguments: arguments)
                 }
             }
@@ -143,20 +150,20 @@ final class ListeningModel {
             live = nil
             do {
                 for result in exchange.results { try await held.conversation.answer(call: result.call, with: result.output) }
-                return Live(conversation: held.conversation)
+                return Live(conversation: held.conversation, voice: held.voice)
             } catch { held.conversation.close() }
         }
         live?.conversation.close(); live = nil
         let (configuration, key) = try await service()
         // The message the recording belongs to, when this request is about the command being run.
         let turn = heard.flatMap { heard in exchange.lines.lastIndex { !$0.fromModel && $0.text.contains(heard.prompt) } }
-        let conversation = QwenRealtimeConversation()
+        let conversation = QwenRealtimeConversation(), voice = voice()
         do {
             let vocabulary = configuration.effectiveVocabulary.guidance
             try await conversation.open(configuration: configuration, apiKey: key,
                 instructions: exchange.instructions + (vocabulary.isEmpty ? "" : "\n\n" + vocabulary),
                 tools: exchange.tools.compactMap { try? JSONSerialization.jsonObject(with: Data($0.text.utf8)) as? [String: Any] },
-                spoken: turn != nil && speaks(), voice: voice().isEmpty ? nil : voice())
+                spoken: turn != nil && speaks(), voice: voice.isEmpty ? nil : voice)
             for (index, line) in exchange.lines.enumerated() {
                 // The recording comes before its message, which keeps the recogniser's reading of it and says
                 // when and where it was spoken.
@@ -164,6 +171,6 @@ final class ListeningModel {
                 try await conversation.add(line.text, fromModel: line.fromModel)
             }
         } catch { conversation.close(); throw error }
-        return Live(conversation: conversation)
+        return Live(conversation: conversation, voice: voice)
     }
 }

@@ -202,13 +202,24 @@ final class CommandSettings: ObservableObject {
     @Published private(set) var listens: Bool
     /// What a command ends with, and what it asks on the way, is also said aloud.
     @Published private(set) var speaks: Bool
+    /// The recording of each spoken command is kept with its record, to be played again beside the words read in it.
+    @Published private(set) var recordings: Bool
     /// The voice of the model that listens, by the voice service's name for it. Empty leaves the model's own.
     @Published private(set) var voice: String
+    /// The voice the voice service's synthesis reads in beside a model that has none. Empty leaves the reading
+    /// to the macOS voice, and nothing of it then goes to the voice service.
+    @Published private(set) var readerVoice: String
     /// The model of the voice service that can hear a command and act on it, when that service is set up. The app says.
     var listeningModel: () -> String? = { nil }
     /// The model commands go to when the user chose the one that listens, and it is there.
     var listenModel: String? { listens ? listeningModel() : nil }
     var listening: Bool { listenModel != nil }
+    /// The voices there are to choose from for what is said aloud: the listening model's own while commands go
+    /// to it, the synthesis model's beside another model, and none without the voice service.
+    var voices: [SpeechVoice] { listening ? SpeechVoice.omni : listeningModel() != nil ? SpeechVoice.synthesis : [] }
+    /// The one in use among them, by the service's name for it.
+    var speakingVoice: String { listening ? voice : readerVoice }
+    func setSpeakingVoice(_ value: String) { if listening { setVoice(value) } else { setReaderVoice(value) } }
     /// What that switch is called, in Settings and wherever the user is pointed to it.
     nonisolated static var sightTitle: String { L10n.tr("让模型看窗口截图并点击", "Let the model see the window and click in it") }
     private var remembered: [String: CommandModel]
@@ -227,7 +238,9 @@ final class CommandSettings: ObservableObject {
         sight = defaults.bool(forKey: "commandSight")
         listens = defaults.object(forKey: "commandListens") as? Bool ?? true
         speaks = defaults.object(forKey: "commandSpeaks") as? Bool ?? true
-        voice = defaults.string(forKey: "commandVoice") ?? QwenRealtimeReader.voice
+        recordings = defaults.object(forKey: "commandRecordings") as? Bool ?? true
+        voice = defaults.string(forKey: "commandVoice") ?? QwenRealtimeConversation.voice
+        readerVoice = defaults.string(forKey: "commandReaderVoice") ?? QwenSpeechSynthesis.voice
         enabled = defaults.object(forKey: "commandModeEnabled") as? Bool ?? true
         // Right Option is the voice key of some input methods, which take it before any other listener sees it.
         hotkey = defaults.string(forKey: "commandHotkey").flatMap(CommandHotkey.init(rawValue:)) ?? .rightCommand
@@ -313,7 +326,11 @@ final class CommandSettings: ObservableObject {
     func setSight(_ value: Bool) { sight = value; defaults.set(value, forKey: "commandSight"); onChange?() }
     func setListens(_ value: Bool) { listens = value; defaults.set(value, forKey: "commandListens"); onChange?() }
     func setSpeaks(_ value: Bool) { speaks = value; defaults.set(value, forKey: "commandSpeaks"); onChange?() }
-    func setVoice(_ value: String) { voice = value.trimmingCharacters(in: .whitespacesAndNewlines); defaults.set(voice, forKey: "commandVoice"); onChange?() }
+    func setRecordings(_ value: Bool) { recordings = value; defaults.set(value, forKey: "commandRecordings"); onChange?() }
+    // A voice is taken up by whatever is said next. Nothing of a conversation depends on it, so changing one
+    // ends none: the model itself may change it in the middle of a command.
+    func setVoice(_ value: String) { voice = value.trimmingCharacters(in: .whitespacesAndNewlines); defaults.set(voice, forKey: "commandVoice") }
+    func setReaderVoice(_ value: String) { readerVoice = value.trimmingCharacters(in: .whitespacesAndNewlines); defaults.set(readerVoice, forKey: "commandReaderVoice") }
     func setHarnessReasoning(_ value: ModelRoute.Reasoning) { harnessReasoning = value; defaults.set(value.rawValue, forKey: "commandHarnessReasoning"); onChange?() }
     func setHarnessUnverified(_ value: Bool) { harnessUnverified = value; defaults.set(value, forKey: "commandHarnessUnverified"); onChange?() }
     func setPermission(_ value: PermissionMode) { permission = value; defaults.set(value.rawValue, forKey: "commandPermission"); onChange?() }
@@ -338,9 +355,12 @@ final class CommandSettings: ObservableObject {
     }
     /// Where the model of the mode in force comes from: the route set up here, with its key, or the harness's own
     /// settings with the model picked from them. nil until enough is set.
-    func models() async -> Harness.Models? {
-        guard usable else { return nil }
-        if kernelMode == .harness { return .harness(harnessModel, reasoning: harnessReasoning) }
+    func models() async -> Harness.Models? { usable ? await reading() : nil }
+    /// The model that reads what it is sent, whether or not commands go to the one that listens: the one set up
+    /// here, or the installed harness's own. nil when there is none.
+    func reading() async -> Harness.Models? {
+        if kernelMode == .harness { return harness == nil ? nil : .harness(harnessModel, reasoning: harnessReasoning) }
+        guard model.origin != nil, !model.model.isEmpty, model.keyOptional || keySaved else { return nil }
         return .route(ModelRoute(wire: model.wire, baseURL: model.baseURL, model: model.model, key: await readKey(for: model),
                                  contextWindow: model.contextWindow > 0 ? model.contextWindow : nil, reasoning: model.reasoning,
                                  images: sight, extra: model.extraSettings ?? [:]))

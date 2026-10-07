@@ -309,6 +309,55 @@ final class HarnessTests: XCTestCase {
         XCTAssertEqual(JSONValue(data: try Data(contentsOf: installed.appendingPathComponent("compatibility.json"))), ["vibewand-overlay@\(release)": ["0.3.0"]])
     }
 
+    /// VibeWand's view in a harness's own apps is a bundle of its own: one row, a host half that serves the
+    /// recordings and a browser half that asks it for them, declared for the harness versions it was checked on.
+    func testTheViewIsABundleOfItsOwnDeclaredForTheHarnessItWasCheckedOn() throws {
+        let view = kernel.appendingPathComponent("view"), declared = try manifest(view)
+        XCTAssertEqual(declared["name"]?.string, Harness.viewName)
+        XCTAssertEqual(declared["version"], try manifest(coordinator)["version"])
+        XCTAssertEqual(declared["peerDependencies"]?["@deepseek-ai/dsh"]?.string.map { [$0] }, Harness.verified)
+        XCTAssertEqual(declared["dsh"]?["client"]?["platform"]?.string, "web")
+        XCTAssertEqual(declared["exports"]?["./client"]?.string, "./lib/client.js")
+        let rows = try text(view.appendingPathComponent("cordis.patch.yml"))
+        XCTAssertTrue(rows.contains("id: vibewand-view") && rows.contains("name: 'vibewand-view'"))
+        let host = try text(view.appendingPathComponent("lib/index.js")), browser = try text(view.appendingPathComponent("lib/client.js"))
+        XCTAssertTrue(browser.contains(#"id: "vibewand-view""#))
+        // The browser asks at the address the host answers at, and only for a record's own recording.
+        XCTAssertTrue(host.contains("'/api/vibewand.recording'") && browser.contains("api/vibewand.recording?task="))
+        XCTAssertTrue(host.contains(TaskJournal.recording))
+        // The line a spoken command ends with is the one the browser reads.
+        let spoken = CoordinatorPrompt.task("打开计算器", frontApp: "Finder", window: "", recording: ("20261007-040200-ab12cd", 7))
+        XCTAssertTrue(browser.contains(#"/^Spoken, (\d+) s\. Recording (\d{8}-\d{6}-[0-9a-f]{6})$/"#))
+        XCTAssertNotNil(spoken.split(separator: "\n").last?.range(of: #"^Spoken, (\d+) s\. Recording (\d{8}-\d{6}-[0-9a-f]{6})$"#, options: .regularExpression))
+    }
+
+    /// The view is in a harness's app once that app's profile lists it, which the harness's own plugin command
+    /// sees to. The shipped harness has no apps and no view.
+    func testAHarnesssAppShowsTheViewOnceItsProfileListsIt() throws {
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent("vw-view-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: home) }
+        let launcher = home.appendingPathComponent("dsh")
+        try FileManager.default.createDirectory(at: home.appendingPathComponent("profiles/desktop"), withIntermediateDirectories: true)
+        let harness = Harness(command: [launcher.path], home: home, coordinator: coordinator, overlay: overlay, view: kernel.appendingPathComponent("view"))
+        XCTAssertFalse(harness.showsView(in: "desktop"))
+        try Data(#"{"name":"dsh-profile-desktop","dsh":{"profile":{"bundles":["@deepseek-ai/dsh-base","vibewand-view"]}}}"#.utf8)
+            .write(to: home.appendingPathComponent("profiles/desktop/package.json"))
+        XCTAssertTrue(harness.showsView(in: "desktop"))
+        XCTAssertFalse(harness.showsView(in: "web"))
+        XCTAssertNil(Harness(command: [launcher.path], home: nil, coordinator: coordinator).view)
+    }
+
+    /// A job that is not a command runs on the same profile under rules of its own.
+    func testAJobOfVibeWandsOwnIsLaunchedUnderItsOwnRules() throws {
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent("vw-errand-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: home) }
+        let harness = Harness(command: ["/usr/bin/true"], home: home.appendingPathComponent("dsh"), coordinator: coordinator)
+        let launch = try harness.launch(version: Harness.verified[0], support: home.appendingPathComponent("support"), models: .harness(nil),
+                                        prompt: VocabularyPrompt.system)
+        XCTAssertEqual(launch.environment["VIBEWAND_SYSTEM_PROMPT"], VocabularyPrompt.system)
+        XCTAssertEqual(launch.arguments.suffix(2), ["--profile", "vibewand"])
+    }
+
     func testEitherHarnessIsFoundWhereItLives() throws {
         let files = FileManager.default
         let root = files.temporaryDirectory.appendingPathComponent("vw-harness-app-\(UUID().uuidString)")

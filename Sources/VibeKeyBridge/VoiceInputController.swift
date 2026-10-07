@@ -82,6 +82,12 @@ final class VoiceInputController: ObservableObject {
         try preferences.save(value)
         cancel(); configuration = value; onChange?()
     }
+    /// Takes the terms learned from the user's corrections into the vocabulary. A recording under way goes on
+    /// with the terms it began with.
+    func learn(_ vocabulary: SpeechVocabulary) throws {
+        var value = configuration; value.vocabulary = vocabulary
+        try preferences.save(value); configuration = value; onChange?()
+    }
     func begin() { resetPreview(); testing = false; commanding = false; message = ""; record(configuration) }
     func beginTest() { cancel(); resetPreview(); testing = true; testTranscript = ""; record(configuration) }
     /// A command is taken down as spoken: polishing could change what was asked for. `listening` says the

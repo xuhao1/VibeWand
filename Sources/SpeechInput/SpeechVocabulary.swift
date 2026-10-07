@@ -8,16 +8,34 @@ public struct SpeechVocabulary: Codable, Equatable {
     public var terms: [String] = []
     /// Includes the default AI-coding terms. The stored key predates that list.
     public var computing = true
+    /// Terms gathered from what the user changed in dictated text, when they let VibeWand learn from it.
+    public var learned: [String]?
     public init() {}
 
-    /// User terms first, for recognisers that only honour the head of a list.
-    public var allTerms: [String] { terms + (computing ? Self.defaultTerms : []) }
+    /// User terms first, for recognisers that only honour the head of a list. What was learned from their
+    /// corrections comes next: it is theirs too, and only less sure.
+    public var allTerms: [String] { terms + (learned ?? []) + (computing ? Self.defaultTerms : []) }
+    /// As many learned terms as are kept, each no longer than a name is.
+    public static let learnedLimit = 200, termLimit = 40
+
+    /// Takes terms into the learned list and out of it. A term the user wrote down themselves, or one the
+    /// default list has, is not learned a second time; the newest are kept when the list is full.
+    public mutating func learn(adding: [String], removing: [String] = []) {
+        func key(_ term: String) -> String { term.lowercased() }
+        let gone = Set(removing.map(key)), known = Set((terms + (computing ? Self.defaultTerms : [])).map(key))
+        var list = (learned ?? []).filter { !gone.contains(key($0)) }
+        for term in adding.map({ $0.trimmingCharacters(in: .whitespacesAndNewlines) })
+        where !term.isEmpty && term.count <= Self.termLimit && !term.contains("\n") && !known.contains(key(term)) && !list.contains(where: { key($0) == key(term) }) {
+            list.append(term)
+        }
+        learned = list.isEmpty ? nil : Array(list.suffix(Self.learnedLimit))
+    }
 
     /// Bias text for recognisers that take free-form context. Whisper-style
     /// prompts keep only their tail, so user terms come last and the default
     /// terms run from least to most important.
     public var context: String? {
-        let lines = [computing ? Self.defaultTerms.reversed().joined(separator: ", ") : "", domain, terms.joined(separator: ", ")]
+        let lines = [computing ? Self.defaultTerms.reversed().joined(separator: ", ") : "", domain, ((learned ?? []) + terms).joined(separator: ", ")]
             .filter { !$0.isEmpty }
         return lines.isEmpty ? nil : lines.joined(separator: "\n")
     }

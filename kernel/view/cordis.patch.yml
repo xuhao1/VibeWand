@@ -1,0 +1,6 @@
+# VibeWand's view of command mode inside a DeepSeek Harness the user installed.
+# One row: its host half serves the recordings VibeWand keeps of spoken
+# commands, and its browser half shows them in the harness's web and desktop apps.
+- insert:
+    - id: vibewand-view
+      name: 'vibewand-view'

@@ -52,7 +52,7 @@ fi
 # VibeWand on that harness's own agent. They sit apart from the kernel's packages: an installed harness must resolve
 # what a bundle names from its own installation, not from packages it finds beside the bundle.
 mkdir -p "$task_staged_app/Contents/Resources/harness"
-cp -R "$task_root/kernel/coordinator" "$task_root/kernel/overlay" "$task_staged_app/Contents/Resources/harness/"
+cp -R "$task_root/kernel/coordinator" "$task_root/kernel/overlay" "$task_root/kernel/view" "$task_staged_app/Contents/Resources/harness/"
 cp "$task_root/LICENSE" "$task_staged_app/Contents/Resources/LICENSE"
 cp -R "$task_root/third-party" "$task_staged_app/Contents/Resources/third-party"
 cat > "$task_staged_app/Contents/Info.plist" <<'PLIST'
@@ -65,8 +65,8 @@ cat > "$task_staged_app/Contents/Info.plist" <<'PLIST'
 <key>CFBundleExecutable</key><string>VibeWand</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
-<key>CFBundleShortVersionString</key><string>0.10.2</string>
-<key>CFBundleVersion</key><string>30</string>
+<key>CFBundleShortVersionString</key><string>0.11.0</string>
+<key>CFBundleVersion</key><string>31</string>
 <key>LSMinimumSystemVersion</key><string>26.0</string>
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>

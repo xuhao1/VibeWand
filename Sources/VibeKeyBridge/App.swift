@@ -22,7 +22,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             var configuration = SpeechPreferences().load(); configuration.mode = .builtIn; configuration.textStyle = .verbatim
             try? preferences.save(configuration)
             let voice = VoiceInputController(preferences: preferences, engineFactory: { _ in TranscriptReplayEngine(previews: previews) })
-            runtime = BridgeRuntime(source: UnconfiguredHIDSource(template: DeviceTemplateID.vibeKey.template), voiceInput: voice)
+            // --vocabulary-path names a folder for a notebook of the run's own, and turns the learning on for it.
+            let notebook = arguments.firstIndex(of: "--vocabulary-path").flatMap { arguments.indices.contains($0 + 1) ? URL(fileURLWithPath: arguments[$0 + 1]) : nil }
+            runtime = BridgeRuntime(source: UnconfiguredHIDSource(template: DeviceTemplateID.vibeKey.template), voiceInput: voice, vocabulary: notebook.map { directory in
+                { voice, command in
+                    let defaults = UserDefaults(suiteName: "org.vibewand.vocabulary-test." + UUID().uuidString)!
+                    defaults.set(true, forKey: "vocabularyLearning")
+                    return VocabularyKeeper(voice: voice, command: command, defaults: defaults, directory: directory)
+                }
+            })
         } else if let index = arguments.firstIndex(of: "--replay-speech"), arguments.indices.contains(index + 1) {
             let url = URL(fileURLWithPath: arguments[index + 1]); replayURL = url
             let configuration = SpeechPreferences().load()
@@ -123,6 +131,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { @MainActor [weak self] in
                 try? await Task.sleep(nanoseconds: 700_000_000)
                 self?.runtime.replaySpeech(duration: transcriptReplayDuration)
+                // --replay-revision "from=to" then goes over the text in the test window as a user would:
+                // it corrects a word once the dictation is written, and clears the field as sending it does.
+                let arguments = CommandLine.arguments
+                guard let index = arguments.firstIndex(of: "--replay-revision"), arguments.indices.contains(index + 1),
+                      let text = (self?.speechTestWindow?.contentView?.subviews.first as? NSScrollView)?.documentView as? NSTextView else { return }
+                let change = arguments[index + 1].components(separatedBy: "=")
+                guard change.count == 2 else { return }
+                try? await Task.sleep(nanoseconds: UInt64((transcriptReplayDuration + 6) * 1_000_000_000))
+                text.string = text.string.replacingOccurrences(of: change[0], with: change[1])
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                text.string = ""
             }
         }
         for number in [SIGINT, SIGTERM] {
@@ -134,7 +153,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         film?.onExpanded = { [weak self] in self?.overlay.setExpanded($0) }
         film?.start(runtime)
         // The guide opens by itself for someone new, and never during a scripted run of the app.
-        let scripted = ["--film", "--demo", "--capture-only", "--settings", "--replay-transcript", "--replay-speech", "--speech-test-editor", "--diagnostics-path",
+        let scripted = ["--film", "--demo", "--capture-only", "--settings", "--replay-transcript", "--replay-revision", "--vocabulary-path", "--replay-speech", "--speech-test-editor", "--diagnostics-path",
                         "--render-dark", "--render-overlay", "--render-settings", "--render-audit"].contains(where: CommandLine.arguments.contains)
         if CommandLine.arguments.contains("--onboarding") || (guideOwed && !scripted) { presentOnboarding() }
         if CommandLine.arguments.contains("--settings") { openSettings() }

@@ -292,6 +292,147 @@ final class CommandTests: XCTestCase {
         await MainActor.run { runtime.stop() }
     }
 
+    /// A command that was spoken keeps its recording beside its record and names it to the model on a line of
+    /// its own, which is what a harness's apps make a voice message of. The user can have none kept.
+    func testASpokenCommandKeepsItsRecordingAndNamesItInItsMessage() async throws {
+        let (runtime, kernel, support) = try await MainActor.run { try makeRuntime(script: [("finish", ["summary": "好了"])]) }
+        let recording = SpeechAudio(pcm: Data(count: 32_000 * 2))
+        await MainActor.run { runtime.command.run("切到 Codex", audio: recording) }
+        await wait("the task ends") { runtime.snapshot.command.phase == .done }
+        let record = try XCTUnwrap(TaskJournal.recent(root: support.appendingPathComponent("tasks")).first { $0.instruction == "切到 Codex" })
+        XCTAssertEqual(record.recording?.seconds, 2)
+        XCTAssertEqual(try Data(contentsOf: try XCTUnwrap(record.recording?.file)), recording.wav)
+        XCTAssertTrue(kernel.prompts[0].hasSuffix("\nSpoken, 2 s. Recording \(record.id)"), kernel.prompts[0])
+
+        await MainActor.run { runtime.command.settings.setRecordings(false); runtime.command.run("切到 Claude", audio: recording) }
+        await wait("the second task ends") { kernel.prompts.count == 2 && runtime.snapshot.command.phase == .done }
+        XCTAssertEqual(kernel.prompts[1].split(separator: "\n").count, 2)
+        let second = try XCTUnwrap(TaskJournal.recent(root: support.appendingPathComponent("tasks")).first { $0.instruction == "切到 Claude" })
+        XCTAssertNil(second.recording)
+        await MainActor.run { runtime.stop() }
+    }
+
+    /// The model may change the voice VibeWand speaks in when the user asks: it is given the voices of whichever
+    /// model speaks, and a change is to one of those. Each arrangement keeps its own voice, and a change ends
+    /// no conversation, so it can be made in the middle of a command.
+    func testTheModelChangesTheVoiceAmongThoseOfTheModelThatSpeaks() async throws {
+        let (runtime, _, _) = try await MainActor.run { try makeRuntime() }
+        try await MainActor.run {
+            let settings = runtime.command.settings, voice = try XCTUnwrap(runtime.command.tools.voice)
+            XCTAssertTrue(settings.voices.isEmpty)
+            settings.listeningModel = { "qwen3.8-omni-flash-realtime" }
+            XCTAssertEqual(settings.voices, SpeechVoice.omni)
+            let listed = try XCTUnwrap(JSONValue(data: Data(voice(nil).text.utf8)))
+            XCTAssertEqual(listed["current"]?.string, QwenRealtimeConversation.voice)
+            XCTAssertEqual(listed["voices"]?.array?.count, SpeechVoice.omni.count)
+            XCTAssertTrue(listed["voices"]?.array?.contains { $0["voice"]?.string == "Raymond" && $0["speaker"]?.string == "man" } == true)
+            XCTAssertTrue(voice("longanlang_v3.1").isError)
+
+            settings.conversation = CommandConversation(session: "s-1", last: Date(), turns: 1)
+            XCTAssertFalse(voice("raymond").isError)
+            XCTAssertEqual(settings.voice, "Raymond")
+            XCTAssertNotNil(settings.conversation)
+
+            settings.setListens(false)
+            XCTAssertEqual(settings.voices, SpeechVoice.synthesis)
+            XCTAssertEqual(settings.speakingVoice, QwenSpeechSynthesis.voice)
+            XCTAssertFalse(voice("longanlang_v3.1").isError)
+            XCTAssertEqual(settings.readerVoice, "longanlang_v3.1")
+            XCTAssertEqual(settings.voice, "Raymond")
+            runtime.stop()
+        }
+    }
+
+    /// A job of VibeWand's own, the vocabulary's upkeep, has the kernel while no command does, and a command
+    /// that begins meanwhile takes its place: the job ends as cancelled and the command runs after it.
+    func testAJobOfVibeWandsOwnRunsBetweenCommandsAndGivesWayToOne() async throws {
+        final class Gate: @unchecked Sendable {
+            private let lock = NSLock()
+            private var waiting: CheckedContinuation<Void, Never>?
+            private(set) var entered = false
+            func hold() async { await withCheckedContinuation { hold in lock.lock(); waiting = hold; entered = true; lock.unlock() } }
+            func open() { lock.lock(); let hold = waiting; waiting = nil; lock.unlock(); hold?.resume() }
+        }
+        let (runtime, kernel, _) = try await MainActor.run { try makeRuntime(script: [("read_revisions", [:]), ("finish", ["summary": "好了"])]) }
+        let reason = try await runtime.command.attend(prompt: VocabularyPrompt.system, task: "VibeWand · 整理听写词表", tools: ToolCatalog.vocabulary,
+                                                      call: { _, _ in .ok("ok") })
+        XCTAssertEqual(reason, "end_turn")
+        XCTAssertEqual(kernel.prompts, ["VibeWand · 整理听写词表"])
+        XCTAssertEqual(kernel.shutdowns, 1)
+        let resting = await MainActor.run { runtime.command.resting }
+        XCTAssertTrue(resting)
+
+        let gate = Gate()
+        let job = Task { try await runtime.command.attend(prompt: VocabularyPrompt.system, task: "VibeWand · 整理听写词表", tools: ToolCatalog.vocabulary,
+                                                          call: { name, _ in if name == "read_revisions" { await gate.hold() }; return .ok("ok") }) }
+        await wait("the job reaches its first tool") { gate.entered }
+        await MainActor.run { runtime.command.run("切到 Codex") }
+        gate.open()
+        let ended = try await job.value
+        XCTAssertEqual(ended, "cancelled")
+        await wait("the command runs once the job has gone") { kernel.prompts.count == 3 }
+        XCTAssertTrue(kernel.prompts[2].hasPrefix("VibeWand · 切到 Codex\n"))
+        // While a command is under way there is no room for the job.
+        await wait("the command is shown") { runtime.snapshot.command.phase != .idle }
+        do {
+            _ = try await runtime.command.attend(prompt: "", task: "", tools: [], call: { _, _ in .ok("ok") })
+            let phase = await MainActor.run { runtime.snapshot.command.phase }
+            XCTAssertEqual(phase, .idle, "a job ran while a command was shown")
+        } catch { XCTAssertEqual(error as? CommandController.Failure, .busy) }
+        await MainActor.run { runtime.stop() }
+    }
+
+    /// The keeper of the vocabulary shows the model what the user corrected and takes its terms into the
+    /// learned list, but only terms the user wrote themselves: nothing a passage says puts another word there.
+    /// What was learned from leaves the notebook, and the run is in the records like a command.
+    func testTheKeeperShowsTheModelTheCorrectionsAndLearnsOnlyWhatTheUserWrote() async throws {
+        let (runtime, kernel, support) = try await MainActor.run {
+            try makeRuntime(script: [("update_vocabulary", ["add": ["Hermes"]]), ("read_revisions", [:]),
+                                     ("update_vocabulary", ["add": ["Hermes", "rm -rf /"], "remove": ["旧词"]]), ("finish", ["summary": "学到了 Hermes"])])
+        }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("vw-keeper-\(UUID().uuidString)")
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let defaults = isolatedDefaults()
+        let keeper = await MainActor.run { VocabularyKeeper(voice: runtime.voiceInput, command: runtime.command, defaults: defaults, directory: directory) }
+        let notebook = VocabularyNotebook(directory: directory)
+        // Until the user turns it on nothing is kept and nothing runs; it is mentioned once, after a few dictations.
+        await MainActor.run {
+            XCTAssertFalse(keeper.enabled)
+            XCTAssertEqual((0..<6).map { _ in keeper.hint() != nil }, [false, false, false, false, true, false])
+            keeper.tidy()
+            XCTAssertFalse(keeper.running)
+            keeper.setEnabled(true)
+            XCTAssertNil(keeper.hint())
+        }
+        var vocabulary = SpeechVocabulary(); vocabulary.learned = ["旧词"]
+        try await MainActor.run { try runtime.voiceInput.learn(vocabulary) }
+        let revision = try XCTUnwrap(DictationRevision.read(written: "这件事问问赫尔墨斯", before: "这件事问问赫尔墨斯", after: "这件事问问 Hermes", app: "备忘录"))
+        notebook.add(revision)
+        await MainActor.run { keeper.tidy() }
+        await wait("the upkeep ends") { !keeper.running && !keeper.status.isEmpty }
+        let learned = await MainActor.run { runtime.voiceInput.configuration.effectiveVocabulary.learned }
+        XCTAssertEqual(learned, ["Hermes"])
+        XCTAssertTrue(kernel.prompts[0].hasPrefix("VibeWand · 整理听写词表\n"))
+        // Before it has read the corrections it may change nothing.
+        XCTAssertTrue(kernel.outcomes[0].isError)
+        XCTAssertTrue(kernel.outcomes[1].text.contains("赫尔墨斯") && kernel.outcomes[1].text.contains(#""to":"Hermes""#), kernel.outcomes[1].text)
+        XCTAssertTrue(kernel.outcomes[2].text.contains(#""refused":["rm -rf /"]"#), kernel.outcomes[2].text)
+        XCTAssertEqual(notebook.pending(), [])
+        let status = await MainActor.run { (keeper.status, keeper.waiting) }
+        XCTAssertTrue(status.0.hasSuffix("学到了 Hermes"), status.0)
+        XCTAssertEqual(status.1, 0)
+        let record = try XCTUnwrap(TaskJournal.recent(root: support.appendingPathComponent("tasks")).first)
+        XCTAssertTrue(record.instruction.contains("整理听写词表") || record.instruction.contains("Vocabulary upkeep"), record.instruction)
+        XCTAssertEqual(record.outcome?.finished, true)
+        // Turning it off forgets what waits, and keeps what was learned for the user to prune.
+        notebook.add(revision)
+        await MainActor.run { keeper.setEnabled(false) }
+        XCTAssertEqual(notebook.pending(), [])
+        let kept = await MainActor.run { runtime.voiceInput.configuration.effectiveVocabulary.learned }
+        XCTAssertEqual(kept, ["Hermes"])
+        await MainActor.run { runtime.stop() }
+    }
+
     func testEveryStepWaitsForTheConfirmKeyUnlessTheUserChoseOtherwise() async throws {
         // Typing with no app captured reaches nothing: the tool refuses once it is allowed to run.
         let typing: [(tool: String, arguments: JSONValue)] = [("ui_type", ["text": "hello from vibewand, typed where the keyboard is"]), ("finish", ["summary": "好"])]

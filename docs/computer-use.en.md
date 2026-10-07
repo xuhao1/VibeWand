@@ -24,7 +24,7 @@ Both use the same means: the control structure that macOS Accessibility provides
 
 Computer use commonly means a model that looks at screenshots and outputs coordinates. VibeWand takes the other route: it reads only controls that have a name, and it presses that control itself. What it reads is the control tree an app publishes through macOS Accessibility, the same one a screen reader is given. That is why it needs your approval under System Settings → Privacy & Security → Accessibility. By default it needs no screen-recording permission and takes no screenshot.
 
-A picture is something command mode can be given in addition, and it is off by default; see [Let the model see the window and click in it](command-mode.en.md#let-the-model-see-the-window-and-click-in-it). With it on, the model may ask for a picture of the window being operated, with the controls' ids marked on it and the text read in it on this Mac listed beside it. In a window whose controls can be read it recognises things by eye and still presses the control. Some apps publish no control at all, NetEase Cloud Music and others that draw their own interface among them; there it clicks a line of the text read in the picture, or a point of it. That part is not released yet and is in the development build after 0.10.0. The button-driven part is not affected by this setting and never takes a screenshot.
+A picture is something command mode can be given in addition, and it is off by default; see [Let the model see the window and click in it](command-mode.en.md#let-the-model-see-the-window-and-click-in-it). With it on, the model may ask for a picture of the window being operated, with the controls' ids marked on it and the text read in it on this Mac listed beside it. In a window whose controls can be read it recognises things by eye and still presses the control. Some apps publish no control at all, NetEase Cloud Music and others that draw their own interface among them; there it clicks a line of the text read in the picture, or a point of it. That part ships since 0.10.1. The button-driven part is not affected by this setting and never takes a screenshot.
 
 | What is read | What it is used for |
 | --- | --- |
@@ -60,7 +60,7 @@ When driven by buttons, one press maps to one of these:
 
 ## Command mode's 13 tools
 
-By default this table is everything the model can do. There is no shell, no file access, no web access and no coordinate click. Two more things can be handed to it, and each has to be turned on by you: seeing the window, which is `ui_screenshot`, a picture of the window being operated with the text read in it, and, not released yet and in the development build after 0.10.0, `ui_click`, a pointer click on a line of that text or a point of the picture; and, in plugin mode, the shell, file, web and other tools of your own DeepSeek Harness. See [What the model can use](command-mode.en.md#what-the-model-can-use).
+By default this table is everything the model can do. There is no shell, no file access, no web access and no coordinate click. Two more things can be handed to it, and each has to be turned on by you: seeing the window, which is `ui_screenshot`, a picture of the window being operated with the text read in it, and, since 0.10.1, `ui_click`, a pointer click on a line of that text or a point of the picture; and, in plugin mode, the shell, file, web and other tools of your own DeepSeek Harness. See [What the model can use](command-mode.en.md#what-the-model-can-use).
 
 | Tool | What it does | Kind |
 | --- | --- | --- |

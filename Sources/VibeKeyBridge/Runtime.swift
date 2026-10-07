@@ -35,6 +35,10 @@ final class BridgeRuntime {
         controller.settings.onChange = { [weak self] in self?.applyCommandSettings() }
         return controller
     }()
+    /// Learns the user's words from what they change in dictated text, when they have turned that on.
+    /// A scripted run brings a keeper with settings and a notebook of its own.
+    private let makeVocabulary: ((VoiceInputController, CommandController) -> VocabularyKeeper)?
+    private(set) lazy var vocabulary = makeVocabulary?(voiceInput, command) ?? VocabularyKeeper(voice: voiceInput, command: command)
     private let keyboard = KeyboardCommandInput()
     /// The keyboard's command key is starting a recording, whichever device is in use.
     private var keyboardSpeaking = false
@@ -135,10 +139,11 @@ final class BridgeRuntime {
     init(source: (any HIDEventSource)? = nil, templates: DeviceTemplateStore = DeviceTemplateStore(),
          sourceFactory: ((HIDDeviceProfile?, DeviceTemplateID) throws -> any HIDEventSource)? = nil,
          voiceInput: VoiceInputController? = nil, inputMethod: InputMethod? = nil,
-         command: ((AccessibilityAdapter, VoiceInputController) -> CommandController)? = nil) {
+         command: ((AccessibilityAdapter, VoiceInputController) -> CommandController)? = nil,
+         vocabulary: ((VoiceInputController, CommandController) -> VocabularyKeeper)? = nil) {
         self.voiceInput = voiceInput ?? VoiceInputController()
         self.inputMethod = inputMethod ?? InputMethod()
-        makeCommand = command
+        makeCommand = command; makeVocabulary = vocabulary
         self.templates = templates
         suppliedSource = source != nil
         self.sourceFactory = sourceFactory ?? Self.makeSource
@@ -243,6 +248,8 @@ final class BridgeRuntime {
         }
         self.gestureTimer = gestureTimer; RunLoop.main.add(gestureTimer, forMode: .common)
         snapshot.demo = demo
+        // The keeper of the vocabulary keeps its own hours from here on.
+        _ = vocabulary
         inputStarted = true
         unreadySince = ProcessInfo.processInfo.systemUptime
         connectDevice()
@@ -271,7 +278,7 @@ final class BridgeRuntime {
         inputStarted = false
         syncCompanions()
         device.stop(); cancelAll(); pollTimer?.invalidate(); demoTimer?.invalidate(); gestureTimer?.invalidate(); gestureTimer = nil
-        keyboard.stop(); command.shutdown(); voiceInput.senseVoice.shutdown()
+        keyboard.stop(); vocabulary.settle(); command.shutdown(); voiceInput.senseVoice.shutdown()
     }
 
     // MARK: Command mode
@@ -873,6 +880,7 @@ final class BridgeRuntime {
             "liveInsertion": liveDraft != nil || liveInput, "style": voiceInput.configuration.effectiveTextStyle.rawValue,
             "failure": lastDictationFailure, "insertion": lastInsertion, "message": voiceInput.displayMessage, "frontApp": NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? ""]
         value["inputMethod"] = ["enabled": inputMethod.enabled, "connected": inputMethod.connected, "client": inputMethod.client ?? ""]
+        value["vocabulary"] = ["learning": vocabulary.enabled, "waiting": vocabulary.waiting]
         if let controller = device as? GameControllerInputSource {
             value["inputBackend"] = "GameController"
             value["controllerMetrics"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(controller.diagnostics))
@@ -972,6 +980,7 @@ final class BridgeRuntime {
     }
     private func beginDictation(replay: Bool = false) {
         command.cancelCapture()
+        vocabulary.settle()
         cancelLiveDraft()
         generation &+= 1
         dictationTarget = nil; dictationApp = nil; liveDraftDiverged = false
@@ -1038,7 +1047,7 @@ final class BridgeRuntime {
                 guard let self, self.generation == token else { return }
                 guard written else { self.deliverDictation(text); return }
                 self.lastInsertion = "input-method"
-                self.finishDictation(L10n.tr("听写已完成，请检查后发送", "Dictation complete; review before sending"))
+                self.dictationWritten(text)
             }
             return
         }
@@ -1069,13 +1078,19 @@ final class BridgeRuntime {
                 switch outcome {
                 case .inserted(let via, let verified):
                     self.lastInsertion = via + (verified ? "" : "-unverified")
-                    self.finishDictation(L10n.tr("听写已完成，请检查后发送", "Dictation complete; review before sending"))
+                    self.dictationWritten(text)
                 case .failed:
                     self.lastDictationFailure = "insert-failed"
                     self.finishDictation(L10n.tr("文字未能写入，请重新聚焦输入框后重试", "The text could not be inserted; refocus the field and retry"))
                 }
             }
         }
+    }
+    /// The text is in its field. With the user's leave the field is read back from here on, to learn from what
+    /// they change in it.
+    private func dictationWritten(_ text: String) {
+        if let app = dictationApp { vocabulary.written(text, pid: app.pid, bundleID: app.bundleID) }
+        finishDictation(vocabulary.hint() ?? L10n.tr("听写已完成，请检查后发送", "Dictation complete; review before sending"))
     }
     private func finishDictation(_ message: String) {
         liveDraft = nil; liveInput = false; dictationTarget = nil; dictationApp = nil; liveDraftDiverged = false
@@ -1099,7 +1114,7 @@ final class BridgeRuntime {
             case .applied:
                 if isFinal {
                     self.lastInsertion = "accessibility-live"
-                    self.finishDictation(L10n.tr("听写已完成，请检查后发送", "Dictation complete; review before sending"))
+                    self.dictationWritten(text)
                 } else { self.flushDictationDraft() }
             case .pending:
                 if isFinal { self.pendingDictationFinal = text }

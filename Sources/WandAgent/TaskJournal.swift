@@ -58,6 +58,15 @@ public final class TaskJournal: @unchecked Sendable {
         return (try? image.write(to: directory.appendingPathComponent(name))) != nil ? name : nil
     }
 
+    /// The record's name: its folder's, which begins with the moment the instruction was given.
+    public var id: String { directory.lastPathComponent }
+    /// The file a spoken command's recording is kept in, beside its record.
+    public static let recording = "voice.wav"
+    /// Keeps the recording a command was spoken in, as a sound file a player opens. False when it could not be written.
+    public func keep(recording wav: Data) -> Bool {
+        (try? wav.write(to: directory.appendingPathComponent(Self.recording))) != nil
+    }
+
     /// Writes what the model thought and said since the last step. Called once more when the turn ends.
     public func settle() {
         lock.lock(); defer { lock.unlock() }
@@ -111,6 +120,12 @@ public struct TaskRecord: Equatable, Identifiable, Sendable {
     public var instruction: String { first("instruction")?["text"]?.string ?? "" }
     public var app: String { first("instruction")?["app"]?.string ?? "" }
     public var model: String { first("instruction")?["model"]?.string ?? "" }
+    /// The recording the instruction was spoken in, while it is kept, and how long it runs.
+    public var recording: (file: URL, seconds: Double)? {
+        guard let seconds = first("instruction")?["spoken"]?.number else { return nil }
+        let file = directory.appendingPathComponent(TaskJournal.recording)
+        return FileManager.default.fileExists(atPath: file.path) ? (file, seconds) : nil
+    }
     /// 1 for the instruction that opened a conversation.
     public var turn: Int { first("instruction")?["turn"]?.int ?? 1 }
     public var started: Date? { (lines.first?["time"]?.string).flatMap { ISO8601DateFormatter().date(from: $0) } }

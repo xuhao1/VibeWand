@@ -1,0 +1,35 @@
+{
+  "name": "vibewand-view",
+  "version": "0.11.0",
+  "private": true,
+  "description": "Shows VibeWand's command mode in DeepSeek Harness's own apps: a spoken command as a voice message that plays its recording beside the words recognised in it, and a mark on the conversations command mode started.",
+  "license": "SEE LICENSE IN ../../LICENSE",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json",
+    "./cordis.patch.yml": "./cordis.patch.yml"
+  },
+  "engines": {
+    "dsh": "0.2.0-rc.2"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh": "0.2.0-rc.2"
+  },
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-chat"
+      ],
+      "platform": "web"
+    }
+  }
+}

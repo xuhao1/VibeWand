@@ -12,8 +12,10 @@ final class KernelLiveTests: XCTestCase {
     private let repository = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     private static let openAI = ModelRoute(wire: .openAIChat, baseURL: "https://api.deepseek.com", model: "deepseek-flash")
     private static let anthropic = ModelRoute(wire: .anthropic, baseURL: "https://api.deepseek.com/anthropic", model: "deepseek-flash")
-    override func setUp() { home = FileManager.default.temporaryDirectory.appendingPathComponent("vw-live-\(UUID().uuidString)") }
-    override func tearDown() { try? FileManager.default.removeItem(at: home) }
+    /// VIBEWAND_LIVE_HOME names a folder to work in and leave behind, for looking at what a harness's own apps show of it.
+    private let kept = ProcessInfo.processInfo.environment["VIBEWAND_LIVE_HOME"].map(URL.init(fileURLWithPath:))
+    override func setUp() { home = kept ?? FileManager.default.temporaryDirectory.appendingPathComponent("vw-live-\(UUID().uuidString)") }
+    override func tearDown() { if kept == nil { try? FileManager.default.removeItem(at: home) } }
     private func key() throws -> String {
         guard let key = ProcessInfo.processInfo.environment["DEEPSEEK_VIBEWAND_DEV"], !key.isEmpty else { throw XCTSkip("Set DEEPSEEK_VIBEWAND_DEV to run against a real model") }
         return key
@@ -141,6 +143,33 @@ final class KernelLiveTests: XCTestCase {
         let second = try await run(kernel, "不是这个，是修登录的那个", host: host)
         XCTAssertEqual(host.performed.last, "open_session", "\(host.performed)")
         XCTAssertNotNil(second.ending)
+    }
+
+    /// A model that reads is asked for another voice: it looks at the voices there are and changes to one that
+    /// fits. This is the model's half of "several models": the voice it picks is the synthesis model's.
+    func testAModelThatReadsChangesTheVoiceToOneThatFitsWhatWasAskedFor() async throws {
+        let mounted = ToolCatalog.mounted(sight: false, voices: true)
+        let kernel = try await session(tools: mounted)
+        defer { Task { await kernel.shutdown() } }
+        let host = desktop()
+        var asked: [String] = []
+        host.result = { tool, arguments in
+            guard tool == "set_voice" else { return .ok("ok") }
+            guard let name = arguments["voice"]?.string, !name.isEmpty else {
+                return .ok(["current": "longanwen_v3.1", "voices": [
+                    ["voice": "longanwen_v3.1", "name": "龙安温", "speaker": "woman", "kind": "plain", "sounds": "优雅知性 / elegant, thoughtful"],
+                    ["voice": "longanlang_v3.1", "name": "龙安朗", "speaker": "man", "kind": "plain", "sounds": "清爽利落 / fresh, brisk"],
+                    ["voice": "longsanshu_v3.1", "name": "龙三叔", "speaker": "man", "kind": "plain", "sounds": "沉稳，有质感 / steady, textured"],
+                    ["voice": "longpaopao_v3.1", "name": "龙泡泡", "speaker": "woman", "kind": "character", "sounds": "软萌童声 / a bubbly child"]]])
+            }
+            asked.append(name)
+            return .ok(.string("VibeWand now speaks as \(name)."))
+        }
+        let outcome = try await run(kernel, "换一个沉稳点的男声", host: host, mounted: mounted)
+        print("VOICE asked for \(asked) · \(host.performed) · \(String(describing: outcome.ending))")
+        // The app takes a voice by either of its names; the model has been seen to give the Chinese one.
+        XCTAssertTrue(asked == ["longsanshu_v3.1"] || asked == ["龙三叔"], "\(asked)")
+        guard case .finished = outcome.ending else { return XCTFail("the model did not finish: \(String(describing: outcome.ending))") }
     }
 
     /// A conversation outlives the process that held it: the next process takes it up with everything said so far.
@@ -304,6 +333,83 @@ final class KernelLiveTests: XCTestCase {
         XCTAssertEqual(host.performed.last, "open_session")
     }
 
+    /// A spoken command names the recording VibeWand keeps of it, the line VibeWand's view in the harness's apps
+    /// makes a voice message of, and the model carries the command out as before. With VIBEWAND_LIVE_HOME set,
+    /// the conversation and the recording are left there for that view to be looked at.
+    func testASpokenCommandNamesItsRecordingInTheHarnesssConversation() async throws {
+        let harness = try installed()
+        let (kernel, _) = try await session(on: harness)
+        let journal = try TaskJournal(root: home.appendingPathComponent("tasks"))
+        let recording = SpeechRecording.tone(seconds: 3)
+        XCTAssertTrue(journal.keep(recording: recording))
+        let host = desktop(), gateway = Gateway(tools: ToolCatalog.all, host: host)
+        let prompt = CoordinatorPrompt.task("切到 Codex 里讨论 VibeWand 麦克风的那个会话", frontApp: "Visual Studio Code", window: "Runtime.swift",
+                                            recording: (journal.id, 3))
+        _ = try await kernel.run(prompt, tools: { await gateway.call($0, $1) }) { _ in }
+        XCTAssertEqual(host.performed.last, "open_session", "\(host.performed)")
+        XCTAssertNotNil(kernel.session)
+        await kernel.shutdown()
+    }
+
+    /// VibeWand's view is given to the harness's web app and taken away again by the harness's own plugin
+    /// command, and the harness loads it: its tree names the row. Needs no model.
+    func testTheViewIsAddedToTheHarnesssWebAppAndTakenOutAgainByItsOwnPluginCommand() async throws {
+        let harness = try installed()
+        XCTAssertNotNil(harness.view)
+        XCTAssertFalse(harness.showsView(in: "web"))
+        let refused = await harness.setView(true, in: "web")
+        XCTAssertNil(refused)
+        XCTAssertTrue(harness.showsView(in: "web"))
+        let composed = Process(), output = Pipe()
+        composed.executableURL = harness.launcher; composed.arguments = ["--profile", "web", "--dump-config"]
+        composed.environment = ["PATH": "/usr/bin:/bin", "HOME": NSHomeDirectory(), "DSH_HOME": home.appendingPathComponent("dsh").path, "DSH_TELEMETRY_DISABLED": "1"]
+        composed.standardOutput = output; composed.standardError = FileHandle.nullDevice
+        try composed.run()
+        let tree = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        XCTAssertTrue(tree.contains("id: vibewand-view"), String(tree.suffix(300)))
+        // The desktop app's profile is its own to make: until that app has been opened, the harness says so.
+        let desktop = await harness.setView(true, in: "desktop")
+        XCTAssertTrue(desktop?.contains("Desktop") == true, desktop ?? "added")
+        let removed = await harness.setView(false, in: "web")
+        XCTAssertNil(removed)
+        XCTAssertFalse(harness.showsView(in: "web"))
+    }
+
+    /// The vocabulary's upkeep on a real model: shown the passages the user corrected, it learns the names
+    /// they put right, leaves ordinary rewording alone and ends with a line for the user.
+    func testTheVocabularysKeeperLearnsTheNamesTheUserPutRight() async throws {
+        let harness = try shipped()
+        var route = KernelLiveTests.openAI
+        route.key = try key()
+        let launch = try harness.launch(version: Harness.verified[0], support: home.appendingPathComponent("kernel"), models: .route(route),
+                                        prompt: VocabularyPrompt.system)
+        let kernel = try await KernelSession.open(launch, tools: ToolCatalog.vocabulary)
+        let calls = Locked<[(name: String, arguments: JSONValue)]>([])
+        let reason = try await kernel.run(VocabularyPrompt.task(revisions: 3), tools: { name, arguments in
+            calls.update { $0.append((name, arguments)) }
+            switch name {
+            case "read_revisions":
+                return .ok(["revisions": [
+                    ["id": "a", "app": "飞书", "said": "这个需求先问一下赫尔墨斯的同事", "kept": "这个需求先问一下 Hermes 的同事",
+                     "changes": [["from": "赫尔墨斯", "to": "Hermes"]]],
+                    ["id": "b", "app": "Claude", "said": "把歪波万的的词表功能合到主干", "kept": "把 VibeWand 的词表功能合到主干，今天就合",
+                     "changes": [["from": "歪波万的", "to": "VibeWand"], ["from": "", "to": "，今天就合"]]],
+                    ["id": "c", "app": "备忘录", "said": "明天下午三点开会", "kept": "明天下午四点开会", "changes": [["from": "三", "to": "四"]]]
+                ], "vocabulary": ["theirs": ["妙动科技"], "learned": [], "builtin": false]])
+            case "update_vocabulary": return .ok(["learned": arguments["add"] ?? [], "refused": [], "note": ""])
+            default: return .ok("Done.")
+            }
+        }) { _ in }
+        await kernel.shutdown()
+        XCTAssertEqual(reason, "end_turn")
+        let made = calls.value
+        XCTAssertEqual(made.first?.name, "read_revisions", "\(made.map(\.name))")
+        XCTAssertEqual(made.last?.name, "finish", "\(made.map(\.name))")
+        let added = made.filter { $0.name == "update_vocabulary" }.flatMap { $0.arguments["add"]?.array ?? [] }.compactMap(\.string)
+        XCTAssertEqual(Set(added), ["Hermes", "VibeWand"], "\(added)")
+        print("The keeper ended with: \(made.last?.arguments["summary"]?.string ?? "")")
+    }
+
     /// The other tool scope: the harness's own agent with every tool it ships, VibeWand's beside them, and the
     /// harness asking through VibeWand before a step leaves its sandbox.
     func testTheWholeHarnessBringsItsOwnToolsAndAsksThroughVibeWandBeforeLeavingItsSandbox() async throws {
@@ -364,5 +470,20 @@ final class KernelLiveTests: XCTestCase {
             let log = (try? String(contentsOf: try XCTUnwrap(launch.log), encoding: .utf8)) ?? ""
             XCTAssertFalse(log.contains("ValidationError") || log.contains("did not activate"), String(log.prefix(600)))
         }
+    }
+}
+
+/// A recording for a test that needs one to exist rather than to be understood: a quiet tone, as a sound file.
+enum SpeechRecording {
+    static func tone(seconds: Double) -> Data {
+        let count = Int(seconds * 16_000)
+        var data = Data()
+        func u16(_ value: UInt16) { var n = value.littleEndian; withUnsafeBytes(of: &n) { data.append(contentsOf: $0) } }
+        func u32(_ value: UInt32) { var n = value.littleEndian; withUnsafeBytes(of: &n) { data.append(contentsOf: $0) } }
+        data.append(Data("RIFF".utf8)); u32(UInt32(count * 2 + 36)); data.append(Data("WAVEfmt ".utf8)); u32(16)
+        u16(1); u16(1); u32(16_000); u32(32_000); u16(2); u16(16)
+        data.append(Data("data".utf8)); u32(UInt32(count * 2))
+        for index in 0..<count { u16(UInt16(bitPattern: Int16(3_000 * sin(Double(index) * 2 * .pi * 440 / 16_000)))) }
+        return data
     }
 }

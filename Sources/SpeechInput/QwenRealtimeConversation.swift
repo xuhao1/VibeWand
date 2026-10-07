@@ -16,6 +16,8 @@ public final class QwenRealtimeConversation {
         case call(id: String, name: String, arguments: String)
     }
     public static let sampleRate = 24_000.0
+    /// The voice it speaks in until the user picks another. Asked for by name: the service's own default has changed between models.
+    public nonisolated static let voice = "Serena"
 
     private let session = URLSession(configuration: .ephemeral, delegate: SpeechRedirectPolicy(), delegateQueue: nil)
     private var socket: URLSessionWebSocketTask?
@@ -103,6 +105,25 @@ public final class QwenRealtimeConversation {
     }
 
     public func close() { socket?.cancel(with: .normalClosure, reason: nil); socket = nil }
+
+    /// What the model is asked in order to have a line said as it is written. Asked this way, as the user's own
+    /// request and with the line in quotation marks, it says the line. Told in its instructions to read lines
+    /// out, it answers some of them instead.
+    public nonisolated static func request(saying line: String) -> String {
+        "请说下面引号里的话（只说这句话，原样，不加别的）：\n「\(line)」"
+    }
+
+    /// Has the model say `line` aloud in `voice`, in a session with nothing in it but that request, and hands on
+    /// the speech as it arrives: mono 16-bit PCM at `sampleRate`. It is how what VibeWand itself has to say, a
+    /// question or a result, is heard in the voice the model answers in.
+    public static func say(_ line: String, voice: String?, configuration: SpeechConfiguration, apiKey: String,
+                           sound: (Data) -> Void) async throws {
+        let conversation = QwenRealtimeConversation()
+        defer { conversation.close() }
+        try await conversation.open(configuration: configuration, apiKey: apiKey, instructions: "", tools: [], spoken: true, voice: voice)
+        try await conversation.add(request(saying: line))
+        _ = try await conversation.respond { if case .sound(let speech) = $0 { sound(speech) } }
+    }
 
     private func send(_ event: [String: Any]) async throws {
         guard let socket else { throw SpeechInputError.protocolRejected }

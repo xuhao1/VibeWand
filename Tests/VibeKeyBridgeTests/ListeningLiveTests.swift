@@ -14,6 +14,8 @@ import WandAgent
 final class ListeningLiveTests: XCTestCase {
     private final class Desk: ToolHost {
         var performed: [String] = []
+        /// The voice the model changed to.
+        var chosen: SpeechVoice?
         func perform(_ tool: String, _ arguments: JSONValue) async -> ToolOutcome {
             performed.append("\(tool) \(arguments.text)")
             switch tool {
@@ -25,27 +27,48 @@ final class ListeningLiveTests: XCTestCase {
                 ["id": "t-090", "title": "修复登录问题", "folder": "webapp", "updated": "2026-10-03 09:00"]]])
             case "open_session": return .ok(["opened": arguments["id"] ?? nil, "front": true])
             case "activate_app": return .ok(["front": arguments["app"] ?? arguments["name"] ?? "", "running": true])
+            case "set_voice":
+                guard let name = arguments["voice"]?.string, !name.isEmpty else {
+                    return .ok(["current": "Serena", "voices": .array(SpeechVoice.omni.map { voice in
+                        ["voice": .string(voice.id), "name": .string(voice.name), "speaker": .string(voice.female ? "woman" : "man"),
+                         "kind": .string(voice.kind.rawValue), "sounds": .string(voice.sound.zh + " / " + voice.sound.en)]
+                    })])
+                }
+                guard let voice = SpeechVoice.named(name, in: SpeechVoice.omni) else { return .failure("No such voice. Call set_voice without arguments for the list.") }
+                chosen = voice
+                return .ok(.string("VibeWand now speaks as \(voice.id)."))
             default: return .ok("ok")
             }
         }
         func confirm(_ tool: String, _ arguments: JSONValue, every: Bool) async -> Bool? { nil }
     }
 
-    /// VibeWand's own lines are spoken by the voice service's synthesis, in the voice the model answers in.
-    /// VIBEWAND_LISTENING_LIVE_READ holds the lines, separated by "|".
-    func testVibeWandsOwnLinesAreSpokenInTheModelsVoice() async throws {
+    /// VibeWand's own lines are said by the model that listens, in the voice it answers in, and beside another
+    /// model by the voice service's synthesis. VIBEWAND_LISTENING_LIVE_READ holds the lines, separated by "|";
+    /// VIBEWAND_LISTENING_LIVE_VOICES the voices to say them in, separated by commas: a name of the listening
+    /// model's voices goes to it, any other to the synthesis.
+    func testVibeWandsOwnLinesAreSaidInTheVoiceChosen() async throws {
         let environment = ProcessInfo.processInfo.environment
         guard let lines = environment["VIBEWAND_LISTENING_LIVE_READ"]?.components(separatedBy: "|"), let key = environment["VIBEWAND_QWEN_KEY"],
               let endpoint = environment["VIBEWAND_QWEN_ENDPOINT"] else { throw XCTSkip("Set VIBEWAND_LISTENING_LIVE_READ, VIBEWAND_QWEN_ENDPOINT and VIBEWAND_QWEN_KEY") }
         var configuration = SpeechConfiguration()
         configuration.provider = .qwenRealtime; configuration.endpoint = endpoint
+        configuration.model = environment["VIBEWAND_QWEN_MODEL"] ?? configuration.model
         let listener = ListeningModel(service: { (configuration, key) })
-        for line in lines {
-            var sound = 0, first: TimeInterval?
-            let started = Date()
-            try await listener.read(line) { sound += $0.count; first = first ?? Date().timeIntervalSince(started) }
-            print("READING \(line) → \(String(format: "%.1f", Double(sound) / 2 / QwenRealtimeConversation.sampleRate))s of speech, the first of it after \(String(format: "%.1f", first ?? 0))s")
-            XCTAssertGreaterThan(sound, 0)
+        let voices = environment["VIBEWAND_LISTENING_LIVE_VOICES"]?.components(separatedBy: ",") ?? [QwenRealtimeConversation.voice, QwenSpeechSynthesis.voice]
+        for voice in voices {
+            for line in lines {
+                var sound = 0, first: TimeInterval?
+                let started = Date(), own = SpeechVoice.named(voice, in: SpeechVoice.omni) != nil
+                if own {
+                    listener.voice = { voice }
+                    try await listener.say(line) { sound += $0.count; first = first ?? Date().timeIntervalSince(started) }
+                } else {
+                    sound = try await listener.read(line, voice: voice).count; first = Date().timeIntervalSince(started)
+                }
+                print("SAYING \(line) as \(voice) (\(own ? "listening model" : "synthesis")) → \(String(format: "%.1f", Double(sound) / 2 / QwenRealtimeConversation.sampleRate))s of speech, the first of it after \(String(format: "%.1f", first ?? 0))s")
+                XCTAssertGreaterThan(sound, 0)
+            }
         }
     }
 
@@ -77,13 +100,15 @@ final class ListeningLiveTests: XCTestCase {
         listener.speaks = { true }
         listener.onSound = { sound += $0.count }
         let route = try await listener.route(model: configuration.model)
-        let mounted = ToolCatalog.mounted(sight: whole)
+        let mounted = ToolCatalog.mounted(sight: whole, voices: true)
         let kernel = try await KernelSession.open(try harness.launch(version: version, support: home.appendingPathComponent("support"), models: .route(route),
                                                                      tools: whole ? .all : .own, sight: whole, hearing: true), tools: mounted)
         let expected = (environment["VIBEWAND_LISTENING_LIVE_EXPECT"] ?? "备忘录,Notes").split(separator: ",")
         let readings = environment["VIBEWAND_LISTENING_LIVE_WORDS"]?.components(separatedBy: "|") ?? []
         for (index, clip) in clips.enumerated() {
             let desk = Desk(), gateway = Gateway(tools: mounted, host: desk)
+            // A voice the model changes to is the voice from then on, as it is in the app.
+            listener.voice = { desk.chosen?.id ?? QwenRealtimeConversation.voice }
             kernel.approve = { await gateway.approve($0, $1) }
             var own: [String] = []
             let prompt = CoordinatorPrompt.task(index < readings.count ? readings[index] : "打开背网路", frontApp: "Finder", window: "")
@@ -98,6 +123,10 @@ final class ListeningLiveTests: XCTestCase {
             }
             listener.settle()
             let ending = await gateway.ending
+            // A session opened in the old voice says nothing more once the voice has changed: what the command
+            // ended with is then said in the new one, as the app does.
+            let silent = sound == before
+            if silent, desk.chosen != nil, case .finished(let summary)? = ending { try await listener.say(summary) { sound += $0.count } }
             print("LISTENING \(URL(fileURLWithPath: clip).lastPathComponent) took \(String(format: "%.1f", Date().timeIntervalSince(started)))s · calls \(desk.performed + own)"
                   + " · ending \(String(describing: ending)) · said \(said)"
                   + " · speech \(String(format: "%.1f", Double(sound - before) / 2 / QwenRealtimeConversation.sampleRate))s · context \(used)")
@@ -105,6 +134,11 @@ final class ListeningLiveTests: XCTestCase {
             XCTAssertFalse(said.isEmpty, "the model said nothing")
             XCTAssertGreaterThan(sound, before, "nothing was spoken")
             if index == 0 { XCTAssertTrue((desk.performed + own).contains { call in expected.contains { call.contains($0) } }, "\(desk.performed + own)") }
+            // A command that asks for a man's or a woman's voice has to end on one: VIBEWAND_LISTENING_LIVE_SPEAKER says which.
+            if let wanted = environment["VIBEWAND_LISTENING_LIVE_SPEAKER"] {
+                print("LISTENING the turn itself was \(silent ? "silent" : "spoken"); voice chosen: \(desk.chosen.map { "\($0.id) \($0.name) \($0.female ? "woman" : "man") \($0.kind.rawValue) \($0.sound.zh)" } ?? "none")")
+                XCTAssertEqual(desk.chosen.map { $0.female ? "woman" : "man" }, wanted)
+            }
         }
         await kernel.shutdown()
     }

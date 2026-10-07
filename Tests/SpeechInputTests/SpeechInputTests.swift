@@ -129,6 +129,24 @@ final class SpeechInputTests: XCTestCase {
         let plain = SpeechAPIClient.multipartBody(audio, model: "whisper-1", locale: "zh-CN", boundary: "test")
         XCTAssertFalse(String(decoding: plain, as: UTF8.self).contains("name=\"prompt\""))
     }
+    /// The voices are the service's own lists, each with men and women in it, and a name finds one however it
+    /// is capitalised. The synthesis model is asked at the host the Realtime model is reached at.
+    func testVoicesAreListedForEachModelAndTheSynthesisIsAskedAtTheServicesHost() throws {
+        for voices in [SpeechVoice.omni, SpeechVoice.synthesis] {
+            XCTAssertEqual(Set(voices.map(\.id)).count, voices.count)
+            XCTAssertTrue(voices.contains { $0.female && $0.kind == .plain } && voices.contains { !$0.female && $0.kind == .plain })
+        }
+        XCTAssertEqual(SpeechVoice.named(" raymond ", in: SpeechVoice.omni)?.id, "Raymond")
+        XCTAssertNil(SpeechVoice.named("Raymond", in: SpeechVoice.synthesis))
+        XCTAssertEqual(SpeechVoice.named("龙三叔", in: SpeechVoice.synthesis)?.id, "longsanshu_v3.1")
+        XCTAssertNotNil(SpeechVoice.named(QwenRealtimeConversation.voice, in: SpeechVoice.omni))
+        XCTAssertNotNil(SpeechVoice.named(QwenSpeechSynthesis.voice, in: SpeechVoice.synthesis))
+        XCTAssertTrue(QwenRealtimeConversation.request(saying: "按下“发送”按钮？").hasSuffix("「按下“发送”按钮？」"))
+        var configuration = SpeechConfiguration()
+        configuration.provider = .qwenRealtime; configuration.endpoint = "wss://voice.example/api-ws/v1/realtime"
+        XCTAssertEqual(try QwenSpeechSynthesis.address(configuration).absoluteString, "https://voice.example/api/v1/services/audio/tts/SpeechSynthesizer")
+    }
+
     func testSafeErrorsDoNotExposeServiceResponseOrKeys() async {
         await MainActor.run {
             let error = NSError(domain: "sk-test-private", code: 401, userInfo: [NSLocalizedDescriptionKey: "sk-test-private"])

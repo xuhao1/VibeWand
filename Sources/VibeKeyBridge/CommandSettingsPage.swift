@@ -1,4 +1,5 @@
 import AppKit
+import AVFAudio
 import SwiftUI
 import SpeechInput
 import WandAgent
@@ -12,12 +13,15 @@ struct CommandSettingsPage: View {
     @State private var busy = false
     @State private var checked: (ok: Bool, detail: String)?
     @State private var notes = ""
-    @State private var voice = ""
     @State private var askingBypass = false
     @State private var showingHistory = false
     @State private var conversation = ""
     /// What the installed harness says its version is; nil while it is being asked or when there is none.
     @State private var harnessVersion: String?
+    /// Whether the harness's own apps have been given VibeWand's view, and what the harness said of the last change.
+    @State private var viewShown = false
+    @State private var viewBusy = false
+    @State private var viewNote = ""
     @State private var mayRecord = CGPreflightScreenCaptureAccess()
 
     private var command: CommandController { model.runtime.command }
@@ -35,6 +39,9 @@ struct CommandSettingsPage: View {
             text += tr("你让语音服务的模型直接听命令：这些内容连同命令的录音发给语音服务，而不是下面“模型”里的服务。",
                        " You let the voice service's model hear the command itself: all of this, and the recording of the command, goes to the voice service rather than the service under Model below.")
         }
+        if !settings.listening, settings.speaks, !settings.voices.isEmpty, !settings.readerVoice.isEmpty {
+            text += tr("结果和问题读出来时，要读的那一句会发给语音服务合成。", " When a result or a question is read out, that line goes to the voice service to be spoken.")
+        }
         if settings.tools == .all {
             text += tr("你打开了 Harness 的全部工具：模型用它们读到的文件内容、命令输出和网页内容也会发给它。",
                        " You turned on the harness's own tools: what the model reads with them, file contents, command output and web pages, is sent to it as well.")
@@ -50,9 +57,10 @@ struct CommandSettingsPage: View {
                 VStack(spacing: 16) { reachCard; voiceCard; permissionCard; conversationCard; recordsCard }.frame(maxWidth: .infinity, alignment: .topLeading)
             }
         }
-        .onAppear { draft = settings.model; notes = settings.instructions; voice = settings.voice; conversation = conversationLine }
+        .onAppear { draft = settings.model; notes = settings.instructions; conversation = conversationLine }
         .task(id: settings.kernelMode) {
             guard settings.kernelMode == .harness, let harness = settings.harness else { harnessVersion = nil; return }
+            viewShown = Harness.apps.contains(where: harness.showsView)
             harnessVersion = await command.version(of: harness)
         }
         .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in
@@ -137,6 +145,13 @@ struct CommandSettingsPage: View {
             }
             SettingsNote(text: tr("“在浏览器里查看”会新启动一份 Harness 网页版，列表一定是最新的。已经开着的 Harness 桌面版或网页版不会发现别的程序写入的新对话：桌面版要重新打开，网页版要刷新页面，而且新对话在点开之前显示为“未命名”。",
                                   "“View in the browser” starts a fresh copy of the harness's web app, so its list is always current. A harness desktop or web app that is already open does not notice a conversation another program wrote: reopen the desktop app or reload the web page, and until it is opened a new conversation shows as Untitled."))
+            if harness.view != nil {
+                SettingsToggleRow(title: tr("在 Harness 里把命令显示成语音消息", "Show commands as voice messages in the harness"),
+                                  isOn: Binding(get: { viewShown }, set: { showView($0, harness) })).disabled(viewBusy)
+                if !viewNote.isEmpty { SettingsNote(text: viewNote) }
+                SettingsNote(text: tr("打开后，VibeWand 用 Harness 自己的插件命令，把一个界面插件（vibewand-view）加进它的桌面版和网页版：命令模式开始的对话带一个标记，你说的每条命令是一条语音消息，能播放原声，旁边是识别出的文字和当时所在的应用。录音仍只在本机，由 Harness 从 VibeWand 的记录里读出来播放。桌面版要先完全退出再切换，切换后重新打开；它会出现在 Harness 的“插件”页里，在那里或在这里都能去掉。只声明兼容 DeepSeek Harness \(Harness.verified.joined(separator: "、"))。",
+                                      "With this on, VibeWand uses the harness's own plugin command to add a view plugin (vibewand-view) to its desktop and web apps: a conversation command mode started carries a mark, and each command you spoke is a voice message that plays as you said it, beside the words recognised in it and the app you were in. The recording stays on this Mac; the harness reads it from VibeWand's records to play it. Quit the desktop app completely before switching and open it again afterwards. The plugin is listed on the harness's Plugins page, and can be removed there or here. It declares DeepSeek Harness \(Harness.verified.joined(separator: ", ")) only."))
+            }
             Divider()
             Picker(tr("模型", "Model"), selection: Binding(get: { settings.harnessModel }, set: { settings.setHarnessModel($0) })) {
                 Text(tr("跟随 Harness 的默认（\(harness.defaultModel.provider) / \(harness.defaultModel.model)）", "Follow the harness's default (\(harness.defaultModel.provider) / \(harness.defaultModel.model))")).tag(Harness.Model?.none)
@@ -168,6 +183,22 @@ struct CommandSettingsPage: View {
         let listed = command.catalog.map { Harness.Model(provider: $0.provider, model: $0.model) }
         return (settings.harnessModel.map { [$0] } ?? []).filter { !listed.contains($0) } + listed
     }
+    /// Adds VibeWand's view to the harness's apps, or takes it out. The desktop app's profile is only there once
+    /// that app has been opened, and can only be changed while it is closed: the harness says so itself.
+    private func showView(_ shown: Bool, _ harness: Harness) {
+        viewBusy = true; viewNote = ""
+        Task {
+            var refused: [String] = []
+            for app in Harness.apps where harness.showsView(in: app) != shown {
+                if let said = await harness.setView(shown, in: app) { refused.append(said) }
+            }
+            viewShown = Harness.apps.contains(where: harness.showsView)
+            viewNote = refused.first ?? (shown ? tr("已加入。重新打开 Harness 桌面版，或点“在浏览器里查看对话”就能看到。", "Added. Reopen the harness's desktop app, or use “View conversations in the browser”, to see it.")
+                                               : tr("已去掉。", "Removed."))
+            viewBusy = false
+        }
+    }
+
     private func testHarness() {
         busy = true; checked = nil
         Task { checked = await command.probe(); busy = false }
@@ -210,18 +241,21 @@ struct CommandSettingsPage: View {
         Task { checked = await command.probe(); busy = false }
     }
 
-    /// Hearing and speaking: whether results are said aloud, and whether the voice service's own model takes the command.
+    /// Hearing and speaking: whether results are said aloud, which models hear, act and speak, and in which voice.
     private var voiceCard: some View {
         SettingsCard(title: tr("听与说", "Hearing and speaking")) {
             SettingsToggleRow(title: tr("把结果和问题说出来", "Say results and questions aloud"), isOn: Binding(get: { settings.speaks }, set: { settings.setSpeaks($0) }))
-            SettingsNote(text: tr("命令做完后的那一句、缺什么、要你确认或挑选的问题，除了显示在悬浮窗上也读给你听。命令交给语音服务的模型时（下面一项），回答和这些话是同一个音色；否则用 macOS 自带的语音朗读。再按命令键或按停止，立刻安静。",
-                                  "The line a command ends with, what is missing, and a question that waits for your confirmation or choice are read to you as well as shown on the overlay. While commands go to the voice service's model (the switch below), its answers and these lines are in one and the same voice; otherwise they are read in the macOS system voice. Holding the command key again, or stop, silences it at once."))
+            SettingsNote(text: tr("命令做完后的那一句、缺什么、要你确认或挑选的问题，除了显示在悬浮窗上也说给你听。再按命令键或按停止，立刻安静。",
+                                  "The line a command ends with, what is missing, and a question that waits for your confirmation or choice are said to you as well as shown on the overlay. Holding the command key again, or stop, silences it at once."))
             Divider()
-            SettingsToggleRow(title: tr("让语音服务的模型直接听命令并执行", "Let the voice service's model hear the command and act"),
-                              isOn: Binding(get: { settings.listens }, set: { settings.setListens($0); checked = nil }))
+            Picker("", selection: Binding(get: { settings.listens }, set: { settings.setListens($0); checked = nil })) {
+                Text(tr("一个模型", "One model")).tag(true)
+                Text(tr("多个模型组合", "Several models")).tag(false)
+            }
+            .pickerStyle(.segmented).labelsHidden()
             if settings.listens {
                 let heard = settings.listenModel
-                Label(heard.map { tr("正在使用 ", "In use: ") + $0 } ?? tr("需要“语音输入”里选用阿里 Qwen 实时语音并保存密钥；在那之前仍用上面配置的模型", "Needs Alibaba Qwen Realtime chosen under Voice input, with its key saved; until then the model set up above is used"),
+                Label(heard.map { tr("正在使用 ", "In use: ") + $0 } ?? tr("需要“语音输入”里选用阿里 Qwen 实时语音并保存密钥；在那之前按“多个模型组合”运行", "Needs Alibaba Qwen Realtime chosen under Voice input, with its key saved; until then it runs as Several models"),
                       systemImage: heard != nil ? "checkmark.circle" : "exclamationmark.circle")
                     .font(.system(size: 14, weight: .medium)).foregroundStyle(heard != nil ? Color.primary : Color.orange).fixedSize(horizontal: false, vertical: true)
                 HStack {
@@ -230,20 +264,51 @@ struct CommandSettingsPage: View {
                     if busy, heard != nil { ProgressView().controlSize(.small) }
                 }
                 if heard != nil { testResult }
-                HStack {
-                    Text(tr("音色", "Voice"))
-                    TextField(QwenRealtimeReader.voice, text: $voice).textFieldStyle(.roundedBorder).frame(width: 140)
-                        .onSubmit { settings.setVoice(voice); voice = settings.voice }
-                    Button(tr("保存", "Save")) { settings.setVoice(voice); voice = settings.voice }.disabled(voice.trimmingCharacters(in: .whitespacesAndNewlines) == settings.voice)
-                }
-                SettingsNote(text: tr("模型回答用的音色，按语音服务里的名字填。确认问题这类 VibeWand 自己的话，由同一个语音服务的合成模型（\(QwenRealtimeReader.model)）用同一个音色读，所以要填两个模型都有的；默认的 \(QwenRealtimeReader.voice) 是。留空则模型用它自己的默认音色。服务不认识这个音色时，命令会报错。",
-                                      "The voice the model answers in, by the voice service's name for it. VibeWand's own lines, such as a question to confirm, are read in the same voice by the same service's synthesis model (\(QwenRealtimeReader.model)), so name one that both models have; the default, \(QwenRealtimeReader.voice), is one. Left empty, the model uses its own default voice. A voice the service does not know makes commands fail."))
+                SettingsNote(text: tr("语音服务的 Omni 模型（qwen3.8-omni-flash-realtime）一个包办：自己听你的录音，调用工具，再用它的声音回答；VibeWand 自己要说的确认和结果也由它来说，所以听到的始终是同一个声音。它同时拿到录音和识别出的那行字，识别认错了字也能照录音里说的做。它接在同一个内核上，内置和插件模式都能用，权限、对话保留和 Agent 记录照常；上面“模型”里配置的模型在这期间不用。",
+                                      "The voice service's Omni model (qwen3.8-omni-flash-realtime) does it all: it listens to your recording itself, calls the tools and answers in its own voice, and what VibeWand itself has to say, a question or a result, is said by it too, so you hear one voice throughout. It gets the recording and the line the recogniser wrote, so a word the recogniser got wrong can still be acted on as it was spoken. It runs on the same kernel, built in or plugin mode, with permission, kept conversations and agent records as before; the model set up under Model above is not used meanwhile."))
+            } else {
+                SettingsNote(text: tr("上面“模型”里配置的模型（比如 DeepSeek V4.1 Flash）读识别出的文字去执行，它自己不出声；结果和问题由语音服务的合成模型（\(QwenSpeechSynthesis.model)）读出来，一句话大约一秒后出声。没有配阿里的语音服务，或者下面的声音选了 macOS 自带的语音时，由 macOS 朗读。",
+                                      "The model set up under Model above (DeepSeek V4.1 Flash, say) reads the recognised words and acts; it has no voice of its own. Results and questions are read out by the voice service's synthesis model (\(QwenSpeechSynthesis.model)), about a second after a line is ready. Without Alibaba's voice service, or with the macOS voice chosen below, macOS reads them."))
             }
-            SettingsNote(text: tr("默认开启，“语音输入”用的是阿里 Qwen 实时语音并保存了密钥时生效；没有配这个服务时，命令交给上面“模型”里配置的模型。生效后，它的 Omni 模型（qwen3.8-omni-flash-realtime）自己听你的录音，直接调用工具，再用语音回答：命令不再只以文字交给另一个模型：它同时拿到录音和识别出的那行字，识别认错了字它也能照录音里说的做。它接在同一个内核上，内置和插件模式都能用，权限、对话保留和 Agent 记录照常；上面“模型”里配置的模型在这期间不用。",
-                                  "On by default, and in force when Voice input uses Alibaba Qwen Realtime with its key saved; without that service, commands go to the model set up under Model above. In force, its Omni model (qwen3.8-omni-flash-realtime) listens to your recording itself, calls the tools and answers in speech: the command no longer reaches a model as text alone. It gets the recording and the line the recogniser wrote, so a word the recogniser got wrong can still be acted on as it was spoken. It runs on the same kernel, built in or plugin mode, with permission, kept conversations and agent records as before; the model set up under Model above is not used meanwhile."))
-            SettingsNote(text: tr("这时录音和上面列出的内容都发给语音服务，而不是“模型”里的那个服务，费用记在语音服务的密钥上。它不能看图：打开了看截图时，它靠在本机认出的文字来读窗口和点击。同一段对话里更早的命令，它看到的是当时识别出的文字。",
-                                  "The recording and everything listed above then go to the voice service instead of the service under Model, and are billed to the voice service's key. It takes no pictures: with seeing turned on it reads a window and clicks by the text read on this Mac. Earlier commands of the same conversation reach it as the text recognised at the time."))
+            voicePicker
+            SettingsNote(text: tr("一个模型时，录音和上面列出的内容都发给语音服务，而不是“模型”里的那个服务，费用记在语音服务的密钥上；它不能看图：打开了看截图时，它靠在本机认出的文字来读窗口和点击；同一段对话里更早的命令，它看到的是当时识别出的文字。多个模型组合时，发给语音服务的只有要读出来的那一句。",
+                                  "With one model, the recording and everything listed above go to the voice service instead of the service under Model, and are billed to the voice service's key; it takes no pictures, so with seeing turned on it reads a window and clicks by the text read on this Mac, and earlier commands of the same conversation reach it as the text recognised at the time. With several models, the voice service is sent only the line that is to be read out."))
         }
+    }
+
+    /// The voices of whichever model speaks, grouped by who they sound like.
+    @ViewBuilder private var voicePicker: some View {
+        let voices = settings.voices, current = settings.speakingVoice
+        if voices.isEmpty {
+            SettingsNote(text: tr("声音：macOS 自带的语音。“语音输入”选用阿里 Qwen 实时语音并保存密钥后，这里可以挑男声、女声和各种音色。",
+                                  "Voice: the macOS voice. Once Voice input uses Alibaba Qwen Realtime with its key saved, a man's or a woman's voice, and many others, can be chosen here."))
+        } else {
+            HStack {
+                Picker(tr("声音", "Voice"), selection: Binding(get: { current }, set: { settings.setSpeakingVoice($0) })) {
+                    if !settings.listening { Text(tr("macOS 自带的语音", "The macOS voice")).tag("") }
+                    // A name this list does not know, kept from an earlier setting.
+                    if !current.isEmpty, SpeechVoice.named(current, in: voices) == nil { Text(current).tag(current) }
+                    ForEach(voiceGroups, id: \.title) { group in
+                        Section(group.title) { ForEach(voices.filter(group.holds)) { Text(label($0)).tag($0.id) } }
+                    }
+                }
+                Button(tr("试听", "Listen")) { command.audition() }.disabled(!settings.speaks)
+            }
+            SettingsNote(text: tr("列表是语音服务给这个模型的官方音色，男声、女声、方言和外语口音都有，选了以后下一句话就换。也可以直接对它说“换成男声”“换个四川话的”，模型会从这张表里挑一个。两种组合各记各的声音。",
+                                  "The list is the voice service's own for this model: men's and women's voices, dialects and accents. A choice is taken up by the next thing said. You can also just say “switch to a man's voice” or “speak Sichuanese”, and the model picks one from this list. Each of the two arrangements keeps its own voice."))
+        }
+    }
+    private var voiceGroups: [(title: String, holds: (SpeechVoice) -> Bool)] {
+        [(tr("女声", "Women"), { $0.kind == .plain && $0.female }), (tr("男声", "Men"), { $0.kind == .plain && !$0.female }),
+         (tr("方言", "Dialects"), { $0.kind == .dialect }), (tr("外语口音与英语", "Accents and English"), { $0.kind == .foreign }),
+         (tr("童声与角色", "Children and roles"), { $0.kind == .character })]
+    }
+    private func label(_ voice: SpeechVoice) -> String {
+        // The listening model's voices go by a short name of their own; the synthesis model's only by their Chinese one.
+        let short = voice.id.replacingOccurrences(of: "_v3.1", with: "")
+        let who = settings.listening && voice.name != voice.id ? tr("\(voice.name) \(voice.id)", voice.id) : tr(voice.name, short)
+        let speaker = voice.kind == .plain ? "" : " · " + (voice.female ? tr("女", "woman") : tr("男", "man"))
+        return who + speaker + " · " + tr(voice.sound.zh, voice.sound.en)
     }
 
     private var notesCard: some View {
@@ -356,6 +421,11 @@ struct CommandSettingsPage: View {
             }
             SettingsNote(text: tr("每条命令的原话、模型的思考和回答、每一步工具调用和它返回的内容（应用、窗口、会话的标题和控件上的文字，过长的截断；打开看截图后还有模型看过的图）都保存在本机，14 天后自动删除。内置内核自己的会话库只留还能接着说的那一段。",
                                   "The words of each command, what the model thought and said, and every tool call with what it returned (titles of apps, windows and chats and the labels of controls, cut when long; with seeing turned on, the pictures the model looked at as well) are kept on this Mac and deleted after 14 days. The built-in kernel's own session store keeps only the conversation that can still be carried on."))
+            Divider()
+            SettingsToggleRow(title: tr("保留语音命令的录音", "Keep the recording of a spoken command"),
+                              isOn: Binding(get: { settings.recordings }, set: { settings.setRecordings($0) }))
+            SettingsNote(text: tr("默认开启。说出来的命令在记录里是一条语音消息：能重新播放原声，旁边是识别出的文字。录音和记录放在一起，只在本机，同样 14 天后删除；它不会因此多发给任何服务。系统听写不留录音。",
+                                  "On by default. A command you spoke is a voice message in its record: it plays again as you said it, beside the words recognised in it. The recording sits with the record, on this Mac only, and is deleted after the same 14 days; keeping it sends nothing more to any service. macOS dictation leaves no recording."))
         }
     }
 
@@ -476,6 +546,8 @@ struct CommandHistorySheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var records: [TaskRecord] = []
     @State private var selected: String?
+    @State private var player: AVAudioPlayer?
+    @State private var playing: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -486,7 +558,9 @@ struct CommandHistorySheet: View {
             HStack(spacing: 0) {
                 List(records, selection: $selected) { record in
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(record.instruction).font(.system(size: 13, weight: .medium)).lineLimit(2)
+                        // A command that can be heard again is listed as a voice message.
+                        ((record.recording == nil ? Text("") : Text(Image(systemName: "waveform")).foregroundColor(.accentColor) + Text(" "))
+                            .font(.system(size: 12)) + Text(record.instruction).font(.system(size: 13, weight: .medium))).lineLimit(2)
                         Text(caption(record)).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
                     }.padding(.vertical, 3).tag(record.id)
                 }.frame(width: 290)
@@ -536,7 +610,13 @@ struct CommandHistorySheet: View {
         let tool = line["tool"]?.string ?? ""
         switch line["kind"]?.string {
         case "instruction":
-            row("mic", .accentColor, tr("命令", "Command"), record.instruction, note: [
+            if let recording = record.recording {
+                Button { play(record.id, recording.file) } label: {
+                    Label(playing == record.id ? tr("停止", "Stop") : tr("播放原声 · \(Self.clock(recording.seconds))", "Play the recording · \(Self.clock(recording.seconds))"),
+                          systemImage: playing == record.id ? "stop.circle.fill" : "play.circle.fill")
+                }.buttonStyle(.bordered).controlSize(.small).padding(.leading, 27)
+            }
+            row(record.recording == nil ? "mic" : "waveform", .accentColor, tr("命令", "Command"), record.instruction, note: [
                 record.app.isEmpty ? "" : tr("当时在 ", "in ") + record.app, record.model,
                 record.turn == 1 ? tr("新对话", "new conversation") : tr("对话的第 \(record.turn) 条", "command \(record.turn) of its conversation")
             ].filter { !$0.isEmpty }.joined(separator: " · "))
@@ -568,6 +648,17 @@ struct CommandHistorySheet: View {
         default: EmptyView()
         }
     }
+
+    /// Plays a command as it was spoken, or stops the one that is playing.
+    private func play(_ id: String, _ file: URL) {
+        let stopping = playing == id
+        player?.stop(); player = nil; playing = nil
+        guard !stopping, let sound = try? AVAudioPlayer(contentsOf: file) else { return }
+        player = sound; playing = id
+        sound.play()
+        DispatchQueue.main.asyncAfter(deadline: .now() + sound.duration + 0.1) { if player === sound { player = nil; playing = nil } }
+    }
+    static func clock(_ seconds: Double) -> String { String(format: "%d:%02d", Int(seconds.rounded(.up)) / 60, Int(seconds.rounded(.up)) % 60) }
 
     private func row(_ symbol: String, _ tint: Color, _ title: String, _ text: String, note: String = "", mono: Bool = false, dimmed: Bool = false) -> some View {
         HStack(alignment: .top, spacing: 9) {

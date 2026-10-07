@@ -8,7 +8,7 @@ import WandAgent
 /// overlay reports as done is read from the gateway, not from the model's last words.
 @MainActor
 final class CommandController {
-    enum Failure: Error { case kernelMissing, modelMissing, harnessMissing }
+    enum Failure: Error { case kernelMissing, modelMissing, harnessMissing, busy }
     /// How long the kernel process is kept after the last command. The conversation outlives it.
     static let rest: TimeInterval = 300
     let settings: CommandSettings
@@ -39,6 +39,9 @@ final class CommandController {
     private var opening: Task<any CommandKernel, Error>?
     /// A kernel that is on its way out. The next one waits for it: a conversation is held by one process at a time.
     private var closing: Task<Void, Never>?
+    /// A kernel on a job of VibeWand's own rather than a command, and whether a command has since asked for its place.
+    private var errand: (any CommandKernel)?
+    private var errandStopped = false
     private var gateway: Gateway?
     private var turn: Task<Void, Never>?
     /// Bumped by every new instruction and every stop; late results from an older one are dropped.
@@ -78,6 +81,7 @@ final class CommandController {
             self?.speech?.play(sound, sampleRate: QwenRealtimeConversation.sampleRate)
         }
         tools.ask = { [weak self] in await self?.ask($0) }
+        tools.voice = { [weak self] in self?.revoice($0) ?? .failure("VibeWand has quit.") }
         voice.onCommandTranscript = { [weak self] in self?.heard($0, $1) }
         // What the last run left of the conversation is shown before the next command takes it up.
         if let kept = carried { turns = kept.turns; usage = kept.usage }
@@ -173,13 +177,17 @@ final class CommandController {
             let records = support.appendingPathComponent("tasks")
             if !pruned { pruned = true; TaskJournal.clear(root: records, olderThan: 14) }
             journal = try? TaskJournal(root: records)
+            // What was spoken is kept beside the record of what was done with it, for the user to hear again.
+            let spoken = settings.recordings ? audio.flatMap { journal?.keep(recording: $0.wav) == true ? $0.duration : nil } : nil
             journal?.record("instruction", ["text": .string(words), "app": .string(tools.source?.name ?? ""),
-                                            "model": .string(settings.modelName), "turn": .number(Double(turns))])
+                                            "model": .string(settings.modelName), "turn": .number(Double(turns)),
+                                            "spoken": spoken.map(JSONValue.number) ?? .null])
             tools.sight = settings.sight
-            let gateway = Gateway(tools: ToolCatalog.mounted(sight: settings.sight), host: tools, permission: settings.permission,
+            let gateway = Gateway(tools: ToolCatalog.mounted(sight: settings.sight, voices: voiced), host: tools, permission: settings.permission,
                                   stepLimit: settings.stepLimit, journal: journal)
             self.gateway = gateway; runningTurn = token
-            let prompt = CoordinatorPrompt.task(words, frontApp: tools.source?.name ?? "", window: tools.source?.window ?? "")
+            let prompt = CoordinatorPrompt.task(words, frontApp: tools.source?.name ?? "", window: tools.source?.window ?? "",
+                                                recording: spoken.flatMap { seconds in journal.map { ($0.id, seconds) } })
             modelSpoke = false
             if kernelListens, let audio { listener.hear(prompt, audio) }
             let reason = try await kernel.run(prompt, tools: { await gateway.call($0, $1) }) { [weak self, journal] event in
@@ -308,17 +316,48 @@ final class CommandController {
         limit?.invalidate(); limit = nil; quiet?.invalidate()
         listener.settle(); hush()
     }
-    /// Says a line of VibeWand's own, a result or a question: in the voice of the model that listens while
-    /// commands go to it, so that everything sounds like one speaker, and in the system's voice otherwise.
+    /// What is said aloud is said in a voice of the voice service, which the user, or the model for them, may change.
+    private var voiced: Bool { settings.speaks && speech != nil && !settings.voices.isEmpty }
+    /// Says a line of VibeWand's own, a result or a question, in the voice the user chose. While commands go to
+    /// the model that listens, that model says it, so that everything is heard in one voice. Beside a model
+    /// with no voice the voice service's synthesis reads it. Without that service, or when it does not
+    /// answer, the macOS voice does.
     private func say(_ line: String) {
         guard settings.speaks, let speech else { return }
         saying?.cancel()
-        guard kernelListens else { speech.say(line); return }
+        let listening = settings.listening, voice = settings.readerVoice
+        guard listening || (!settings.voices.isEmpty && !voice.isEmpty) else { speech.say(line); return }
         saying = Task { [weak self, listener] in
-            do { try await listener.read(line) { speech.play($0, sampleRate: QwenRealtimeConversation.sampleRate) } }
+            do {
+                if listening {
+                    try await listener.say(line) { speech.play($0, sampleRate: QwenRealtimeConversation.sampleRate) }
+                } else {
+                    let read = try await listener.read(line, voice: voice)
+                    try Task.checkCancellation()
+                    speech.play(read, sampleRate: QwenSpeechSynthesis.sampleRate)
+                }
+            }
             // The service did not answer: the line is still worth hearing.
             catch { if !Task.isCancelled, self != nil { speech.say(line) } }
         }
+    }
+    /// Says a line in the voice now chosen, for the user to hear what they picked.
+    func audition() {
+        hush()
+        say(L10n.tr("你好，我是 VibeWand。以后就用这个声音跟你说话。", "Hello, this is VibeWand. This is the voice I will speak in."))
+    }
+    /// The model's way to the voice VibeWand speaks in: the voices there are, or a change to one of them.
+    private func revoice(_ name: String?) -> ToolOutcome {
+        let voices = settings.voices
+        guard let name, !name.isEmpty else {
+            return .ok(["current": .string(settings.speakingVoice), "voices": .array(voices.map { voice in
+                ["voice": .string(voice.id), "name": .string(voice.name), "speaker": .string(voice.female ? "woman" : "man"),
+                 "kind": .string(voice.kind.rawValue), "sounds": .string(voice.sound.zh + " / " + voice.sound.en)]
+            })])
+        }
+        guard let voice = SpeechVoice.named(name, in: voices) else { return .failure("No such voice. Call set_voice without arguments for the list.") }
+        settings.setSpeakingVoice(voice.id)
+        return .ok(.string("VibeWand now speaks as \(voice.id)."))
     }
     private func hush() { saying?.cancel(); saying = nil; speech?.stop() }
 
@@ -350,6 +389,8 @@ final class CommandController {
     }
     private func warm() {
         armIdle()
+        // A job of VibeWand's own gives way to a command.
+        errandStopped = true; errand?.cancel()
         let kept = carried
         // A kernel still holding a conversation that is over gives way to a fresh one, and so does one started
         // on another model than commands now go to. That one's conversation is carried on.
@@ -385,7 +426,7 @@ final class CommandController {
                                         tools: settings.tools, permission: settings.permission, instructions: settings.instructions,
                                         sight: settings.sight, hearing: listening != nil, keeping: resume)
         prepare?(&launch)
-        let session = try await KernelSession.open(launch, tools: ToolCatalog.mounted(sight: settings.sight), resume: resume)
+        let session = try await KernelSession.open(launch, tools: ToolCatalog.mounted(sight: settings.sight, voices: voiced), resume: resume)
         // A harness's own tools ask through the same gateway as VibeWand's.
         session.approve = { [weak self] tool, input in
             guard let gateway = self?.gateway else { return false }
@@ -425,6 +466,55 @@ final class CommandController {
         settings.conversation = nil; usage = nil; turns = 0
     }
 
+    // MARK: A job of VibeWand's own
+
+    /// No command is under way and no kernel is kept warm for the next one.
+    var resting: Bool { !hud.active && kernel == nil && opening == nil && runningTurn == nil && errand == nil }
+
+    /// Runs a job that is not a command, the vocabulary's upkeep, in a conversation of its own: `task` under
+    /// `prompt`, with `tools` and nothing else, on the model that reads. It runs on the harness of the mode in
+    /// force like a command, so one the user installed lists it among its conversations. A kernel resting
+    /// between commands lets go first, and a command that begins meanwhile takes the job's place: it then ends
+    /// as `cancelled`. Throws `Failure.busy` while a command is under way.
+    func attend(prompt: String, task: String, tools: [ToolDefinition], call: @escaping ToolSocket.Call,
+                events: @escaping (KernelEvent) -> Void = { _ in }) async throws -> String {
+        guard !hud.active, opening == nil, runningTurn == nil, errand == nil else { throw Failure.busy }
+        rest()
+        errandStopped = false
+        let previous = closing
+        let job = Task { [weak self] () throws -> String in
+            await previous?.value
+            guard let self, !self.errandStopped else { throw Failure.busy }
+            let kernel = try await self.openErrand(prompt: prompt, tools: tools)
+            self.errand = kernel
+            defer { self.errand = nil }
+            // Opened while a command was already asking: it never starts.
+            guard !self.errandStopped else { await kernel.shutdown(); throw Failure.busy }
+            do {
+                let reason = try await kernel.run(task, tools: call, events: events)
+                await kernel.shutdown()
+                return reason
+            } catch { await kernel.shutdown(); throw error }
+        }
+        // The kernel of the next command waits until this one has gone.
+        closing = Task { _ = try? await job.value }
+        return try await job.value
+    }
+    private func openErrand(prompt: String, tools: [ToolDefinition]) async throws -> any CommandKernel {
+        if let openKernel { return try await openKernel(nil) }
+        guard let harness = settings.harness else { throw settings.kernelMode == .harness ? Failure.harnessMissing : Failure.kernelMissing }
+        // The model that reads does the job. Where commands go to the one that listens and no other is set up, that one reads too.
+        var models = await settings.reading()
+        if models == nil, let listening = settings.listenModel { models = .route(try await listener.route(model: listening)) }
+        guard let models else { throw Failure.modelMissing }
+        guard let version = await version(of: harness) else { throw Failure.harnessMissing }
+        // The shipped harness keeps one conversation, the one a command may carry on: it is kept through this.
+        var launch = try harness.launch(version: version, allowUnverified: settings.harnessUnverified, support: folder, models: models,
+                                        prompt: prompt, keeping: settings.conversation?.session)
+        prepare?(&launch)
+        return try await KernelSession.open(launch, tools: tools)
+    }
+
     /// Starts a kernel on the model as it is set and asks it for one word, so Settings can check the address,
     /// key and model together. Returns how long it took and the context the kernel reports, or what went wrong.
     func probe() async -> (ok: Bool, detail: String) {
@@ -461,6 +551,8 @@ final class CommandController {
         process.arguments = Array(harness.command.dropFirst()) + ["--profile", "web", "--no-open", "--port", "0"]
         var environment = ProcessInfo.processInfo.environment
         environment["DSH_HOME"] = harness.home?.path
+        // Where VibeWand's view in that app finds the recordings of spoken commands.
+        environment["VIBEWAND_TASKS"] = support.appendingPathComponent("tasks").path
         process.environment = environment
         process.standardOutput = output; process.standardError = FileHandle.nullDevice
         // The web app says where it listens, with the token that lets a browser in, on its first line.
@@ -503,6 +595,7 @@ final class CommandController {
         case "ui_screenshot": return L10n.tr("查看窗口", "looking at the window")
         case "ui_type": return L10n.tr("输入文字", "typing")
         case "ui_press", "ui_key", "ui_menu", "ui_click": return L10n.tr("操作界面", "operating the window")
+        case "set_voice": return L10n.tr("换声音", "changing the voice")
         // A harness's own tools, when the user has let the model use them.
         case "bash": return L10n.tr("运行命令", "running a command")
         case "read", "read_image", "glob", "grep": return L10n.tr("读取文件", "reading files")
@@ -524,6 +617,7 @@ final class CommandController {
         switch error {
         case Failure.kernelMissing: return L10n.tr("此版本未包含命令内核", "This build does not include the command kernel")
         case Failure.modelMissing: return L10n.tr("请先在设置的命令模式中选好模型并保存密钥", "Choose a model and save its key under Command mode in Settings first.")
+        case Failure.busy: return L10n.tr("正在执行命令，稍后再试", "A command is under way. Try again later.")
         case Failure.harnessMissing: return L10n.tr("没有找到可用的 DeepSeek Harness。请安装它，或在设置的命令模式里改用内置内核。",
                                                     "No usable DeepSeek Harness was found. Install it, or switch to the built-in kernel under Command mode in Settings.")
         case Harness.Failure.unverified(let version):

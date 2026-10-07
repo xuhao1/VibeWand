@@ -71,6 +71,7 @@ struct SpeechSettings: View {
                 }
                 microphoneSettings
                 vocabularySettings
+                VocabularyLearningCard(keeper: model.runtime.vocabulary, voice: voice)
                 HStack(alignment: .top, spacing: 16) {
                     VStack(spacing: 16) {
                         if draft.provider == .senseVoice {
@@ -328,5 +329,58 @@ struct SenseVoiceModels: View {
             }
         }
         .onAppear { local.refresh() }
+    }
+}
+
+/// Learning the vocabulary from the user's own corrections: the switch, what waits to be learned from, and
+/// the terms learned so far, which stay theirs to prune.
+private struct VocabularyLearningCard: View {
+    @ObservedObject var keeper: VocabularyKeeper
+    @ObservedObject var voice: VoiceInputController
+    @State private var learned = ""
+    private var saved: [String] { voice.configuration.effectiveVocabulary.learned ?? [] }
+
+    var body: some View {
+        SettingsCard(title: tr("词表学习", "Vocabulary learning")) {
+            SettingsToggleRow(title: tr("从我改过的听写里学习词汇", "Learn terms from the dictations I correct"),
+                              isOn: Binding(get: { keeper.enabled }, set: { keeper.setEnabled($0) }))
+            SettingsNote(text: tr("默认关闭。打开后，每次听写写进输入框，VibeWand 会在接下来最多 3 分钟里读这个输入框，直到你发送、清空或开始下一次听写；只有当你改了刚写进去的那段话，才把“写进去的”和“你改成的”这两段存到本机。不读密码框和终端，不读输入框里别的内容。攒下的句子由命令模式的模型定时整理（每天一次，攒够 \(VocabularyKeeper.batch) 段时一小时后就整理）：模型只能看到这些句子，并往下面的列表里加词，而且只能加你自己写过的词。整理时这些句子会发给命令模式所用的模型服务；整理完就从本机删除，关掉开关也会删除。",
+                                  "Off by default. With it on, each time a dictation is written into a text field VibeWand reads that field for up to 3 minutes, until you send it, clear it or dictate again; only when you changed the passage it wrote are the passage as written and as you left it kept on this Mac. Password fields and terminals are never read, and nothing else in the field is kept. A model of command mode goes through what was kept on a schedule (once a day, or an hour after \(VocabularyKeeper.batch) passages have gathered): it sees those passages and adds terms to the list below, and only terms you wrote yourself. For that the passages are sent to the model service command mode uses; they are deleted from this Mac once learned from, and when you turn this off."))
+            if keeper.enabled {
+                HStack {
+                    Text(keeper.waiting == 0 ? tr("没有等待整理的改动", "No corrections waiting")
+                                             : tr("\(keeper.waiting) 段改过的听写等待整理", keeper.waiting == 1 ? "1 corrected passage waiting" : "\(keeper.waiting) corrected passages waiting"))
+                        .font(.system(size: 13))
+                    Spacer()
+                    if keeper.running { ProgressView().controlSize(.small) }
+                    Button(tr("现在整理", "Learn from them now"), action: keeper.tidy).disabled(keeper.waiting == 0 || keeper.running)
+                }
+                if !keeper.status.isEmpty { SettingsNote(text: tr("上次整理：", "Last upkeep: ") + keeper.status) }
+                SettingsNote(text: tr("整理是命令模式内核里的一段独立对话：在“命令模式”的 Agent 记录里能看到模型读了什么、加了哪些词；用自己安装的 DeepSeek Harness 时，它也列在那里，标题是“VibeWand · 整理听写词表”。需要命令模式已经配好模型。",
+                                      "The upkeep is a conversation of its own on command mode's kernel: the Agent records under Command mode show what the model read and which terms it added, and a DeepSeek Harness you installed lists it too, titled “VibeWand · 整理听写词表”. It needs command mode to have a model set up."))
+            }
+            if keeper.enabled || !saved.isEmpty {
+                Divider()
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(tr("学到的词汇", "Learned terms")).font(.system(size: 13, weight: .medium))
+                    TextEditor(text: $learned).font(.system(size: 13)).frame(height: 76)
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(.separator))
+                }
+                HStack {
+                    SettingsNote(text: tr("和“我的词汇”一样随听写发给语音服务。不想要的词直接删掉再保存。", "Sent to the voice service with each dictation, like your own terms. Delete what you do not want and save."))
+                    Spacer()
+                    Button(tr("保存", "Save")) {
+                        var vocabulary = voice.configuration.effectiveVocabulary
+                        vocabulary.learned = nil; vocabulary.learn(adding: SpeechVocabulary.terms(from: learned))
+                        try? voice.learn(vocabulary)
+                    }.disabled(SpeechVocabulary.terms(from: learned) == saved)
+                }
+            }
+        }
+        .onAppear { learned = saved.joined(separator: "\n") }
+        .onReceive(voice.$configuration) { configuration in
+            let terms = configuration.effectiveVocabulary.learned ?? []
+            if SpeechVocabulary.terms(from: learned) != terms { learned = terms.joined(separator: "\n") }
+        }
     }
 }

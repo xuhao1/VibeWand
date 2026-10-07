@@ -203,6 +203,36 @@ Not run in this round: any other app without controls, a game or a canvas among 
 
 这一轮没有测：别的不提供控件的应用，包括游戏和画布；不看图、只靠认出的文字的模型；DeepSeek 以外的模型服务；中文和英文以外的界面文字；运行中的应用里，悬浮窗给指针让路的那一步，以及点击在真实悬浮窗上的确认（测试进程里没有东西挡在那里，也没有点到带风险字样的地方）；设置页的新文案在运行中的应用里的样子；安装后第一次认字（在这台 Mac 上，一个新程序第一次认字用了 25 秒，应用现在在启动时先做这一步）。
 
+## Seventh round, for 0.11.0: voice messages, the view in a harness's apps, vocabulary learning / 第七轮：0.11.0 的语音消息、Harness 里的界面、词表学习
+
+2026-10-07, the development build before 0.11.0, DeepSeek Harness 0.2.0-rc.2 (the desktop app's own runtime), always on a home of the test's own; the user's `~/.dsh` was not touched. Models: DeepSeek (`deepseek-flash`). No microphone and no human voice: the recording is a synthetic tone and the dictation a replayed transcript.
+
+2026-10-07，0.11.0 发布前的开发版，DeepSeek Harness 0.2.0-rc.2（桌面版自带的运行时），始终用测试自己的目录，没有碰用户的 `~/.dsh`。模型是 DeepSeek（`deepseek-flash`）。没有用麦克风和真人语音：录音是合成的单音，听写是回放的转录。
+
+- **A spoken command names its recording, and the model is not thrown by it.** `KernelLiveTests`: a command with the line “Spoken, 3 s. Recording …” was carried out as before (`open_session`). / **语音命令带着录音那一行，模型照常执行。**`KernelLiveTests`：带“Spoken, 3 s. Recording …”一行的命令照常做完（`open_session`）。
+- **The view is added by the harness's own plugin command and taken out again.** `KernelLiveTests`: `dsh plugin --profile web add` on the view bundle, the composed tree names the row, `remove` takes it out; for the desktop profile, which only that app creates, the harness's refusal is passed on. / **界面插件由 Harness 自己的插件命令加入和移除。**`KernelLiveTests`：对界面插件执行 `dsh plugin --profile web add`，组合出的配置里有这一行，`remove` 后没有；桌面版的配置只能由桌面版自己创建，Harness 的拒绝原样转述。
+- **The voice message in the harness's web app.** With the view from the built app bundle added that way, the conversation the first test left was opened in the harness's web app (the picture in [Command mode](command-mode.en.md#plugin-mode) is that page): the sidebar and header carry the mark, the command is a voice message with its words and where it was said, the recording is served (200, `audio/wav`, 96,044 bytes for 3 s) and plays, the bar following it; a request for anything but a record's own recording is answered 404. A message that is not VibeWand's is drawn by the harness as before. / **Harness 网页版里的语音消息。**用上面的方式加入应用包里的界面插件后，在 Harness 网页版里打开第一项测试留下的对话（[命令模式](command-mode.md#插件模式)里的图就是这个页面）：侧栏和顶栏有标记，命令是一条语音消息，带识别出的文字和当时的位置；录音能取到（200，`audio/wav`，3 秒 96,044 字节）并能播放，进度条跟着走；请求别的路径返回 404。不是 VibeWand 的消息仍由 Harness 自己显示。
+- **The vocabulary's upkeep on a real model.** `KernelLiveTests`: shown three corrected passages, the model learned the two names that were put right (Hermes, VibeWand), left “三点→四点” alone, and ended with one line in Chinese. / **真实模型上的词表整理。**`KernelLiveTests`：三段改过的听写里，模型学了两个被改正的名字（Hermes、VibeWand），没有学“三点→四点”，用一句中文收尾。
+- **Reading a field back.** The built app replayed a dictation into its own test window (`--replay-transcript … --speech-test-editor --replay-revision "赫尔墨斯=Hermes" --vocabulary-path …`), written by the input method; the window then corrected the word and cleared the field, as editing and sending do. The notebook held one passage: said “这件事先问问赫尔墨斯的同事”, kept “这件事先问问Hermes的同事”, one change, and nothing of the draft that was in the field before. / **读回输入框。**应用包把一段听写回放进自己的测试窗口（`--replay-transcript … --speech-test-editor --replay-revision "赫尔墨斯=Hermes" --vocabulary-path …`），由输入法写入；随后窗口把那个词改掉、再清空，相当于改完发送。记事本里得到一段：写进去的是“这件事先问问赫尔墨斯的同事”，改成的是“这件事先问问Hermes的同事”，一处改动，输入框里原有的草稿没有被记下。
+
+Not run this round: the harness's desktop app with the view (its profile exists only on a home that app has opened; the web app loads the same bundle); the view on the user's own harness; a real text field in another app being followed (Claude, Codex, Feishu, a browser); the upkeep started by its own timer rather than by hand; the overlay's one-time reminder on screen; the play button in VibeWand's records window, whose data path `swift test` covers.
+
+这一轮没有测：装了界面插件的 Harness 桌面版（它的配置只在桌面版打开过的目录里才有；网页版加载的是同一个插件）；用户自己那份 Harness 上的界面插件；在别的应用的真实输入框里跟读（Claude、Codex、飞书、浏览器）；由定时器而不是手动发起的整理；悬浮窗上那一次提醒；VibeWand 记录窗口里的播放键（它的数据路径由 `swift test` 覆盖）。
+
+## Eighth round, for 0.11.0: one model or several, and their voices / 第八轮：0.11.0 的一个模型或多个模型，以及它们的声音
+
+2026-10-07, the development build before 0.11.0, on the Model Studio workspace set up on this Mac. No microphone, no human voice and no ear: spoken commands are macOS's synthetic Tingting, and of everything said only the fact of speech, its length, its pitch and the words the model reports were read. The figures and what was tried and not used are in [Command mode](command-mode.en.md#what-has-been-verified).
+
+2026-10-07，0.11.0 发布前的开发版，用的是本机配置的百炼业务空间。没有麦克风、没有真人语音，也没有人听：说出来的命令是 macOS 合成的 Tingting；说出的话只读了有没有声音、多长、音高，以及模型报告的字。数字和试过没用的做法见[命令模式](command-mode.md#验证情况)。
+
+- **Every voice of both lists exists on the service.** The Omni model's 56 voices each said one sentence, word for word, and four names outside the list were refused; the synthesis model's 68 voices each returned speech. / **两张音色表里的每个音色，服务上都有。**Omni 模型的 56 个各说了一句话，一字不差，表外的四个名字被拒绝；合成模型的 68 个都返回了语音。
+- **The Omni model says a line as written when asked the way the app asks.** 92 of 92, two of the lines written as questions to the model. / **按应用的问法，Omni 模型照原话说。**92 次都是，其中有两句故意写成对它提问。
+- **Through the app's own code.** `ListeningLiveTests`: three lines in each of Serena, Raymond and Sunny by the Omni model, and in two voices by the synthesis model. / **经应用自己的代码。**`ListeningLiveTests`：Omni 模型用 Serena、Raymond、Sunny 各说三句，合成模型用两个音色各读三句。
+- **Asking for another voice by speech.** `ListeningLiveTests`, a real kernel: “换成男声说话” ended on Raymond and “换一个四川话的女声” on Sunny, each after the model had looked at the list; the session opened in the old voice said nothing more and the result was said in the new one. / **开口换声音。**`ListeningLiveTests`，真实内核：“换成男声说话”换成了 Raymond，“换一个四川话的女声”换成了 Sunny，都是模型先看了音色表；旧声音开的会话没有再出声，结果用新声音说了。
+- **A model that reads does the same.** `KernelLiveTests`, DeepSeek: “换一个沉稳点的男声” ended on the steady man's voice among four it was shown. / **只读文字的模型也一样。**`KernelLiveTests`，DeepSeek：“换一个沉稳点的男声”在给它的四个音色里换成了沉稳的那个男声。
+
+Not run this round: anyone listening to a voice; the voice list and the Listen button in the settings window; a command in the running app that ends in speech from the synthesis model. / 这一轮没有测：有人听这些声音；设置窗口里的声音列表和“试听”；运行着的应用里以合成模型读出结果的一条命令。
+
 ## Not run / 没有测的
 
 - A microphone and a human voice: transcripts were replayed. / 麦克风和真人语音：用的是转录回放。

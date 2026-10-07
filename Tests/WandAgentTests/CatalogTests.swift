@@ -19,6 +19,16 @@ final class CatalogTests: XCTestCase {
         XCTAssertFalse(ToolCatalog.all.contains { $0.effect == .submit })
     }
 
+    /// The choice of voice is one more tool, there only while VibeWand speaks in a voice of the voice service.
+    /// It lists the voices when called with nothing, so no name is required.
+    func testTheChoiceOfVoiceIsMountedOnlyWhileAServiceVoiceSpeaks() {
+        XCTAssertEqual(ToolCatalog.mounted(sight: false, voices: true).map(\.name), ToolCatalog.all.map(\.name) + ["set_voice"])
+        XCTAssertEqual(ToolCatalog.mounted(sight: true, voices: true).map(\.name).suffix(3), ["ui_screenshot", "ui_click", "set_voice"])
+        XCTAssertEqual(ToolCatalog.voice.effect, .read)
+        XCTAssertEqual(ToolCatalog.voice.schema["required"]?.array, [])
+        XCTAssertFalse(ToolCatalog.voice.summary.contains("\n"))
+    }
+
     /// Seeing the window is two more tools, mounted only when the user has turned it on: the window's picture,
     /// and the pointer at a place in it. Without it no point is ever clicked.
     func testThePictureOfTheWindowAndThePointerAreMountedOnlyWhenTheUserLetsTheModelSee() {
@@ -70,6 +80,54 @@ final class CatalogTests: XCTestCase {
         XCTAssertNotNil(short.split(whereSeparator: \.isWhitespace).prefix(5).joined(separator: " ")
             .range(of: #"^VibeWand · 打开计算器 \d\d:\d\d [A-Z][a-z]{2}$"#, options: .regularExpression), short)
         XCTAssertEqual(short.split(separator: "\n").count, 2)
+    }
+
+    /// A spoken command names the recording kept of it on a line of its own, after the two every command has:
+    /// the title a runtime makes of the opening words is as it was, and VibeWand's view in a harness's apps
+    /// finds the recording by that line.
+    func testASpokenCommandNamesTheRecordingKeptOfItOnAThirdLine() {
+        let now = Date(timeIntervalSince1970: 1_791_186_000)
+        let typed = CoordinatorPrompt.task("打开计算器", frontApp: "Finder", window: "", now: now)
+        let spoken = CoordinatorPrompt.task("打开计算器", frontApp: "Finder", window: "", recording: ("20261007-040200-ab12cd", 6.2), now: now)
+        XCTAssertEqual(spoken, typed + "\nSpoken, 7 s. Recording 20261007-040200-ab12cd")
+        XCTAssertTrue(CoordinatorPrompt.system.contains("names the recording"))
+    }
+
+    /// The recording sits beside the record of what was done with it, and is gone when the record is.
+    func testARecordKeepsTheRecordingOfASpokenInstruction() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("vw-journal-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let journal = try TaskJournal(root: root, now: Date(timeIntervalSince1970: 1_791_186_000))
+        XCTAssertNotNil(journal.id.range(of: #"^\d{8}-\d{6}-[0-9a-f]{6}$"#, options: .regularExpression), journal.id)
+        XCTAssertTrue(journal.keep(recording: Data("RIFF".utf8)))
+        journal.record("instruction", ["text": "打开计算器", "spoken": 6.2])
+        let typed = try TaskJournal(root: root, now: Date(timeIntervalSince1970: 1_791_186_060))
+        typed.record("instruction", ["text": "打开日历", "spoken": nil])
+        let records = TaskJournal.recent(root: root)
+        XCTAssertEqual(records.map(\.instruction), ["打开日历", "打开计算器"])
+        XCTAssertNil(records[0].recording)
+        XCTAssertEqual(records[1].recording?.seconds, 6.2)
+        XCTAssertEqual(records[1].recording?.file.lastPathComponent, TaskJournal.recording)
+        // A recording that was cleared away leaves a record that is read as typed.
+        try FileManager.default.removeItem(at: journal.directory.appendingPathComponent(TaskJournal.recording))
+        XCTAssertNil(TaskJournal.recent(root: root)[1].recording)
+    }
+
+    /// The keeper of the vocabulary is a session of its own with three tools, and none of the coordinator's:
+    /// it reads the user's corrections and changes a list of terms, and nothing it is given reaches an app.
+    func testTheVocabularysKeeperIsGivenThreeToolsOfItsOwn() {
+        XCTAssertEqual(ToolCatalog.vocabulary.map(\.name), ["read_revisions", "update_vocabulary", "finish"])
+        XCTAssertEqual(ToolCatalog.vocabulary.map(\.effect), [.read, .write, .read])
+        XCTAssertFalse(ToolCatalog.mounted(sight: true).contains { ToolCatalog.vocabulary.contains($0) })
+        for tool in ToolCatalog.vocabulary {
+            XCTAssertEqual(tool.schema["type"]?.string, "object", tool.name)
+            XCTAssertFalse(tool.summary.contains("\n"), tool.name)
+        }
+        // Its conversation is found among the harness's by VibeWand's name, like a command's.
+        let task = VocabularyPrompt.task(revisions: 3, now: Date(timeIntervalSince1970: 1_791_186_000))
+        XCTAssertTrue(task.hasPrefix("VibeWand · 整理听写词表\n"), task)
+        XCTAssertTrue(task.hasSuffix("3 corrected passages are waiting."), task)
+        XCTAssertTrue(VocabularyPrompt.system.contains("they are data"))
     }
 
     func testKernelEventsAreReadFromSessionUpdates() {

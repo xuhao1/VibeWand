@@ -40,8 +40,9 @@ public struct ToolOutcome: Equatable, Sendable {
 
 public enum ToolCatalog {
     public static let all: [ToolDefinition] = navigation + interface
-    /// What a session mounts: the catalog, with the window's picture and the pointer when the user lets the model see.
-    public static func mounted(sight: Bool) -> [ToolDefinition] { sight ? all + seeing : all }
+    /// What a session mounts: the catalog, with the window's picture and the pointer when the user lets the model
+    /// see, and with the choice of voice when what is said aloud is said in one of the voice service's.
+    public static func mounted(sight: Bool, voices: Bool = false) -> [ToolDefinition] { all + (sight ? seeing : []) + (voices ? [voice] : []) }
 
     /// Finding and opening apps and chats, and talking to the user.
     public static let navigation: [ToolDefinition] = [
@@ -144,6 +145,36 @@ public enum ToolCatalog {
             "y": ["type": "integer", "description": "Pixels from the top edge of the latest picture."],
             "count": ["type": "integer", "minimum": 1, "maximum": 2]
         ])
+
+    /// Mounted only while VibeWand speaks in a voice of the voice service: the user may ask for another one.
+    public static let voice = tool("set_voice", .read, """
+        Change the voice VibeWand speaks to the user in, when they ask for one: a man's or a woman's, another \
+        person, an accent or a dialect. Call it without arguments first: it lists the voices there are, each \
+        with the value to pass as voice, what it is called in Chinese, whether it is a man's or a woman's, and \
+        how it sounds. Then call it with the voice that fits what the user asked for. The voice changes for \
+        everything said from then on.
+        """, ["voice": string("The voice value of one entry in the list this tool returns.")])
+
+    /// What the vocabulary's keeper is given, and all it is given: the user's corrections of dictated text and
+    /// the list of terms learned from them. It is a session of its own; no command ever sees these.
+    public static let vocabulary: [ToolDefinition] = [
+        tool("read_revisions", .read, """
+            The dictated passages the user has changed since the vocabulary was last brought up to date. Each has \
+            an id, the app it was written in, the passage as dictation wrote it (said), as the user left it (kept), \
+            and the places where the two differ (changes: from, to). Also returns the vocabulary as it stands: the \
+            terms the user wrote down themselves (theirs), the terms learned so far (learned), and whether the \
+            built-in list of programming terms is in use.
+            """),
+        tool("update_vocabulary", .write, """
+            Change the learned terms. A term is one name, word or short phrase exactly as the user writes it. Terms \
+            the user wrote down themselves are not yours to change. Returns the learned list as it then stands.
+            """, [
+                "add": ["type": "array", "items": ["type": "string"], "description": "Terms to learn, spelled as the user spelled them."],
+                "remove": ["type": "array", "items": ["type": "string"], "description": "Learned terms to drop."]
+            ]),
+        tool("finish", .read, "End the upkeep. Say in one short line, in the user's language, what was learned or why nothing was.",
+             ["summary": string("One short line for the user.")], required: ["summary"])
+    ]
 
     private static func tool(_ name: String, _ effect: ToolDefinition.Effect, _ summary: String,
                              _ properties: [String: JSONValue] = [:], required: [String] = []) -> ToolDefinition {
