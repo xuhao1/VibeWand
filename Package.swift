@@ -12,7 +12,7 @@ let package = Package(
         .library(name: "InputLink", targets: ["InputLink"]),
         .executable(name: "VibeWandInput", targets: ["VibeWandInput"]),
         .executable(name: "AU05Capture", targets: ["AU05Capture"]),
-        .executable(name: "VibeWand", targets: ["VibeKeyBridge"])
+        .executable(name: "VibeWand", targets: ["VibeWandBridge"])
     ],
     targets: [
         .target(name: "SpeechInput"),
@@ -22,11 +22,11 @@ let package = Package(
         .target(name: "WandAgent"),
         .target(name: "InputLink"),
         .executableTarget(name: "VibeWandInput", dependencies: ["InputLink"]),
-        .executableTarget(name: "VibeKeyBridge", dependencies: ["AU05Device", "SpeechInput", "WandAgent", "InputLink"]),
+        .executableTarget(name: "VibeWandBridge", dependencies: ["AU05Device", "SpeechInput", "WandAgent", "InputLink"]),
         .testTarget(name: "SpeechInputTests", dependencies: ["SpeechInput"]),
         .testTarget(name: "AU05DeviceTests", dependencies: ["AU05Device"]),
         .testTarget(name: "WandAgentTests", dependencies: ["WandAgent"]),
         .testTarget(name: "InputLinkTests", dependencies: ["InputLink"]),
-        .testTarget(name: "VibeKeyBridgeTests", dependencies: ["VibeKeyBridge", "InputLink"])
+        .testTarget(name: "VibeWandBridgeTests", dependencies: ["VibeWandBridge", "InputLink"])
     ]
 )

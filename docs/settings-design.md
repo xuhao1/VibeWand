@@ -134,9 +134,9 @@ Applications separates built-in adapter switches from user-added apps. An app pi
 
 ## About / 关于
 
-The About page identifies **Dr. Xu** as the author. It includes the [personal website](http://xuhao1.me), [project website](https://vibewand.xuhao1.me), version, and PolyForm Noncommercial license. These are link destinations; this UI revision does not deploy a website.
+The About page identifies **Dr. Xu** as the author. It includes the [personal website](http://xuhao1.me), [project website](https://vibewand.xuhao1.me), version, and license (the GNU GPL 3.0 since 2026-10-07; PolyForm Noncommercial when this revision was made). These are link destinations; this UI revision does not deploy a website.
 
-关于页面注明作者为 **Dr. Xu**，并提供[个人主页](http://xuhao1.me)、[项目主页](https://vibewand.xuhao1.me)、版本和 PolyForm Noncommercial 非商用许可信息。此次界面改版添加主页链接，不包含网站部署。
+关于页面注明作者为 **Dr. Xu**，并提供[个人主页](http://xuhao1.me)、[项目主页](https://vibewand.xuhao1.me)、版本和许可信息（2026-10-07 起为 GNU GPL 3.0，此次改版时为 PolyForm Noncommercial）。此次界面改版添加主页链接，不包含网站部署。
 
 ## Hardware and audio boundaries / 硬件与音频边界
 

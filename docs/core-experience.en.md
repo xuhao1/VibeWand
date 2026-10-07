@@ -2,7 +2,7 @@
 
 [简体中文](core-experience.md) · [Getting started](getting-started.en.md) · [Documentation](README.md)
 
-These are the 0.11.0 template defaults; the [Controller](#controller-one-job-a-button) layout was rearranged in 0.10.2. Saved custom mappings take precedence; reset the active template if you want its defaults. Complete controls and hardware boundaries are in [Device templates](device-templates.en.md).
+These are the 0.11.1 template defaults; the [Controller](#controller-one-job-a-button) layout was rearranged in 0.10.2. Saved custom mappings take precedence; reset the active template if you want its defaults. Complete controls and hardware boundaries are in [Device templates](device-templates.en.md).
 
 ## Navigation follows context
 

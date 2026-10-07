@@ -46,7 +46,7 @@ flowchart LR
 ## 实施阶段与验收
 
 - 第一阶段：独立 Swift 设备模块、报告解码、协议测试、`AU05Capture` 命令行采集器；验证接收器发现、接管 ACK 与六类输入。
-- 第二阶段：接入现有 HUD 和状态机、真实麦克风高亮、独立 Fn down/up、断线及后端切换释放。稳定签名继续沿用 `org.vibekey.bridge`，移除 Studio 备用模式。
+- 第二阶段：接入现有 HUD 和状态机、真实麦克风高亮、独立 Fn down/up、断线及后端切换释放。稳定签名继续沿用当时的 `org.vibekey.bridge`（0.11.1 起为 `org.vibewand.bridge`），移除 Studio 备用模式。
 - 第三阶段：封装配置、设备日志、录屏介绍和开源发布；项目不包含厂商闭源库或私钥。
 - 第四阶段：实际检查 DeepSeek Harness 的可用命令和 UI / 终端接口，添加应用适配器。设备层不变，不预先假设它与 Codex 的快捷键相同。
 

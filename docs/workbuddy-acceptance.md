@@ -35,7 +35,7 @@ DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer \
 swift test --filter WorkBuddyLiveTests
 ```
 
-Source: [WorkBuddyLiveTests.swift](../Tests/VibeKeyBridgeTests/WorkBuddyLiveTests.swift). Local acceptance logs are kept under ignored `output/workbuddy-live-acceptance/` and `output/release-v0.8.1/`; they contain test status and counts, not private task titles, drafts or clipboard data.
+Source: [WorkBuddyLiveTests.swift](../Tests/VibeWandBridgeTests/WorkBuddyLiveTests.swift). Local acceptance logs are kept under ignored `output/workbuddy-live-acceptance/` and `output/release-v0.8.1/`; they contain test status and counts, not private task titles, drafts or clipboard data.
 
 代码见上述链接；本地日志保存在被忽略的 `output/` 目录，只记录状态和数量，不输出私人任务标题、草稿或剪贴板内容。
 

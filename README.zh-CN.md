@@ -111,7 +111,7 @@ VibeWand 干的是 computer use 这类事：看懂前台应用的界面，替你
 
 ## 安装
 
-**[下载 VibeWand 0.11.0（Apple Silicon）](https://github.com/xuhao1/VibeWand/releases/download/v0.11.0/VibeWand-0.11.0-macOS-arm64.zip)** · [版本说明](https://github.com/xuhao1/VibeWand/releases/latest)
+**[下载 VibeWand 0.11.1（Apple Silicon）](https://github.com/xuhao1/VibeWand/releases/download/v0.11.1/VibeWand-0.11.1-macOS-arm64.zip)** · [版本说明](https://github.com/xuhao1/VibeWand/releases/latest)
 
 需要 macOS 26 以上和 M 系列芯片（0.8.4 是最后一个支持 macOS 13–15 的版本）。解压后把 **VibeWand.app** 拖进“应用程序”并打开。第一次打开会出现引导，带你走完下面几步、语音输入和命令模式，每一步都可以跳过。手动做的话：
 
@@ -144,6 +144,10 @@ bash scripts/build-app.sh
 
 ## 许可
 
-源码采用 [PolyForm Noncommercial 1.0.0](LICENSE)。个人非商用可以使用、修改和分发；**商用需要先联系[作者徐浩](https://github.com/xuhao1)取得单独授权**，可以直接提一个[商业授权咨询](https://github.com/xuhao1/VibeWand/issues/new?title=Commercial%20licensing%20inquiry)。因为限制了商业用途，它是源码公开，但不算 OSI 定义的开源。第三方组件保留各自的许可证，见[致谢](third-party/README.md)。这个版本还没有处理的许可问题列在[许可与版权遗留项](docs/licensing-open-items.md)。
+VibeWand 是自由软件，版权所有 (C) 2026 [徐浩](https://github.com/xuhao1)。你可以把它用于任何目的，并按 [GNU 通用公共许可证第 3 版](LICENSE)（`GPL-3.0-only`）再分发和修改：凡是在它基础上做出来并分发出去的东西，都要沿用同一许可并附上源码。在法律允许的范围内，它不附带任何担保。
+
+**GPL 不适合的用途，例如把 VibeWand 的代码做进闭源产品，可以向作者取得商业授权**，直接提一个[商业授权咨询](https://github.com/xuhao1/VibeWand/issues/new?title=Commercial%20licensing%20inquiry)。外部贡献按[能同时保留这两种授权的条款](CONTRIBUTING.md#license-of-contributions--贡献的授权)接受。
+
+许可证不授予“VibeWand”这个名称和图标的商标权利。分发修改过的版本时，要清楚标明它与原版不同，并且最好另起名字。第三方组件保留各自的许可证，见[第三方记录](third-party/README.md)，那里也写了怎样换上你自己构建的那个 LGPL 库。`assets/apps/` 里受支持应用的图标归各自所有者，不在本许可之内。还没有定下来的事项列在[许可与版权遗留项](docs/licensing-open-items.md)。
 
 作者：**Dr. Xu** · [个人主页](http://xuhao1.me) · [GitHub](https://github.com/xuhao1)

@@ -54,6 +54,6 @@ These records support implementation and provenance. They are not first-use inst
 
 ## License and attribution / 许可与署名
 
-[PolyForm Noncommercial license / 非商用许可证](../LICENSE) · [Third-party notices / 第三方记录](../third-party/README.md) · [Open licensing items / 许可与版权遗留项](licensing-open-items.md) · [Device artwork / 设备插画](../assets/device/README.md)
+[GNU GPL 3.0 / 许可证](../LICENSE) · [Third-party notices / 第三方记录](../third-party/README.md) · [Open licensing items / 许可与版权遗留项](licensing-open-items.md) · [Device artwork / 设备插画](../assets/device/README.md)
 
-Personal noncommercial use is permitted under the license. Commercial use requires contacting [Hao Xu](https://github.com/xuhao1) and obtaining a separate license. 允许按条款个人非商用使用；商用必须联系徐浩并取得单独授权。
+VibeWand is free software under the GNU General Public License, version 3 (`GPL-3.0-only`). For use the GPL does not fit, a commercial license is available from [Hao Xu](https://github.com/xuhao1). VibeWand 是按 GNU 通用公共许可证第 3 版发布的自由软件；GPL 不适合的用途可以向徐浩取得商业授权。

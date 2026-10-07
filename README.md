@@ -111,7 +111,7 @@ What each capability covers, which channel each app uses and what has been verif
 
 ## Install
 
-**[Download VibeWand 0.11.0 (Apple Silicon)](https://github.com/xuhao1/VibeWand/releases/download/v0.11.0/VibeWand-0.11.0-macOS-arm64.zip)** · [Release notes](https://github.com/xuhao1/VibeWand/releases/latest)
+**[Download VibeWand 0.11.1 (Apple Silicon)](https://github.com/xuhao1/VibeWand/releases/download/v0.11.1/VibeWand-0.11.1-macOS-arm64.zip)** · [Release notes](https://github.com/xuhao1/VibeWand/releases/latest)
 
 Requires macOS 26 or later on an M-series Mac (0.8.4 is the last version for macOS 13 to 15). Unzip, drag **VibeWand.app** into Applications and open it. The first launch shows a guide that walks you through the steps below, voice input and command mode; every step can be skipped. By hand:
 
@@ -144,6 +144,10 @@ Command mode is on by default, and until you set up a model it does nothing and 
 
 ## License
 
-The source is under [PolyForm Noncommercial 1.0.0](LICENSE). Personal, noncommercial use, modification and distribution are allowed. **Commercial use requires a separate license from [the author, Hao Xu](https://github.com/xuhao1)**; open a [commercial licensing inquiry](https://github.com/xuhao1/VibeWand/issues/new?title=Commercial%20licensing%20inquiry) to ask. Because commercial use is restricted, this is source-available rather than open source as the OSI defines it. Third-party components keep their own licenses; see [acknowledgements](third-party/README.md). The licensing questions still open for this version are listed in [Licensing and copyright: open items](docs/licensing-open-items.md).
+VibeWand is free software, copyright (C) 2026 [Hao Xu](https://github.com/xuhao1). You may use it for any purpose, and redistribute and modify it under the [GNU General Public License, version 3](LICENSE) (`GPL-3.0-only`): whatever you distribute that is built on it carries the same license and comes with its source. It is provided without warranty, as far as the law allows.
+
+**For use the GPL does not fit, such as building VibeWand's code into a closed-source product, a commercial license is available from the author**; open a [commercial licensing inquiry](https://github.com/xuhao1/VibeWand/issues/new?title=Commercial%20licensing%20inquiry) to ask. Contributions are accepted on [terms that keep both possible](CONTRIBUTING.md#license-of-contributions--贡献的授权).
+
+The license grants no trademark rights in the name “VibeWand” or its icon. A modified version you pass on has to be plainly marked as different from the original, and should go by another name. Third-party components keep their own licenses; see the [third-party notices](third-party/README.md), which also say how to put in your own build of the LGPL library that ships. The icons of supported apps under `assets/apps/` belong to their owners and are not covered by this license. What is still undecided is listed in [Licensing and copyright: open items](docs/licensing-open-items.md).
 
 By **Dr. Xu** · [Homepage](http://xuhao1.me) · [GitHub](https://github.com/xuhao1)

@@ -53,9 +53,9 @@ Coordinates are relative to the **entire original image**, with `(0, 0)` at its 
 | Remote | D-pad up / 方向上 | `dpadUp` | 0.500 | 0.262 |
 | Remote | D-pad down / 方向下 | `dpadDown` | 0.500 | 0.404 |
 
-The six primary controls retain the default single-hand experience. Extra physical controls can be configured through the extended mapping model; their appearance in this image does not establish hardware input compatibility. R1 and R2 are close together at small sizes; use separate external callouts or offset labels rather than covering the button faces with large text boxes. The source of these coordinates is `Sources/VibeKeyBridge/DeviceArtwork.swift`.
+The six primary controls retain the default single-hand experience. Extra physical controls can be configured through the extended mapping model; their appearance in this image does not establish hardware input compatibility. R1 and R2 are close together at small sizes; use separate external callouts or offset labels rather than covering the button faces with large text boxes. The source of these coordinates is `Sources/VibeWandBridge/DeviceArtwork.swift`.
 
-六个主要按键保留默认单手操作体验。额外实体按键可通过扩展的映射模型配置；照片中存在某个按键不代表已经验证其输入兼容性。缩小时 R1 与 R2 距离较近，应使用独立引线标注或错开标签，避免用大块文字覆盖真实按键。对应坐标源码位于 `Sources/VibeKeyBridge/DeviceArtwork.swift`。
+六个主要按键保留默认单手操作体验。额外实体按键可通过扩展的映射模型配置；照片中存在某个按键不代表已经验证其输入兼容性。缩小时 R1 与 R2 距离较近，应使用独立引线标注或错开标签，避免用大块文字覆盖真实按键。对应坐标源码位于 `Sources/VibeWandBridge/DeviceArtwork.swift`。
 
 ## Stick direction overlays / 摇杆方向入口
 

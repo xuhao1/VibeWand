@@ -18,7 +18,7 @@ rm -f "$task_takes/$task_name.log.jsonl" "$task_takes/$task_name.mov"
 pkill -TERM -x VibeWand 2>/dev/null || true
 sleep 1.6
 open -n "$task_root/dist/film/VibeWand.app" --args --film "$task_takes/$task_name.json" --demo \
-  -hudVisible YES -hudScale 1 -hudOpacity 1 -VibeKeyBridge.overlayDeviceBelow YES -VibeKeyBridge.overlayAnchor "\"$task_anchor\"" "$@"
+  -hudVisible YES -hudScale 1 -hudOpacity 1 -VibeWandBridge.overlayDeviceBelow YES -VibeWandBridge.overlayAnchor "\"$task_anchor\"" "$@"
 sleep 1.6
 # shellcheck disable=SC2086
 "$task_root/output/promo/bin/wincap" "$task_takes/$task_name.mov" "$task_seconds" ${VIBEWAND_FILM_RECT:-2890 330 580 720} VibeWand

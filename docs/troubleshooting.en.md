@@ -7,6 +7,7 @@
 | Symptom | Check |
 | --- | --- |
 | App starts in demo | Check Accessibility in Settings → General. Quit and reopen the app after authorization. |
+| macOS asks for permissions again after updating to 0.11.1, or VibeWand is switched on under Accessibility and still starts in demo | 0.11.1 changed the app's identifier from `org.vibekey.bridge` to `org.vibewand.bridge`, and macOS grants permissions to an identifier. Allow VibeWand again; if a VibeWand row from the earlier version is still listed under Accessibility, select it and remove it with −. Settings, layouts and keys are carried over; the Keychain may ask once to let VibeWand read a key the earlier version saved. |
 | AU05 unavailable | Quit Ulanzi Studio and the AU05Capture utility. Only one owner can use its vendor interface at a time; reconnect the receiver if needed. |
 | Controller not found | Check USB or macOS Bluetooth pairing, select Controller, and inspect live connection status. Remove an imported HID override to restore native detection. |
 | Remote has no events | The preset alone cannot connect it. Import a profile captured from the intended device; verify press and release reports. |

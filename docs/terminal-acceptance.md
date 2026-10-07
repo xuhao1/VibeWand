@@ -60,7 +60,7 @@ swift test --filter TerminalLiveTests
 
 `VIBEWAND_TERMINAL_LIVE` 是新窗口里运行的命令；另外两个工具用 `exec claude` 或 `exec opencode`。Claude Code 前面加 `CLAUDE_CODE_NO_FLICKER=0` 或 `1` 选择经典或全屏渲染。`VIBEWAND_TERMINAL_BUSY` 可选，是一段不调用模型就能让工具工作的草稿。`VIBEWAND_TERMINAL_DEVICE=dualSense` 使用手柄模板。
 
-Source: [TerminalLiveTests.swift](../Tests/VibeKeyBridgeTests/TerminalLiveTests.swift); prompt recognition is covered without a terminal by [TerminalScreenTests.swift](../Tests/VibeKeyBridgeTests/TerminalScreenTests.swift), whose screens are transcribed from these tools.
+Source: [TerminalLiveTests.swift](../Tests/VibeWandBridgeTests/TerminalLiveTests.swift); prompt recognition is covered without a terminal by [TerminalScreenTests.swift](../Tests/VibeWandBridgeTests/TerminalScreenTests.swift), whose screens are transcribed from these tools.
 
 代码见上述链接；提示符识别另有不需要终端的样例测试，样例屏幕抄录自这几个工具。
 

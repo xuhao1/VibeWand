@@ -2,20 +2,20 @@
 
 [文档目录 / Documentation](README.md) · [第三方记录 / Third-party notices](../third-party/README.md) · [许可证 / License](../LICENSE)
 
-截至 2026-10-06，VibeWand 0.10.0。仓库目前是私有的，0.10.0 带着下面这些没有处理的项发布在这个私有仓库里；0.10.1、0.10.2 和 0.11.0 的内核包没有变，带着同样的这些项。作者当天的决定：这些问题留到正式开源之前处理。处理完一项，就在这里改掉它的状态，并同步修改[第三方记录](../third-party/README.md)。本文是工程上的盘点，不是法律意见。
+截至 2026-10-07。0.10.0 到 0.11.0 带着下面这些项发布在私有仓库里，当时采用的是 PolyForm Noncommercial 1.0.0。作者 2026-10-07 为正式开源做了决定：VibeWand 改用 GPL-3.0，另由作者提供商业授权；两个带 copyleft 的库都保留。第 1 到 5 项据此处理完；第 7 项里的标识符当天也改了；作者确认版权归他本人，源码出处指向上游仓库即可。第 6、8 项仍由作者判断。已经发出去的那些版本，仍按发布时的条款。本文是工程上的盘点，不是法律意见。
 
-As of 2026-10-06, VibeWand 0.10.0. The repository is private, and 0.10.0 is published there with the items below still open; 0.10.1, 0.10.2 and 0.11.0 have the same kernel packages and carry the same items. The owner decided that day to settle them before the project is opened. When an item is settled, change its status here and bring the [third-party notice](../third-party/README.md) in line. This is an engineering inventory, not legal advice.
+As of 2026-10-07. Versions 0.10.0 to 0.11.0 were published in the private repository with the items below open, under PolyForm Noncommercial 1.0.0. On 2026-10-07 the owner decided, for opening the project: VibeWand moves to the GPL-3.0 with a commercial license available from the author, and both copyleft libraries stay. Items 1 to 5 are settled accordingly, and the identifiers in item 7 were renamed the same day; the owner confirmed that the copyright is his and that pointing at the upstream repositories for source is enough. Items 6 and 8 remain the owner's call. Copies already released keep the terms they were released under. This is an engineering inventory, not legal advice.
 
-| # | 遗留项 / Item | 要定的事 / What has to be decided | 状态 / Status |
+| # | 事项 / Item | 结果 / Outcome | 状态 / Status |
 | --- | --- | --- | --- |
-| 1 | sherpa-onnx 的预编译库里有 GPL 的 eSpeak NG / eSpeak NG (GPL) inside sherpa-onnx's prebuilt library | 换成不含语音合成的构建，还是照原样分发并补齐 GPL 的要求 / swap in the build without speech synthesis, or ship as it is and meet the GPL | 未处理 / open |
-| 2 | libvips 及其内置库是 LGPL / libvips and the libraries built into it (LGPL) | 保留并补齐 LGPL 的要求，还是自带内核不带图片存储 / keep it and meet the LGPL, or leave the picture store out of the shipped kernel | 未处理 / open |
-| 3 | 一批许可文本和声明还没有随包附上 / License texts and notices not yet in the bundle | 取齐文本 / collect the texts | 未处理 / open |
-| 4 | SenseVoice 模型的协议要求署名 / The SenseVoice models' terms ask for attribution | 在下载处和文档里写明作者与协议 / state author and terms where the download is offered | 未处理 / open |
-| 5 | VibeWand 自己的许可 / VibeWand's own license | “开源”用哪个许可；与 GPL 组件的关系；外部贡献的授权 / which license “open” means, how it sits with GPL components, how contributions are licensed | 未处理 / open |
-| 6 | 设备插画、图标和文档图片 / Device artwork, icon and documentation images | 是否需要进一步核对或替换 / whether any needs clearing or replacing | 未核对 / not checked |
-| 7 | 名称与商标 / Names and trademarks | 免责声明是否扩展到被操作的应用；“VibeKey”的用法 / extend the disclaimer to the apps operated; the use of “VibeKey” | 未处理 / open |
-| 8 | AU05 协议里的密钥常量 / The key constants of the AU05 protocol | 公开是否合适 / whether publishing them is appropriate | 未处理 / open |
+| 1 | sherpa-onnx 的预编译库里有 GPL 的 eSpeak NG / eSpeak NG (GPL) inside sherpa-onnx's prebuilt library | 照原样保留；GPL 文本、它自带的声明和源码出处已附 / kept as published, with the GPL text, its own notices and its source named | 已定 / settled |
+| 2 | libvips 及其内置库是 LGPL / libvips and the libraries built into it (LGPL) | 保留；LGPL 文本、源码出处和替换方法已附 / kept, with the LGPL text, its source and how to replace it | 已定 / settled |
+| 3 | 许可文本和声明随包附上 / License texts and notices in the bundle | 已取齐；一个包上游没有发布文本 / collected; one package has no text upstream | 已处理 / done |
+| 4 | SenseVoice 模型的协议要求署名 / The SenseVoice models' terms ask for attribution | 下载处和文档写明了作者与协议；VAD 文件核对过出处 / author and terms stated where the download is offered and in the guide; the VAD file traced to its origin | 已处理 / done |
+| 5 | VibeWand 自己的许可 / VibeWand's own license | `GPL-3.0-only`，另有作者的商业授权；贡献条款已写 / `GPL-3.0-only` with a commercial license from the author; contribution terms written | 已定 / settled |
+| 6 | 设备插画、图标和文档图片 / Device artwork, icon and documentation images | 是否需要进一步核对或替换 / whether any needs clearing or replacing | 未定 / open |
+| 7 | 名称与商标 / Names and trademarks | 免责声明已覆盖被操作的应用；标识符改为 `org.vibewand.*` 和 `VibeWandBridge` / the disclaimers cover the apps operated; the identifiers are now `org.vibewand.*` and `VibeWandBridge` | 已定 / settled |
+| 8 | AU05 协议里的密钥常量 / The key constants of the AU05 protocol | 公开是否合适 / whether publishing them is appropriate | 未定 / open |
 
 ## 1. sherpa-onnx 预编译库里的 eSpeak NG（GPL-3.0-or-later）
 
@@ -23,21 +23,18 @@ As of 2026-10-06, VibeWand 0.10.0. The repository is private, and 0.10.0 is publ
 
 **情况。**两个 sherpa-onnx 包标的是 Apache-2.0，但这个库里还静态编入了十个别的库，其中语音合成用的 eSpeak NG 是 GPL-3.0-or-later（`csukuangfj/espeak-ng`，提交 `ed530aa1`）。VibeWand 只做识别，从不调用合成的代码，但代码在随包分发的库里。核对的依据：库里有 eSpeak NG 自己的函数（`espeak_ng_Initialize`、`TranslateRules`、`LoadPhData` 等）；sherpa-onnx 1.13.8 的 `CMakeLists.txt` 在 `SHERPA_ONNX_ENABLE_TTS` 打开（默认）时引入 `espeak-ng-for-piper`；eSpeak NG 在那次提交上的 README 写的是 GPL 3 或更高。
 
-**0.10.0 的现状。**照原样带着这个库，没有附 GPL 3.0 的文本，也没有写 eSpeak NG 的源码出处。
+**决定（2026-10-07）：照原样保留。**VibeWand 自己改用 GPL-3.0 以后（第 5 项），它和这个库装在同一个包里没有许可上的冲突，所以没有换库。补上的东西：GPL 3.0 的文本就是随包分发的 [`LICENSE`](../LICENSE)；eSpeak NG 自带的 `COPYING.APACHE`、`COPYING.BSD2`、`COPYING.UCD` 放进了 `third-party/`；[第三方记录](../third-party/README.md)写了它在所编入提交上的源码地址，以及整个库的源码：sherpa-onnx `v1.13.8`，它的 `cmake` 目录按版本取各个库。
 
-**出路。**
+**还留着的两件事。**
 
-- (a) 组装内核时只把这一个库换成 sherpa-onnx 随同一版本发布的不含语音合成的构建：`sherpa-onnx-v1.13.8-osx-arm64-shared-no-tts-lib.tar.bz2`，8.3 MB，在它的 v1.13.8 发布页上。按它的构建文件，关掉合成后不会编入 eSpeak NG 和 piper-phonemize；它的 C 接口对合成函数保留空实现，Node 插件应当仍能加载。**还没有试过**，换完要重新实测 SenseVoice。
-- (b) 照原样分发：附上 GPL 3.0 的文本、eSpeak NG 的源码出处，以及它自带的 `COPYING.APACHE`、`COPYING.BSD2`、`COPYING.UCD`。
-- (c) 自带内核不带识别程序：SenseVoice 只在用户装了 DeepSeek Harness 时可用，要另写一条经 Harness 自己的运行时启动识别程序的路径。
-
-实现者的建议是 (a)：去掉一段用不到的 GPL 代码，比为它承担分发义务简单。
+- GPL 要求分发二进制期间源码一直取得到。现在指向的是别人的仓库（`csukuangfj/espeak-ng`、`k2-fsa/sherpa-onnx`），它们若消失，义务仍在分发者身上。作者 2026-10-07 的决定是指向上游仓库即可，不另留副本。
+- 作者给出的商业授权只管得了 VibeWand 自己的代码。交给商业授权方的包如果还带着这个库，那一部分仍是 GPL。到那时把这一个库换成 sherpa-onnx 随同一版本发布的不含语音合成的构建：`sherpa-onnx-v1.13.8-osx-arm64-shared-no-tts-lib.tar.bz2`，8.3 MB，在它的 v1.13.8 发布页上。按它的构建文件，关掉合成后不会编入 eSpeak NG 和 piper-phonemize，C 接口对合成函数保留空实现，Node 插件应当仍能加载。**还没有试过**，换完要重新实测 SenseVoice。
 
 **The library.** `Contents/Resources/kernel/node_modules/sherpa-onnx-darwin-arm64/libsherpa-onnx-c-api.dylib`, sherpa-onnx 1.13.8, shipped since 0.10.0 for SenseVoice dictation on this Mac. The two sherpa-onnx packages state Apache-2.0, but ten other libraries are built into this file, and one of them, eSpeak NG for speech synthesis, is under GPL-3.0-or-later (`csukuangfj/espeak-ng` at `ed530aa1`). VibeWand only recognises speech and never calls the synthesis code, but that code is in the library that ships. Evidence: the file holds eSpeak NG's own functions (`espeak_ng_Initialize`, `TranslateRules`, `LoadPhData` and more); sherpa-onnx 1.13.8's `CMakeLists.txt` includes `espeak-ng-for-piper` when `SHERPA_ONNX_ENABLE_TTS` is on, the default; eSpeak NG's README at that commit says GPL version 3 or later.
 
-**In 0.10.0** the library ships as published, without the GPL 3.0 text and without a pointer to eSpeak NG's source.
+**Decided on 2026-10-07: it ships as published.** With VibeWand itself under the GPL-3.0 (item 5), the app and this library travel in one bundle without a conflict of licenses, so the library was not swapped. What was added: the GPL 3.0 text is the [`LICENSE`](../LICENSE) that ships in the bundle; eSpeak NG's own `COPYING.APACHE`, `COPYING.BSD2` and `COPYING.UCD` are in `third-party/`; the [third-party notice](../third-party/README.md) names its source at the revision built in, and the source of the whole library: sherpa-onnx at `v1.13.8`, whose `cmake` folder fetches each library at its revision.
 
-**Ways out.** (a) At kernel assembly, replace this one library with the build sherpa-onnx publishes without speech synthesis, `sherpa-onnx-v1.13.8-osx-arm64-shared-no-tts-lib.tar.bz2` (8.3 MB, on its v1.13.8 release page). By its build files that build leaves eSpeak NG and piper-phonemize out, and its C API keeps empty implementations of the synthesis functions, so the Node add-on should still load. **Not tried yet**; SenseVoice has to be tested again after the swap. (b) Ship as it is, with the GPL 3.0 text, a pointer to eSpeak NG's source and its own `COPYING.APACHE`, `COPYING.BSD2` and `COPYING.UCD`. (c) Leave the recogniser out of the shipped kernel: SenseVoice then works only with a DeepSeek Harness the user installed, through a path that starts the recogniser on the harness's own runtime and has yet to be written. The implementer recommends (a): removing GPL code that is never used is simpler than taking on its terms.
+**Two things remain.** The GPL asks that the source stay available for as long as the binary is distributed. The pointers lead to other people's repositories (`csukuangfj/espeak-ng`, `k2-fsa/sherpa-onnx`); should those disappear, the duty stays with whoever distributes, and the owner decided on 2026-10-07 that pointing at the upstream repositories is enough and keeps no copy of his own. And a commercial license from the author covers VibeWand's own code only: a bundle handed to a commercial licensee that still holds this library is GPL in that part. For such a bundle, replace this one library with the build sherpa-onnx publishes without speech synthesis, `sherpa-onnx-v1.13.8-osx-arm64-shared-no-tts-lib.tar.bz2` (8.3 MB, on its v1.13.8 release page). By its build files that build leaves eSpeak NG and piper-phonemize out, and its C API keeps empty implementations of the synthesis functions, so the Node add-on should still load. **Not tried yet**; SenseVoice has to be tested again after the swap.
 
 ## 2. libvips 及其内置库（LGPL-3.0-or-later）
 
@@ -45,63 +42,75 @@ As of 2026-10-06, VibeWand 0.10.0. The repository is private, and 0.10.0 is publ
 
 **情况。**包标的是 LGPL-3.0-or-later。它旁边的 `README.md` 列出了编进去的每个库：libvips、glib、pango、librsvg、libheif、libexif、fribidi、proxy-libintl 按 LGPLv3 使用，cairo 是 MPL 1.1，其余是 BSD、MIT、zlib 一类；`versions.json` 给出版本。包里没有 LGPL 和 GPL 的文本。这份清单取自包自己的说明，没有另外对二进制做核对。
 
-**0.10.0 的现状。**未修改、作为单独的动态库随包分发，只在给模型看图时加载；没有附 LGPL 3.0 和 GPL 3.0 的文本。
+**决定（2026-10-07）：保留。**它未经修改，作为单独的动态库随包分发，只在给模型看图时加载。LGPL 3.0 的文本放在 `third-party/GNU-LGPL-3.0.txt`，它所依据的 GPL 3.0 就是 [`LICENSE`](../LICENSE)，两者都随包分发。[第三方记录](../third-party/README.md)写了源码出处，以及怎样换上自己构建的库并重新签名。
 
-**出路。**
-
-- (a) 保留：附上 LGPL 3.0 和 GPL 3.0 的文本，写明源码出处（构建配方在 [lovell/sharp-libvips](https://github.com/lovell/sharp-libvips)），并说明用户怎样换上自己构建的库。它是独立的动态库，可以替换；替换后应用的签名会失效，要写明怎样重新签名。
-- (b) 自带内核去掉图片存储组件：窗口截图只在插件模式下可用。
+**实测过的和没有实测的。**重新签名的步骤在 0.11.0 的包的副本上做过：用同一个库改签后的文件充当重新构建的库，这时包的签名校验失败；执行记录里的那条 `codesign` 命令后校验通过，自带的 Node 经改动后的文件加载 sharp 并生成了一张图片。没有做的是从源码真正构建一个 libvips 再换上去，以及重新签名后 macOS 是否要求重新授予权限。
 
 **The library.** `Contents/Resources/kernel/node_modules/@img/sharp-libvips-darwin-arm64/lib/libvips-cpp.8.18.7.dylib` (package 1.3.4, 18 MB), shipped since 0.10.0. It comes with sharp 0.35.5, which DeepSeek Harness's picture store `@deepseek-ai/dsh-attachment-local` uses; command mode's window picture is kept with the conversation through it. The package states LGPL-3.0-or-later. The `README.md` beside the library lists everything built into it: libvips, glib, pango, librsvg, libheif, libexif, fribidi and proxy-libintl used under LGPLv3, cairo under MPL 1.1, the rest under BSD, MIT and zlib style licenses; `versions.json` gives the versions. Neither the LGPL nor the GPL text is in the package. This list is the package's own; the binary was not inspected separately.
 
-**In 0.10.0** it ships unmodified as a separate dynamic library, loaded only when the model is shown a picture, without the LGPL 3.0 and GPL 3.0 texts.
+**Decided on 2026-10-07: it stays.** It ships unmodified as a separate dynamic library, loaded only when the model is shown a picture. The LGPL 3.0 text is `third-party/GNU-LGPL-3.0.txt` and the GPL 3.0 it builds on is the [`LICENSE`](../LICENSE); both ship in the bundle. The [third-party notice](../third-party/README.md) names the source and says how to put in a build of your own and sign the app again.
 
-**Ways out.** (a) Keep it: add the LGPL 3.0 and GPL 3.0 texts, name the source (the build recipes are at [lovell/sharp-libvips](https://github.com/lovell/sharp-libvips)) and say how a user puts in a build of their own. The library is separate and replaceable; replacing it breaks the app's signature, so the note has to say how to sign again. (b) Leave the picture store out of the shipped kernel: window pictures then work in plugin mode only.
+**What was tried and what was not.** The signing steps were run on a copy of the 0.11.0 bundle, with the same library signed differently standing in for a rebuilt one: the bundle then failed verification, verified again after the `codesign` command in the notice, and the bundled Node loaded sharp through the changed file and produced a picture. Not done: building libvips from source and putting that in, and seeing whether macOS asks for its permissions again after the app is signed anew.
 
-## 3. 还没有随包附上的许可文本和声明 / Texts and notices not yet in the bundle
+## 3. 随包附上的许可文本和声明 / License texts and notices in the bundle
 
-**编进 `libsherpa-onnx-c-api.dylib` 的库**（清单取自 sherpa-onnx 1.13.8 的 `cmake` 目录，并核对过库里确有各自的代码）：
+文本都放在 `third-party/`，随应用分发在 `Contents/Resources/third-party`。取自各项目在所用版本上的仓库，2026-10-07。
 
-| 库 / Library | 许可 / License | 状态 / Status |
+The texts are in `third-party/` and ship in the app as `Contents/Resources/third-party`. They were taken on 2026-10-07 from each project's repository at the version used.
+
+**编进 `libsherpa-onnx-c-api.dylib` 的库**（清单取自 sherpa-onnx 1.13.8 的 `cmake` 目录，kaldifst 取自 kaldi-decoder 的；并核对过库里确有各自的代码）/ **the libraries built into `libsherpa-onnx-c-api.dylib`** (listed from sherpa-onnx 1.13.8's `cmake` folder, kaldifst from kaldi-decoder's, each confirmed to have code in the file):
+
+| 库 / Library | 许可 / License | 文本 / Text |
 | --- | --- | --- |
-| kaldi-native-fbank 1.22.3、kaldi-decoder 0.3.0、kaldifst 1.8.0、OpenFst、simple-sentencepiece 0.7 | Apache-2.0 | 许可文本与 `third-party/sherpa-onnx-LICENSE` 相同；各自的版权声明没有单列 / same license text as `third-party/sherpa-onnx-LICENSE`; their own copyright lines are not listed |
-| JSON for Modern C++ 3.12.0 | MIT | 文本未附 / text missing |
-| hclust-cpp（2026-02-25） | BSD-2-Clause | 文本未附 / text missing |
+| kaldi-native-fbank 1.22.3、kaldi-decoder 0.3.0、simple-sentencepiece 0.7 | Apache-2.0 | 各自的 `LICENSE` 与 `sherpa-onnx-LICENSE` 是同一份文本，都没有 `NOTICE` 文件 / their `LICENSE` files are the text of `sherpa-onnx-LICENSE`; none has a `NOTICE` file |
+| kaldifst 1.8.0 | Apache-2.0 | `kaldifst-LICENSE`，开头有它关于版权归属的说明 / opens with its note on who holds the copyright |
+| OpenFst（`csukuangfj/openfst` `v1.8.5-2026-07-09`） | Apache-2.0 | `OpenFst-COPYING`，Copyright 2005-2026 Google LLC |
+| JSON for Modern C++ 3.12.0 | MIT | `JSON-for-Modern-Cpp-LICENSE.MIT` |
+| hclust-cpp（`csukuangfj/hclust-cpp` `2026-02-25`） | BSD-2-Clause | `hclust-cpp-LICENSE` |
+| piper-phonemize（`csukuangfj/piper-phonemize` `f3ff95af`） | MIT | `piper-phonemize-LICENSE.md` |
 | Eigen 5.0.1 | MPL-2.0 | 第三方记录里写了源码出处 / the notice names the source |
-| piper-phonemize（`f3ff95af`） | MIT | 文本未附；选 1(a) 后不再包含 / text missing; gone with 1(a) |
-| eSpeak NG | GPL-3.0-or-later | 见第 1 项 / see item 1 |
+| eSpeak NG（`csukuangfj/espeak-ng` `ed530aa1`） | GPL-3.0-or-later | `LICENSE`，以及 `eSpeak-NG-COPYING.APACHE`、`.BSD2`、`.UCD`；见第 1 项 / see item 1 |
 
-**九个发布时没有带许可文件的 npm 包**，许可只写在各自的 `package.json` 里，文本要从它们的仓库取 / **nine npm packages published without a license file**, whose license is named only in their `package.json`; the texts have to come from their repositories:
+**九个发布时没有带许可文件的 npm 包** / **nine npm packages published without a license file**:
 
-| 包 / Package | 许可 / License |
-| --- | --- |
-| `@aws-sdk/credential-provider-http` 3.972.74、`@aws-sdk/credential-provider-login` 3.972.79、`@aws-sdk/nested-clients` 3.997.46 | Apache-2.0 |
-| `@earendil-works/pi-ai` 0.87.1、`@earendil-works/pi-telemetry` 0.87.1 | MIT |
-| `@koromix/koffi-darwin-arm64` 3.1.1 | MIT（同版本的 `koffi` 包带着 `LICENSE.txt` / the `koffi` package of the same version carries `LICENSE.txt`） |
-| `data-uri-to-buffer` 4.0.1、`proxy-agent-negotiate` 1.1.0、`standardwebhooks` 1.1.1 | MIT |
+| 包 / Package | 许可 / License | 文本 / Text |
+| --- | --- | --- |
+| `@aws-sdk/credential-provider-http` 3.972.74、`@aws-sdk/credential-provider-login` 3.972.79、`@aws-sdk/nested-clients` 3.997.46 | Apache-2.0 | `AWS-SDK-for-JavaScript-LICENSE`；仓库没有 `NOTICE` 文件 / the repository has no `NOTICE` file |
+| `@earendil-works/pi-ai` 0.87.1、`@earendil-works/pi-telemetry` 0.87.1 | MIT | `pi-LICENSE` |
+| `@koromix/koffi-darwin-arm64` 3.1.1 | MIT | 同版本的 `koffi` 包带着 `LICENSE.txt`，已在包里 / the `koffi` package of the same version carries `LICENSE.txt`, already in the bundle |
+| `data-uri-to-buffer` 4.0.1 | MIT | 全文在它自己的 `README.md` 里，已在包里 / the full text is in its own `README.md`, already in the bundle |
+| `standardwebhooks` 1.1.1 | `package.json` 写 MIT / says MIT | 它的仓库里唯一的许可文件是 Apache License 2.0，保留为 `standard-webhooks-LICENSE`；项目没有为这个包发布 MIT 文本 / the one license file in its repository is the Apache License 2.0, kept as `standard-webhooks-LICENSE`; the project publishes no MIT text for the package |
+| `proxy-agent-negotiate` 1.1.0 | `package.json` 写 MIT / says MIT | **上游没有文本**：包里和它在 `TooTallNate/proxy-agents` 的目录里都没有。同一作者、同一仓库的 `agent-base` 带着他的 MIT 文本，已在包里 / **no text upstream**, neither in the package nor in its folder of `TooTallNate/proxy-agents`; `agent-base`, by the same author from the same repository, carries his MIT text and is in the bundle |
 
-第 1、2 项如果选择保留，GPL 3.0 和 LGPL 3.0 的文本也在这一项里。内核的包升级后，这两张表要重新核对。
+内核的包升级后，这两张表要重新核对，`third-party/` 里的文本也要跟着换。
 
-If items 1 and 2 are settled by keeping the libraries, the GPL 3.0 and LGPL 3.0 texts belong here too. Both tables have to be checked again whenever the kernel's packages change.
+Both tables have to be checked again whenever the kernel's packages change, and the texts in `third-party/` replaced with them.
 
 ## 4. SenseVoice 的模型 / The SenseVoice models
 
 模型不随应用分发，也不在仓库里。用户点“下载并准备”时，VibeWand 从 Hugging Face 或其镜像下载 DeepSeek Harness 的 SenseVoice 插件指定的文件：`csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17`（SenseVoiceSmall 的转换版）和 `csukuangfj/vad`（Silero VAD）。
 
 - 转换版仓库的 `LICENSE` 只有一行，指向 FunASR 的许可说明。原模型 `FunAudioLLM/SenseVoiceSmall` 标的是 [FunASR Model Open Source License Agreement 1.1](https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE)（阿里巴巴）：使用、复制、修改和分享时必须注明出处和作者，并保留模型名称；它不是 OSI 许可，另有“不得无端诋毁”的条款，违反即终止。
-- Silero VAD 的上游 `snakers4/silero-vad` 是 MIT；`csukuangfj/vad` 这个仓库本身没有任何许可说明。
-- 现状：第三方记录写了两个模型的出处；设置页的下载处和首次引导里没有显示作者和协议。
-- 要做：在下载处和语音输入文档里写明模型的名称、作者和协议链接；确认 VAD 文件的出处与许可。
+- Silero VAD 的上游 `snakers4/silero-vad` 是 MIT，Copyright (c) 2020-present Silero Team；`csukuangfj/vad` 这个仓库本身没有任何许可说明。插件指定的那个文件（1,807,522 字节，SHA-256 `a35ebf52…f5af28`）与上游 `v4.0` 标签下的 `files/silero_vad.onnx` 逐字节相同：两者的 git blob 都是 `e6db48d6e2a0797a2ec173c008384f7710189344`。
+- **已处理（2026-10-07）。**设置页“语音输入”的下载处和首次引导用的是同一个视图，它在下载前后都显示两个模型的名称、作者和协议，并链接到各自的页面和 FunASR 的协议原文；[语音输入文档](voice-input.md)两种语言都写了同样的内容；第三方记录补了 VAD 文件的核对结果。这处界面改动通过了编译，还没有在运行的应用里看过。
 
-The models are neither shipped nor stored in the repository. When the user asks, VibeWand downloads the files that DeepSeek Harness's SenseVoice plug-in pins, from Hugging Face or its mirror: `csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17` (a conversion of SenseVoiceSmall) and `csukuangfj/vad` (Silero VAD). The conversion's `LICENSE` is one line pointing at FunASR's license section. The original model, `FunAudioLLM/SenseVoiceSmall`, is under the [FunASR Model Open Source License Agreement 1.1](https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE) (Alibaba): whoever uses, copies, modifies or shares it must attribute the source and author and keep the model names; it is not an OSI license, and it ends for anyone who “unjustifiably denigrates” the model. Silero VAD's upstream, `snakers4/silero-vad`, is MIT; the repository `csukuangfj/vad` states no license at all. Today the third-party notice names both sources, while the download in Settings and in the first-run guide shows neither author nor terms. To do: name the model, its author and its terms where the download is offered and in the voice input guide, and confirm where the VAD file comes from and under what terms.
+The models are neither shipped nor stored in the repository. When the user asks, VibeWand downloads the files that DeepSeek Harness's SenseVoice plug-in pins, from Hugging Face or its mirror: `csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17` (a conversion of SenseVoiceSmall) and `csukuangfj/vad` (Silero VAD). The conversion's `LICENSE` is one line pointing at FunASR's license section. The original model, `FunAudioLLM/SenseVoiceSmall`, is under the [FunASR Model Open Source License Agreement 1.1](https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE) (Alibaba): whoever uses, copies, modifies or shares it must attribute the source and author and keep the model names; it is not an OSI license, and it ends for anyone who “unjustifiably denigrates” the model. Silero VAD's upstream, `snakers4/silero-vad`, is MIT; the repository `csukuangfj/vad` states no license at all. The file the plug-in pins (1,807,522 bytes, SHA-256 `a35ebf52…f5af28`) is byte for byte `files/silero_vad.onnx` at the upstream tag `v4.0`: both have the git blob `e6db48d6e2a0797a2ec173c008384f7710189344`, and the upstream copyright line is “Copyright (c) 2020-present Silero Team”.
+
+**Done on 2026-10-07.** The download under Voice input in Settings and the one in the first-run guide are the same view; before and after the download it names both models, their authors and their terms, with links to their pages and to the text of the FunASR agreement. The [voice input guide](voice-input.md) says the same in both languages, and the third-party notice records the check of the VAD file. The change to that view compiles; it has not been looked at in the running app.
 
 ## 5. VibeWand 自己的许可 / VibeWand's own license
 
-- **“开源”用哪个许可。**源码现在采用 [PolyForm Noncommercial 1.0.0](../LICENSE)，文件末尾有作者的 `Required Notice`。两份 README 已经写明这是源码公开，不是 OSI 定义的开源。正式公开前要定：沿用它，还是换成一个 OSI 许可。
-- **与 GPL、LGPL 组件的关系。**第 1、2 项如果保留，一个非商用许可的应用就和 GPL、LGPL 的库装在同一个包里。识别程序在自己的进程里运行，经本机回环地址与 VibeWand 通信，VibeWand 自己的代码不链接它；加载那个库的是 Harness 的插件（MIT）和 sherpa-onnx 的 Node 插件（Apache-2.0）。这样分发是否满足 GPL，需要有资格的人看过。选 1(a) 就没有这个问题；libvips 的 LGPL 只要求第 2 项里的那几件事。
-- **外部贡献。**[贡献说明](../CONTRIBUTING.md)只要求贡献者先读许可证，没有约定贡献内容怎样授权。README 说商用授权由作者单独给出；要对含有他人贡献的代码这样做，需要贡献者协议或等效的条款。
+**决定（2026-10-07）：`GPL-3.0-only`，另由作者提供商业授权。**作者想要的是：真正的开源，同时让想拿它闭源赚钱的人来找他。考虑过的其他选择：LGPL-3.0 允许别人把各模块链接进闭源产品，达不到这个目的；FSL、PolyForm Shield 这类许可能禁止转卖和竞品，但不算开源；原先的 PolyForm Noncommercial 连在公司里使用都要另行授权。GPL 挡不住的是带着源码、沿用 GPL 的再分发和售卖。选 `only` 而不是 `or-later`，是因为版权都在作者手里，以后要换版本随时可以。
 
-**Which license “open” means.** The source is under [PolyForm Noncommercial 1.0.0](../LICENSE), with the author's `Required Notice` at the end of the file, and both READMEs already say this is source-available rather than open source as the OSI defines it. Before the project is opened: keep it, or move to an OSI license. **How it sits with GPL and LGPL components.** If items 1 and 2 are settled by keeping the libraries, an app under a noncommercial license travels in one bundle with GPL and LGPL libraries. The recogniser runs in a process of its own and talks to VibeWand over the loopback address; VibeWand's own code does not link it, and what loads the library is the harness's plug-in (MIT) and sherpa-onnx's Node add-on (Apache-2.0). Whether that way of distributing meets the GPL needs someone qualified to look at it. With 1(a) the question goes away; libvips's LGPL asks only for what item 2 lists. **Contributions.** [CONTRIBUTING.md](../CONTRIBUTING.md) asks contributors to read the license and takes no license from them. The README says commercial licenses come from the author; granting one over code that holds other people's contributions needs a contributor agreement or equivalent terms.
+- **改了什么。**[`LICENSE`](../LICENSE) 换成 GPL 3.0 的原文；两份 README、文档目录、应用的“关于”页和三个内核包的 `package.json` 都改了说法；“关于”页显示版权、无担保和许可，并能在访达里显示随包的许可文件，另有源码链接。
+- **与其他组件的关系。**随包的第三方代码用的是 MIT、Apache-2.0、BSD、ISC、0BSD、Python-2.0、Unlicense、MPL-2.0、LGPL-3.0-or-later 和 GPL-3.0-or-later，都能与 GPL 3.0 的应用一起分发。内核和识别程序本来就在各自的进程里运行。SenseVoice 的模型不随应用分发。
+- **外部贡献。**[贡献说明](../CONTRIBUTING.md#license-of-contributions--贡献的授权)现在写明：贡献按 `GPL-3.0-only` 授权给所有人，并另外授予作者按其他条款（包括商业授权）再授权的权利，版权仍归贡献者。到今天为止的 53 个提交都是作者自己的，没有需要补签的人。条款靠贡献者在拉取请求里写明同意来生效，没有配自动检查。
+- **名称。**README 写明许可证不授予“VibeWand”名称和图标的商标权利，修改版要标明与原版不同（GPL 第 7 条允许附加的条款）。这个名称没有注册商标。
+- **没有做的。**源文件没有逐个加许可声明，许可只在 `LICENSE`、README 和“关于”页里写明。项目主页的页脚和下载说明按[开发指南](development.md)的约定，等仓库公开时再加上许可。“关于”页的源码链接指向本仓库，公开之前打不开。商业授权的合同文本还没有。
+
+**Decided on 2026-10-07: `GPL-3.0-only`, with a commercial license available from the author.** The owner wants real open source, and wants those who would make closed-source money from the code to come to him. What else was weighed: the LGPL-3.0 lets others link the modules into closed products and so misses the aim; licenses such as FSL and PolyForm Shield can forbid resale and competing products but are not open source; PolyForm Noncommercial, the license until now, asks for a separate license even for use inside a company. What the GPL does not stop is redistribution and sale with the source, under the GPL. `only` rather than `or-later` because the author holds all the copyright and can move to a later version whenever he wishes.
+
+**What changed.** [`LICENSE`](../LICENSE) is the GPL 3.0 text; both READMEs, the documentation index, the app's About page and the `package.json` of the three kernel packages say so; the About page shows the copyright, the absence of warranty and the license, reveals the license files of the bundle in Finder and links to the source. **Other components.** The third-party code in the bundle is under MIT, Apache-2.0, BSD, ISC, 0BSD, Python-2.0, Unlicense, MPL-2.0, LGPL-3.0-or-later and GPL-3.0-or-later, all of which can be distributed with an app under the GPL 3.0; the kernel and the recogniser run in processes of their own in any case, and the SenseVoice models are not distributed with the app. **Contributions.** [CONTRIBUTING.md](../CONTRIBUTING.md#license-of-contributions--贡献的授权) now states that a contribution is licensed to everyone under `GPL-3.0-only` and that the author is also granted the right to license it under other terms, commercial ones included, while the contributor keeps the copyright. All 53 commits to date are the author's own, so nobody has to be asked after the fact. The terms take effect by the contributor saying so in the pull request; nothing checks it automatically. **The name.** The READMEs say the license grants no trademark rights in the name “VibeWand” or its icon and that a modified version has to be marked as different, terms section 7 of the GPL allows. The name is not a registered trademark. **Not done.** Source files carry no per-file notice; the license is stated in `LICENSE`, the READMEs and the About page. The project site's footer and download notes get their license statement when the repository is opened, as the [development guide](development.md) says. The About page's source link points at this repository and does not open until it is public. There is no text yet for a commercial license agreement.
 
 ## 6. 设备插画、图标和文档图片 / Device artwork, icon and documentation images
 
@@ -113,10 +122,10 @@ The models are neither shipped nor stored in the repository. When the user asks,
 
 ## 7. 名称与商标 / Names and trademarks
 
-- README 和设备文档里的免责声明只提到设备厂商（Ulanzi、Sony、小米）。被操作的应用的厂商（OpenAI、Anthropic、DeepSeek、腾讯、字节跳动等）没有提到。
-- “VibeKey”是 Ulanzi 那款产品的名称，这里用作一套模板的名字；内部 target 叫 `VibeKeyBridge`，bundle ID 是 `org.vibekey.bridge`。
+- **免责声明：已有。**两份 README 和项目主页在支持的应用那一节写着：应用的名称和图标是各自所有者的商标，只用来说明兼容性，VibeWand 与它们没有隶属、赞助或背书关系；设备那一节和[设备文档](device-templates.md)对设备厂商（Ulanzi、Sony、小米）有同样的声明。`assets/apps/` 的 README 写明那些图标不在本仓库的许可之内，也不进应用包。
+- **“VibeKey”：已定（2026-10-07）。**它是 Ulanzi 那款产品的名称，文档和代码里只用它指这款设备本身（包括它的按键模板 `DeviceTemplateID.vibeKey`），属于指称性的用法。项目自己的标识符原先也带着这个名字，0.11.1 起改掉了：内部 target `VibeKeyBridge` 改为 `VibeWandBridge`，bundle ID `org.vibekey.bridge` 改为 `org.vibewand.bridge`，输入法 `org.vibekey.inputmethod.VibeWand` 改为 `org.vibewand.inputmethod.VibeWand`，钥匙串里两个服务名同样改了。macOS 因此把它当成另一个应用：设置由新版本在第一次启动时接过来，权限要重新授予，见[开发指南](development.md)和[故障排除](troubleshooting.md)。旧名字只留在负责接手的那几处代码里。
 
-The disclaimers in the READMEs and the device guide name device makers only (Ulanzi, Sony, Xiaomi). The makers of the apps VibeWand operates (OpenAI, Anthropic, DeepSeek, Tencent, ByteDance and others) are not mentioned. “VibeKey” is the name of Ulanzi's product and is used here as the name of a template; the internal target is `VibeKeyBridge` and the bundle identifier `org.vibekey.bridge`.
+**Disclaimers: in place.** Both READMEs and the project site say, where the supported apps are listed, that app names and icons are trademarks of their owners, shown only to indicate compatibility, and that VibeWand is not affiliated with, sponsored by or endorsed by them; the device section and the [device guide](device-templates.en.md) say the same of the device makers (Ulanzi, Sony, Xiaomi). The README of `assets/apps/` states that those icons are outside this repository's license and are not copied into the app bundle. **“VibeKey”: settled on 2026-10-07.** It is the name of Ulanzi's product, and the documentation and the code use it only for that device itself, its button template `DeviceTemplateID.vibeKey` included, which is use of a name to refer to the thing named. The project's own identifiers carried the name too and were changed with 0.11.1: the internal target `VibeKeyBridge` is `VibeWandBridge`, the bundle identifier `org.vibekey.bridge` is `org.vibewand.bridge`, the input method's `org.vibekey.inputmethod.VibeWand` is `org.vibewand.inputmethod.VibeWand`, and the two Keychain service names follow. macOS therefore treats it as a different app: the new version takes the settings over at its first launch and the permissions have to be granted again, see the [development guide](development.md) and [troubleshooting](troubleshooting.en.md). The former names remain only in the code that does the taking over.
 
 ## 8. AU05 协议里的密钥常量 / The key constants of the AU05 protocol
 
@@ -142,6 +151,6 @@ The report cipher, command formats and button identifiers in `Sources/AU05Device
 
 ## 已经齐全的 / Already in order
 
-供对照：AU05 Keys 的 MIT 文本、Opus 的版权与许可声明、Node.js 的 `LICENSE`（在 `kernel/node/` 下）、sherpa-onnx 的 Apache License 2.0、ONNX Runtime 1.28.2 的许可和它的第三方声明，以及其余 131 个第三方 npm 包各自带着的许可文件，都随应用分发。VibeWand 的 `LICENSE` 也在包里。
+随应用分发的有：VibeWand 的 `LICENSE`（GPL 3.0），以及 `third-party/` 里的 AU05 Keys 的 MIT 文本、Opus 的版权与许可声明、sherpa-onnx 的 Apache License 2.0、ONNX Runtime 1.28.2 的许可和它的第三方声明、第 3 项两张表里的文本、LGPL 3.0 的文本；Node.js 的 `LICENSE` 在 `kernel/node/` 下；其余 131 个第三方 npm 包各自带着许可文件。
 
-For reference, these ship with the app: AU05 Keys's MIT text, Opus's copyright and license notices, Node.js's `LICENSE` (under `kernel/node/`), sherpa-onnx's Apache License 2.0, ONNX Runtime 1.28.2's license with its third-party notices, and the license files that the other 131 third-party npm packages carry themselves. VibeWand's own `LICENSE` is in the bundle as well.
+These ship with the app: VibeWand's `LICENSE` (the GPL 3.0), and in `third-party/` AU05 Keys's MIT text, Opus's copyright and license notices, sherpa-onnx's Apache License 2.0, ONNX Runtime 1.28.2's license with its third-party notices, the texts in the two tables of item 3 and the LGPL 3.0 text; Node.js's `LICENSE` under `kernel/node/`; and the license files that the other 131 third-party npm packages carry themselves.

@@ -48,11 +48,11 @@ To look at single moments: `node promo/tools/render.mjs --stills 12.5,48 --scale
 
 ## What is real / 哪些是真实画面
 
-- **VibeWand's overlay is filmed.** `Sources/VibeKeyBridge/Film.swift` adds a `--film <script.json>` mode to the app: a scripted device presses the controls, a replayed recogniser supplies the words, a kernel names its steps without performing them, and `tools/wincap.swift` records the overlay window alone, with transparency. The takes run in demo mode, where no action reaches any app. The film labels them as such.
+- **VibeWand's overlay is filmed.** `Sources/VibeWandBridge/Film.swift` adds a `--film <script.json>` mode to the app: a scripted device presses the controls, a replayed recogniser supplies the words, a kernel names its steps without performing them, and `tools/wincap.swift` records the overlay window alone, with transparency. The takes run in demo mode, where no action reaches any app. The film labels them as such.
 - **The app windows are drawn**, to follow what the overlay does. They are labelled "界面示意" on screen.
 - **Narration** is synthesised with Microsoft Edge's online voices through `edge-tts`. **Music and effects** are computed in `tools/sound.py`; nothing is sampled.
 
-- **悬浮窗是实机录制的。**`Sources/VibeKeyBridge/Film.swift` 给应用加了 `--film <脚本>` 模式：按脚本按键的设备、回放的识别结果、只报步骤不执行的内核，再由 `tools/wincap.swift` 单独录下悬浮窗（保留透明）。这些镜头在演示模式下录制，操作不会发给任何应用，片中有标注。
+- **悬浮窗是实机录制的。**`Sources/VibeWandBridge/Film.swift` 给应用加了 `--film <脚本>` 模式：按脚本按键的设备、回放的识别结果、只报步骤不执行的内核，再由 `tools/wincap.swift` 单独录下悬浮窗（保留透明）。这些镜头在演示模式下录制，操作不会发给任何应用，片中有标注。
 - **应用窗口是绘制的**，跟随悬浮窗的动作，画面上标了“界面示意”。
 - **旁白**通过 `edge-tts` 用微软 Edge 在线语音合成；**配乐和音效**由 `tools/sound.py` 计算生成，没有采样素材。
 

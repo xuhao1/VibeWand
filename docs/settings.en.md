@@ -33,7 +33,7 @@ Each template stores its own gestures and timing. The visible **Import**, **Expo
 
 Switch between Chinese and English on the General page. The initial choice follows the first preferred system language: Chinese selects Simplified Chinese; other languages select English. Explicit choices are saved locally. Menus, settings, action names, and floating feedback update without restarting or altering stored mappings. App recognition continues to accept its existing Chinese and English Accessibility labels.
 
-The About page identifies the author as **Dr. Xu**, and includes [personal](http://xuhao1.me) and [project](https://vibewand.xuhao1.me) website links, the app version, PolyForm Noncommercial license, and source-available project information and commercial licensing requirements.
+The About page identifies the author as **Dr. Xu**, and includes [personal](http://xuhao1.me) and [project](https://vibewand.xuhao1.me) website links, the app version, the copyright and GNU GPL 3.0 license with its no-warranty and commercial licensing notes, a button that shows the license files shipped in the app in Finder, and a link to the source.
 
 See [Settings design](settings-design.md) for the concept and implemented interface, and [Device photography](design-device-assets.md) for image provenance and physical-control hotspots.
 

@@ -61,12 +61,12 @@ cat > "$task_staged_app/Contents/Info.plist" <<'PLIST'
 <plist version="1.0"><dict>
 <key>CFBundleName</key><string>VibeWand</string>
 <key>CFBundleDisplayName</key><string>VibeWand</string>
-<key>CFBundleIdentifier</key><string>org.vibekey.bridge</string>
+<key>CFBundleIdentifier</key><string>org.vibewand.bridge</string>
 <key>CFBundleExecutable</key><string>VibeWand</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
-<key>CFBundleShortVersionString</key><string>0.11.0</string>
-<key>CFBundleVersion</key><string>31</string>
+<key>CFBundleShortVersionString</key><string>0.11.1</string>
+<key>CFBundleVersion</key><string>32</string>
 <key>LSMinimumSystemVersion</key><string>26.0</string>
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>
@@ -91,14 +91,14 @@ cat > "$task_input/Contents/Info.plist" <<'PLIST'
 <plist version="1.0"><dict>
 <key>CFBundleName</key><string>VibeWand</string>
 <key>CFBundleDisplayName</key><string>VibeWand</string>
-<key>CFBundleIdentifier</key><string>org.vibekey.inputmethod.VibeWand</string>
+<key>CFBundleIdentifier</key><string>org.vibewand.inputmethod.VibeWand</string>
 <key>CFBundleExecutable</key><string>VibeWandInput</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>LSMinimumSystemVersion</key><string>26.0</string>
 <key>LSBackgroundOnly</key><true/>
 <key>NSPrincipalClass</key><string>NSApplication</string>
-<key>InputMethodConnectionName</key><string>org.vibekey.inputmethod.VibeWand_Connection</string>
+<key>InputMethodConnectionName</key><string>org.vibewand.inputmethod.VibeWand_Connection</string>
 <key>InputMethodServerControllerClass</key><string>VibeWandInputController</string>
 <key>InputMethodType</key><string>palette</string>
 <key>tsInputMethodIconFileKey</key><string>AppIcon.icns</string>
@@ -107,7 +107,7 @@ PLIST
 for task_key in CFBundleShortVersionString CFBundleVersion; do
   plutil -insert "$task_key" -string "$(plutil -extract "$task_key" raw "$task_staged_app/Contents/Info.plist")" "$task_input/Contents/Info.plist"
 done
-task_signing_identity="${VIBEWAND_SIGNING_IDENTITY:-${VIBEKEY_SIGNING_IDENTITY:-}}"
+task_signing_identity="${VIBEWAND_SIGNING_IDENTITY:-}"
 if [ -z "$task_signing_identity" ]; then
   task_identity_list="$(security find-identity -v -p codesigning | awk '/Apple Development:/ { print $2 }')"
   task_identity_count="$(printf '%s\n' "$task_identity_list" | awk 'NF { n++ } END { print n+0 }')"
@@ -123,8 +123,8 @@ if [ -z "$task_signing_identity" ]; then
 fi
 codesign --force --sign "$task_signing_identity" "$task_staged_app/Contents/Frameworks/libopus.0.dylib"
 codesign --force --sign "$task_signing_identity" "$task_staged_app/Contents/Helpers/VibeWandMic"
-codesign --force --sign "$task_signing_identity" --identifier org.vibekey.inputmethod.VibeWand "$task_input"
-codesign --force --sign "$task_signing_identity" --identifier org.vibekey.bridge "$task_staged_app"
+codesign --force --sign "$task_signing_identity" --identifier org.vibewand.inputmethod.VibeWand "$task_input"
+codesign --force --sign "$task_signing_identity" --identifier org.vibewand.bridge "$task_staged_app"
 codesign --verify --deep --strict "$task_staged_app"
 if [ -d "$task_app" ]; then
   if [ "${VIBEWAND_KEEP_PREVIOUS:-1}" = "1" ]; then

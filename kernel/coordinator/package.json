@@ -1,9 +1,9 @@
 {
   "name": "vibewand-coordinator",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "private": true,
   "description": "VibeWand's command-mode coordinator as a DeepSeek Harness bundle: a model, a session, a store for the pictures a tool may show, and the Agent Client Protocol bridge, with no tools of its own. The harness VibeWand ships and a harness the user installed both run this one bundle.",
-  "license": "SEE LICENSE IN ../../LICENSE",
+  "license": "GPL-3.0-only",
   "engines": {
     "dsh": "0.2.0-rc.2"
   },

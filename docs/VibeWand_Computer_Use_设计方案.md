@@ -216,7 +216,7 @@ VibeWand 的出发点不是创建另一款通用 AI 助手，而是解决一个�
 | 部署形态 | 本地应用，内核随包发布、按需启动；不建设自营公共后端 | 已明确 |
 | 模型与费用 | 用户自带账户／API Key；不将下游订阅重新包装销售 | 拟采用 |
 | 平台范围 | 最低 macOS 26，以 macOS 27 验收 | 已明确 |
-| 发展方式 | 自用验证、源码公开共建、赞助与有边界的联合研发 | 已明确 |
+| 发展方式 | 自用验证、开源共建、赞助与有边界的联合研发 | 已明确 |
 
 本项目的首要成功标准是“作者与同类用户是否愿意每天使用”，其次才是覆盖应用数量、社区规模或赞助收入。商业合作用于维持开发和建立技术联系，不反过来支配产品路线。
 
@@ -816,9 +816,9 @@ M1 起就是完整闭环，不是先做固定命令再推翻重写。首条链�
 
 本章只记录可以核实的约束，合作条款本身不在本文范围内。
 
-- **许可现状。** 源码采用 PolyForm Noncommercial 1.0.0：个人非商用可以使用、修改和分发，商用需要单独授权。按 OSI 的定义这不是开源，对外表述用“源码公开”。[9]
+- **许可现状。** 2026-10-07 起源码采用 GPL-3.0-only：任何用途都可以使用，再分发和修改要沿用同一许可并附源码；GPL 不适合的用途由作者另行给出商业授权。按 OSI 的定义这是开源。[9] 此前的版本采用 PolyForm Noncommercial 1.0.0，当时对外表述用“源码公开”。
 - **第三方组件。** 随包的 DSH 为 MIT，Node.js 连同其许可文件原样分发，各依赖包保留自己的许可文件；均已记入 `third-party/README.md`。
-- **贡献条款。** 现在的贡献说明没有约定外部贡献的授权方式。在接受社区适配器之前需要补上，否则作者无法把含外部贡献的代码用于商业授权。
+- **贡献条款。** 贡献说明约定：贡献按 GPL-3.0-only 授权给所有人，并另外授予作者按其他条款再授权的权利，这样含外部贡献的代码仍可用于商业授权。
 - **社区适配器**应附能力声明、兼容版本、失败方式和测试用例；无法稳定验证的标为实验性。
 - **赞助与联合研发**用于维持开发，不决定默认路由（3.1），不换取对用户数据的访问。
 - **品牌与权属。** 使用他方品牌名称需要书面授权；在此之前，对 AI 工具厂商沿用 README 对设备厂商的独立项目表述。涉及学校或公司的权属与署名，以正式文件为准。
@@ -889,7 +889,7 @@ M1 起就是完整闭环，不是先做固定命令再推翻重写。首条链�
 外部资料于 2026年10月5日复核，[8] 除外。以下资料用于确认已有组件的公开能力；本文提出的产品边界、模块分工、运行策略和验证目标属于设计建议。
 
 **[1] VibeWand 仓库，当前工作区。**  
-对照 HEAD `490e1ea` 加未提交改动阅读：README、CONTRIBUTING、LICENSE、Package.swift，docs 中的 development、applications、core-experience、voice-input、workbuddy-acceptance，以及 Sources/VibeKeyBridge 中的 Runtime、Gestures、Interaction、DeviceTemplates、ApplicationProfiles、ApplicationSwitcher、AccessibilityAdapter、ClipboardTextDelivery、VoiceInputController 和 Sources/SpeechInput 中的 SpeechTextProcessor。未运行应用，未做实机操作。  
+对照 HEAD `490e1ea` 加未提交改动阅读：README、CONTRIBUTING、LICENSE、Package.swift，docs 中的 development、applications、core-experience、voice-input、workbuddy-acceptance，以及 Sources/VibeWandBridge 中的 Runtime、Gestures、Interaction、DeviceTemplates、ApplicationProfiles、ApplicationSwitcher、AccessibilityAdapter、ClipboardTextDelivery、VoiceInputController 和 Sources/SpeechInput 中的 SpeechTextProcessor。未运行应用，未做实机操作。  
 https://github.com/xuhao1/VibeWand
 
 **[2] DeepSeek AI. DeepSeek Harness README.**  
@@ -926,6 +926,6 @@ https://opensource.org/osd
 
 ### 总结
 
-**以真实个人需求为起点，以语音与实体输入降低交互成本，以完整而受限的 agent loop 建立可靠协调，以结构化接口和现有适配连接既有工具，以本地部署和实体确认守住数据边界，以源码公开共建和有限合作维持项目。**
+**以真实个人需求为起点，以语音与实体输入降低交互成本，以完整而受限的 agent loop 建立可靠协调，以结构化接口和现有适配连接既有工具，以本地部署和实体确认守住数据边界，以开源共建和有限合作维持项目。**
 
 VibeWand 的长期价值不在于再做一个更大的 AI，而在于让用户已经选择的 AI 和软件更容易被找到、更准确地接收意图，并能够可靠地接力工作。

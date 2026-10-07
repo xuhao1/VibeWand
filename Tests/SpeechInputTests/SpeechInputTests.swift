@@ -245,3 +245,23 @@ private final class FakeEngine: DictationEngine {
     func resumeStart() { startContinuation?.resume(); startContinuation = nil }
     func resumeFinish() { finishContinuation?.resume(); finishContinuation = nil }
 }
+
+final class KeychainSpeechCredentialsTests: XCTestCase {
+    /// Uses the login Keychain under names of its own, and is skipped where there is none to write to.
+    func testAKeySavedUnderTheFormerNameIsFoundCarriedOverAndRemovedWithTheNewOne() throws {
+        let name = "bridge.tests." + UUID().uuidString
+        let store = KeychainSpeechCredentials(service: "org.vibewand." + name), former = KeychainSpeechCredentials(service: "org.vibekey." + name)
+        defer { try? store.remove(account: "a"); try? former.remove(account: "a") }
+        do { try former.save("sk-former", account: "a") } catch { throw XCTSkip("no Keychain to write to here: \(error)") }
+
+        XCTAssertTrue(store.contains(account: "a"))
+        XCTAssertEqual(try store.read(account: "a"), "sk-former")
+        try former.remove(account: "a")
+        XCTAssertEqual(try store.read(account: "a"), "sk-former", "the key was written under the new name as it was read")
+
+        try former.save("sk-former", account: "a")
+        try store.remove(account: "a")
+        XCTAssertFalse(former.contains(account: "a"), "a removed key does not come back from what the former version left")
+        XCTAssertNil(try store.read(account: "a"))
+    }
+}
