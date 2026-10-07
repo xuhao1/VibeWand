@@ -1,6 +1,6 @@
 {
   "name": "vibewand-view",
-  "version": "0.11.1",
+  "version": "0.11.2",
   "private": true,
   "description": "Shows VibeWand's command mode in DeepSeek Harness's own apps: a spoken command as a voice message that plays its recording beside the words recognised in it, and a mark on the conversations command mode started.",
   "license": "GPL-3.0-only",

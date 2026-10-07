@@ -1,0 +1,143 @@
+<!doctype html>
+<!-- The four scenes under “What it does”: Read, Edit, Dictate, Execute. Composed from this repository's own device
+     pictures; the screens are drawings, not captures of an app. Rendered at 1942 × 643 with headless Chrome:
+     see docs/images/README.md. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>VibeWand: what it does</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 1942px; height: 643px; background: transparent; overflow: hidden; }
+    body {
+        display: grid; grid-template-columns: repeat(4, 1fr); gap: 26px; padding: 14px 86px 0;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif; color: #12162b;
+    }
+    .scene { position: relative; height: 629px; }
+    .stage {
+        position: absolute; inset: 0 0 62px 0; border-radius: 30px; overflow: hidden;
+        background: linear-gradient(160deg, #f4f2ff 0%, #eaf3ff 55%, #e6f7fb 100%);
+        border: 1px solid rgba(18, 22, 43, 0.07);
+    }
+    .scene:nth-child(2) .stage { background: linear-gradient(160deg, #eef4ff 0%, #ebeeff 55%, #f3ecff 100%); }
+    .scene:nth-child(3) .stage { background: linear-gradient(160deg, #e9f6fb 0%, #eaf1ff 55%, #f1ecff 100%); }
+    .scene:nth-child(4) .stage { background: linear-gradient(160deg, #f3efff 0%, #ecf0ff 55%, #e8f6fa 100%); }
+    h3 { position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; font-size: 34px; font-weight: 650; letter-spacing: 0.2px; }
+
+    /* A window on a screen. */
+    .window {
+        position: absolute; left: 30px; right: 30px; top: 30px; height: 256px; border-radius: 16px; background: #fff;
+        box-shadow: 0 18px 40px rgba(40, 48, 110, 0.16), 0 0 0 1px rgba(18, 22, 43, 0.06); overflow: hidden;
+    }
+    .bar { height: 34px; background: #f3f4f8; border-bottom: 1px solid rgba(18, 22, 43, 0.06); display: flex; align-items: center; gap: 7px; padding-left: 14px; }
+    .bar i { width: 10px; height: 10px; border-radius: 50%; background: #d5d8e2; }
+    .content { position: absolute; inset: 34px 0 0 0; padding: 18px 22px; }
+    .line { height: 11px; border-radius: 6px; background: #e3e6ef; margin-bottom: 11px; }
+    .line.dark { background: #c2c7d6; }
+    .bubble { border-radius: 14px; padding: 13px 16px 3px; margin-bottom: 12px; background: #f3f5fa; }
+    .bubble.mine { margin-left: 78px; background: #e7e9ff; }
+    .bubble.mine .line { background: #c5c9f7; }
+
+    /* Read: the conversation scrolls. */
+    .track { position: absolute; right: 9px; top: 12px; bottom: 12px; width: 7px; border-radius: 4px; background: #eceef4; }
+    .thumb { position: absolute; left: 0; right: 0; top: 34%; height: 34%; border-radius: 4px; background: #4a54e6; }
+    .travel { position: absolute; right: 30px; top: 50%; transform: translateY(-50%); width: 38px; height: 104px; border-radius: 19px; background: #4a54e6; box-shadow: 0 8px 18px rgba(74, 84, 230, 0.35); }
+    .travel::before, .travel::after { content: ""; position: absolute; left: 50%; width: 12px; height: 12px; border: solid #fff; border-width: 3px 0 0 3px; }
+    .travel::before { top: 22px; transform: translateX(-50%) rotate(45deg); }
+    .travel::after { bottom: 22px; transform: translateX(-50%) rotate(225deg); }
+
+    /* Edit: the caret moves in the draft. */
+    .draft { position: absolute; left: 22px; right: 22px; bottom: 20px; height: 66px; border-radius: 14px; border: 2px solid #4a54e6; background: #fff; padding: 18px 18px 0; box-shadow: 0 0 0 5px rgba(74, 84, 230, 0.12); }
+    .words { display: flex; align-items: center; gap: 8px; height: 26px; }
+    .word { height: 12px; border-radius: 6px; background: #9aa1b8; }
+    .caret { width: 3px; height: 26px; border-radius: 2px; background: #4a54e6; }
+    .step { position: absolute; top: -17px; width: 30px; height: 30px; border-radius: 50%; background: #4a54e6; box-shadow: 0 6px 14px rgba(74, 84, 230, 0.35); }
+    .step::after { content: ""; position: absolute; left: 50%; top: 50%; width: 9px; height: 9px; border: solid #fff; border-width: 3px 0 0 3px; }
+    .step.back { left: 118px; } .step.back::after { transform: translate(-35%, -50%) rotate(-45deg); }
+    .step.on { left: 186px; } .step.on::after { transform: translate(-65%, -50%) rotate(135deg); }
+
+    /* Dictate: a voice becomes text in the draft. */
+    .wave { position: absolute; left: 22px; right: 22px; top: 12px; height: 70px; display: flex; align-items: center; justify-content: center; gap: 7px; }
+    .wave b { width: 7px; border-radius: 4px; background: linear-gradient(#67d4fb, #4a54e6); }
+    .mic { position: absolute; left: 50%; top: 90px; transform: translateX(-50%); padding: 7px 16px; border-radius: 16px; background: #eef0ff; color: #4a54e6; font-size: 15px; font-weight: 650; }
+    .draft.spoken { border-color: rgba(18, 22, 43, 0.12); box-shadow: none; }
+    .draft.spoken .word.new { background: #4a54e6; }
+
+    /* Execute: one press confirms. */
+    .ask { border-radius: 14px; background: #f3f5fa; padding: 14px 16px 4px; }
+    .choices { position: absolute; left: 22px; right: 22px; bottom: 18px; display: flex; gap: 14px; justify-content: flex-end; align-items: center; }
+    .button { height: 44px; padding: 0 22px; border-radius: 12px; display: flex; align-items: center; font-size: 18px; font-weight: 650; background: #eceef4; color: #5a6075; }
+    .button.go { background: #4a54e6; color: #fff; box-shadow: 0 0 0 5px rgba(74, 84, 230, 0.2), 0 8px 18px rgba(74, 84, 230, 0.35); }
+    .done { width: 30px; height: 30px; border-radius: 50%; background: #25b36a; position: relative; margin-right: auto; }
+    .done::after { content: ""; position: absolute; left: 10px; top: 6px; width: 8px; height: 14px; border: solid #fff; border-width: 0 3px 3px 0; transform: rotate(45deg); }
+
+    /* The device in the hand's place, in front of the screen. */
+    .device { position: absolute; filter: drop-shadow(0 22px 26px rgba(30, 36, 90, 0.28)); }
+    .dial { height: 292px; left: 50%; bottom: 8px; transform: translateX(-50%) rotate(8deg); }
+    .pad { width: 350px; left: 50%; bottom: 30px; transform: translateX(-50%) rotate(-4deg); }
+    .pad.right { transform: translateX(-50%) rotate(5deg); }
+    .remote { height: 296px; left: 40%; bottom: -8px; transform: translateX(-50%) rotate(-9deg); }
+</style>
+</head>
+<body>
+    <section class="scene">
+        <div class="stage">
+            <div class="window"><div class="bar"><i></i><i></i><i></i></div>
+                <div class="content">
+                    <div class="bubble"><div class="line dark" style="width:62%"></div><div class="line" style="width:86%"></div><div class="line" style="width:44%"></div></div>
+                    <div class="bubble mine"><div class="line" style="width:74%"></div><div class="line" style="width:38%"></div></div>
+                    <div class="bubble"><div class="line dark" style="width:52%"></div><div class="line" style="width:80%"></div></div>
+                    <div class="track"><div class="thumb"></div></div>
+                    <div class="travel"></div>
+                </div>
+            </div>
+            <img class="device dial" src="../../assets/device/controller.png" alt="">
+        </div>
+        <h3>Read</h3>
+    </section>
+    <section class="scene">
+        <div class="stage">
+            <div class="window"><div class="bar"><i></i><i></i><i></i></div>
+                <div class="content">
+                    <div class="bubble"><div class="line dark" style="width:58%"></div><div class="line" style="width:82%"></div></div>
+                    <div class="draft">
+                        <span class="step back"></span><span class="step on"></span>
+                        <div class="words"><span class="word" style="width:64px"></span><span class="word" style="width:42px"></span><span class="caret"></span><span class="word" style="width:78px"></span><span class="word" style="width:36px"></span></div>
+                    </div>
+                </div>
+            </div>
+            <img class="device pad" src="../../assets/device/gamepad.png" alt="">
+        </div>
+        <h3>Edit</h3>
+    </section>
+    <section class="scene">
+        <div class="stage">
+            <div class="window"><div class="bar"><i></i><i></i><i></i></div>
+                <div class="content">
+                    <div class="wave">
+                        <b style="height:14px"></b><b style="height:27px"></b><b style="height:45px"></b><b style="height:31px"></b><b style="height:59px"></b><b style="height:41px"></b><b style="height:69px"></b><b style="height:47px"></b><b style="height:28px"></b><b style="height:55px"></b><b style="height:36px"></b><b style="height:64px"></b><b style="height:42px"></b><b style="height:23px"></b><b style="height:48px"></b><b style="height:30px"></b><b style="height:16px"></b>
+                    </div>
+                    <div class="mic">Hold to talk</div>
+                    <div class="draft spoken">
+                        <div class="words"><span class="word" style="width:58px"></span><span class="word" style="width:84px"></span><span class="word new" style="width:66px"></span><span class="word new" style="width:40px"></span><span class="caret"></span></div>
+                    </div>
+                </div>
+            </div>
+            <img class="device pad right" src="../../assets/device/gamepad.png" alt="">
+        </div>
+        <h3>Dictate</h3>
+    </section>
+    <section class="scene">
+        <div class="stage">
+            <div class="window"><div class="bar"><i></i><i></i><i></i></div>
+                <div class="content">
+                    <div class="ask"><div class="line dark" style="width:48%"></div><div class="line" style="width:88%"></div><div class="line" style="width:64%"></div></div>
+                    <div class="choices"><span class="done"></span><span class="button">Back</span><span class="button go">Confirm</span></div>
+                </div>
+            </div>
+            <img class="device remote" src="../../assets/device/remote.png" alt="">
+        </div>
+        <h3>Execute</h3>
+    </section>
+</body>
+</html>

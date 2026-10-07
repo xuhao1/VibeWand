@@ -28,7 +28,7 @@ The tools keep multiplying, and each has its own chat list, model menu and short
 
 ## What it does
 
-![Illustration: read with a dial, edit and dictate with a controller, confirm with a remote](docs/images/workflow-hero-v2.png)
+![Illustration: read with a dial, edit and dictate with a controller, confirm with a remote](docs/images/workflow-scenes.png)
 
 - **Read.** Turn the dial or push a stick to scroll the conversation. Once the draft has text in it, the same motion moves the cursor instead.
 - **Speak.** Hold the microphone button and talk. When you let go, the text is in the composer, and nothing is sent for you. Use the built-in recognition, which records from the microphone of the device you are holding: macOS dictation or your own speech API, both of which take your own vocabulary, or SenseVoice running on this Mac with no key and no network. Or keep using an input method such as Typeless. With vocabulary learning on (it is off by default), the words you correct in the field afterwards go into your vocabulary.
@@ -36,9 +36,9 @@ The tools keep multiplying, and each has its own chat list, model menu and short
 - **Remap.** Every button's press, double press and long press can be reassigned in Settings, and each device keeps its own layout.
 - **Command.** Hold the command key and say “switch to the Codex chat about the microphone” or “open the Runtime.swift tab”, and it finds and opens it for you; “set the effort to the lowest” works the menu that Codex's model button opens. With Alibaba's voice service, its model hears the command itself, acts, and answers you aloud; the voice is yours to pick, a man's, a woman's or a dialect, and “switch to a man's voice” does it too. A command you spoke can be played back as you said it. The model is yours to choose: DeepSeek, OpenAI, Anthropic, a local model or any compatible address. It works as soon as one is set up, and can instead run as a plugin of a DeepSeek Harness you installed yourself, where each conversation can be read and models are set up; see [Command mode](docs/command-mode.en.md).
 
-<p align="center"><img src="docs/images/overlay-v081-screenshot-en.jpg" width="500" alt="Actual VibeWand 0.8.1 overlay and speech bar in Demo mode"></p>
+<p align="center"><img src="docs/images/overlay-v0112-screenshot-en.png" width="500" alt="Actual VibeWand 0.11.2 overlay and speech bar in Demo mode"></p>
 
-*Actual VibeWand 0.8.1 window, captured in Demo mode.*
+*Actual VibeWand 0.11.2 window, captured in Demo mode.*
 
 A floating overlay shows what each button will do right now. It collapses into a thin bar when you want it out of the way, and the button that expands and collapses it never moves.
 
@@ -111,7 +111,7 @@ What each capability covers, which channel each app uses and what has been verif
 
 ## Install
 
-**[Download VibeWand 0.11.1 (Apple Silicon)](https://github.com/xuhao1/VibeWand/releases/download/v0.11.1/VibeWand-0.11.1-macOS-arm64.zip)** · [Release notes](https://github.com/xuhao1/VibeWand/releases/latest)
+**[Download VibeWand 0.11.2 (Apple Silicon)](https://github.com/xuhao1/VibeWand/releases/download/v0.11.2/VibeWand-0.11.2-macOS-arm64.zip)** · [Release notes](https://github.com/xuhao1/VibeWand/releases/latest)
 
 Requires macOS 26 or later on an M-series Mac (0.8.4 is the last version for macOS 13 to 15). Unzip, drag **VibeWand.app** into Applications and open it. The first launch shows a guide that walks you through the steps below, voice input and command mode; every step can be skipped. By hand:
 
@@ -130,7 +130,7 @@ brew install opus
 bash scripts/build-app.sh
 ```
 
-The result is `dist/VibeWand.app`. The build downloads pinned versions of Node.js and DeepSeek Harness as the kernel for command mode, which makes the app about 328 MB; `VIBEWAND_SKIP_KERNEL=1` leaves it out. More in the [development guide](docs/development.md).
+The result is `dist/VibeWand.app`. The build downloads pinned versions of Node.js and DeepSeek Harness as the kernel for command mode, which makes the app about 325 MB; `VIBEWAND_SKIP_KERNEL=1` leaves it out. More in the [development guide](docs/development.md).
 
 ## Documentation
 

@@ -28,7 +28,7 @@ Vibe coding 的大部分时间其实不在打字：读回复、翻会话、换�
 
 ## 能做什么
 
-![示意图：用旋钮阅读、用手柄编辑与听写、用遥控器确认执行](docs/images/workflow-hero-v2.png)
+![示意图：用旋钮阅读、用手柄编辑与听写、用遥控器确认执行](docs/images/workflow-scenes.png)
 
 - **读**：转旋钮或推摇杆滚动对话。输入框里有字时，同一个动作改成移动光标。
 - **说**：按住麦克风键说话，松开后文字出现在输入框里，不会替你发送。可以用自带的识别，它用你手里那个设备的麦克风录音：系统听写或你自己的语音 API，能填自己的词表；或者在本机运行的 SenseVoice，不用密钥也不用联网。也可以继续用 Typeless、豆包这类输入法。打开词表学习后（默认关闭），你在输入框里改过的词，它会记进词表。
@@ -36,9 +36,9 @@ Vibe coding 的大部分时间其实不在打字：读回复、翻会话、换�
 - **改**：每个按键的单击、双击、长按都能在设置里重新分配，每种设备各存一套。
 - **令**：按住命令键说“切到 Codex 里讨论麦克风的那个会话”或“打开 Runtime.swift 那个标签页”，它替你找到并打开；说“强度调到最低”，它会在 Codex 模型按钮弹出的菜单里调。用阿里的语音服务时，命令由它的模型直接听、直接做，再用语音回答你；声音可以挑，男声、女声、方言都有，说一句“换成男声”也行。说过的命令能重新播放原声。模型由你选：DeepSeek、OpenAI、Anthropic、本机模型或任何兼容的地址，配好就能用；也可以作为插件跑在你自己装的 DeepSeek Harness 上，在那里看每段对话、配模型。见[命令模式](docs/command-mode.md)。
 
-<p align="center"><img src="docs/images/overlay-v081-screenshot-zh.jpg" width="500" alt="VibeWand 0.8.1 演示模式下的真实悬浮面板与语音条截图"></p>
+<p align="center"><img src="docs/images/overlay-v0112-screenshot-zh.png" width="500" alt="VibeWand 0.11.2 演示模式下的真实悬浮面板与语音条截图"></p>
 
-*VibeWand 0.8.1 实际运行窗口截图，使用演示模式。*
+*VibeWand 0.11.2 实际运行窗口截图，使用演示模式。*
 
 屏幕上有个悬浮面板，告诉你当前每个键会做什么。嫌占地方可以收成一条，展开和收起的按钮始终在同一个位置。
 
@@ -111,7 +111,7 @@ VibeWand 干的是 computer use 这类事：看懂前台应用的界面，替你
 
 ## 安装
 
-**[下载 VibeWand 0.11.1（Apple Silicon）](https://github.com/xuhao1/VibeWand/releases/download/v0.11.1/VibeWand-0.11.1-macOS-arm64.zip)** · [版本说明](https://github.com/xuhao1/VibeWand/releases/latest)
+**[下载 VibeWand 0.11.2（Apple Silicon）](https://github.com/xuhao1/VibeWand/releases/download/v0.11.2/VibeWand-0.11.2-macOS-arm64.zip)** · [版本说明](https://github.com/xuhao1/VibeWand/releases/latest)
 
 需要 macOS 26 以上和 M 系列芯片（0.8.4 是最后一个支持 macOS 13–15 的版本）。解压后把 **VibeWand.app** 拖进“应用程序”并打开。第一次打开会出现引导，带你走完下面几步、语音输入和命令模式，每一步都可以跳过。手动做的话：
 
@@ -130,7 +130,7 @@ brew install opus
 bash scripts/build-app.sh
 ```
 
-产物在 `dist/VibeWand.app`。构建时会下载固定版本的 Node.js 和 DeepSeek Harness 作为命令模式的内核，应用因此约 328 MB；`VIBEWAND_SKIP_KERNEL=1` 可以跳过。更多细节见[开发指南](docs/development.md)。
+产物在 `dist/VibeWand.app`。构建时会下载固定版本的 Node.js 和 DeepSeek Harness 作为命令模式的内核，应用因此约 325 MB；`VIBEWAND_SKIP_KERNEL=1` 可以跳过。更多细节见[开发指南](docs/development.md)。
 
 ## 文档
 
