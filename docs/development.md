@@ -161,13 +161,7 @@ For repeatable signing, set `VIBEWAND_SIGNING_IDENTITY`. The script otherwise se
 
 The film at the top of the page is played from the site itself: `site/video/vibewand-zh.mp4` and `vibewand-en.mp4`, about 20 MB each, with the cover as the picture shown before it plays. They are made from the films in `output/promo/cut/` by `bash promo/tools/web.sh` (see `promo/README.md`) and are not kept in this repository; `site/video/` is ignored. The publishing script uploads them when they are there and leaves the published ones alone when they are not, so a checkout that never built the film can still publish the page. Under the film the Chinese page links to it on Bilibili and the English page on YouTube, never the other way round, and the READMEs' title pictures link the same way.
 
-**While this repository is private, the page links to nothing in it.** The download is a release of the site's repository, not of this one, because a visitor cannot reach this one; the package goes there as a release asset rather than into `site/`, since Git refuses a file over 100 MB and the package is close to that. The page states the released version in its download links and size, so with each release:
-
-```sh
-gh release create v0.11.2 -R xuhao1/vibewand-site VibeWand-0.11.2-macOS-arm64.zip SHA256SUMS-0.11.2.txt
-```
-
-then update the version, links and size in `site/index.html` and publish. When this repository is opened, point the download back at its own releases and bring back the links to the documentation and the source, and the license statement in the footer: until then the owner wants no license terms on the page or in that repository's release notes, and the footer says only that the project is to be opened soon.
+**The repository was opened on 2026-10-07, with 0.11.2.** Since then the page's downloads are this repository's own releases, and its footer states the license and links to the source and the documentation. The page states the released version in its download links and size, so with each release, once the release is published here, update the version, links and size in `site/index.html` and publish. Until 0.11.2 the repository was private: the download was a release of the site's repository (`gh release create vX.Y.Z -R xuhao1/vibewand-site …`), the page linked to nothing here, and at the owner's wish neither the page nor those release notes carried license terms. The releases of `xuhao1/vibewand-site` up to 0.11.2 stay where they are.
 
 `site/` 就是整个网站：`index.html`、`style.css`、`img/` 和 `video/` 里的宣传片，页面本身没有构建步骤。两种语言写在同一页里，分别标 `lang="zh"` 和 `lang="en"`，改文字要改两处。图片是 `assets/` 和 `docs/images/` 里的文件用 `cwebp` 转出来的；四联场景图和设备图是示意图，悬浮面板是实际窗口截图，应用图标来自 `assets/apps/`（来源和归属见那里的 README）。预览用 `python3 -m http.server --directory site`。
 
@@ -175,7 +169,7 @@ then update the version, links and size in `site/index.html` and publish. When t
 
 页面顶部的宣传片由网站自己播放：`site/video/vibewand-zh.mp4` 和 `vibewand-en.mp4`，各约 20 MB，播放前显示的是封面。它们由 `bash promo/tools/web.sh` 从 `output/promo/cut/` 里的成片转出（见 `promo/README.md`），不进本仓库，`site/video/` 已被忽略。发布脚本在它们存在时上传，不存在时保留已发布的那份，所以没有生成过成片的检出照样能发布页面。视频下方，中文页面链接到 B 站，英文页面链接到 YouTube，不要反过来；两份 README 的题图也是这样链接的。
 
-**本仓库还是私有的时候，页面不链接到这里的任何东西。**下载用的是网站仓库的 Release，而不是本仓库的，因为访客打不开本仓库；安装包作为 Release 附件上传，而不是放进 `site/`，因为 Git 拒绝超过 100 MB 的文件，而安装包已经接近这个大小。页面的下载链接和大小写着已发布的版本号，所以每次发布先执行上面的 `gh release create`，再改 `site/index.html` 里的版本号、链接和大小并发布。本仓库公开以后，把下载改回本仓库自己的 Release，恢复指向文档和源码的链接，并把页脚的许可说明加回来：作者要求在正式开源之前，页面和网站仓库的 Release 说明里都不写许可条款，页脚只说“即将开源”。
+**仓库在 2026-10-07 随 0.11.2 公开。**从那以后，页面的下载用的是本仓库自己的 Release，页脚写着许可并链接到源码和文档。页面的下载链接和大小写着已发布的版本号，所以每次发布，在这里发出 Release 之后，改 `site/index.html` 里的版本号、链接和大小并发布。0.11.2 之前仓库是私有的：下载用的是网站仓库的 Release（`gh release create vX.Y.Z -R xuhao1/vibewand-site …`），页面不链接到这里的任何东西，并且按作者的要求，页面和那些 Release 说明里都不写许可条款。`xuhao1/vibewand-site` 里到 0.11.2 为止的 Release 原样保留。
 
 ## Implementation model / 实现分层
 
