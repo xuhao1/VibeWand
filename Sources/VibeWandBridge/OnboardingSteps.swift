@@ -244,6 +244,10 @@ struct VoiceStep: View {
             // SenseVoice is tried once its models are here; until then the one thing to do is fetch them.
             else if way == .local, voice.senseVoice.state != .ready { OnboardingCard { SenseVoiceModels(voice: voice, compact: true) } }
             else { trial }
+            // Built-in recognition can also write while you speak; switching that on has a step in macOS of its own.
+            if way != .external, model.runtime.inputMethod.available, TextInserter.method == .automatic {
+                OnboardingCard { InputMethodSetting(model: model, input: model.runtime.inputMethod, compact: true) }
+            }
         }
         .onAppear { keySaved = voice.keySaved }
         .onReceive(voice.$configuration) { draft = $0; keySaved = voice.hasKey(for: $0) }

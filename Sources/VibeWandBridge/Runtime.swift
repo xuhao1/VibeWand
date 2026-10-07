@@ -879,7 +879,7 @@ final class BridgeRuntime {
         value["speech"] = ["state": String(describing: voiceInput.state), "previewCharacters": voiceInput.liveTranscript.count,
             "liveInsertion": liveDraft != nil || liveInput, "style": voiceInput.configuration.effectiveTextStyle.rawValue,
             "failure": lastDictationFailure, "insertion": lastInsertion, "message": voiceInput.displayMessage, "frontApp": NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? ""]
-        value["inputMethod"] = ["enabled": inputMethod.enabled, "connected": inputMethod.connected, "client": inputMethod.client ?? ""]
+        value["inputMethod"] = ["enabled": inputMethod.enabled, "waiting": inputMethod.waiting, "connected": inputMethod.connected, "client": inputMethod.client ?? ""]
         value["vocabulary"] = ["learning": vocabulary.enabled, "waiting": vocabulary.waiting]
         if let controller = device as? GameControllerInputSource {
             value["inputBackend"] = "GameController"

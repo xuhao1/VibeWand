@@ -69,6 +69,7 @@ The recording does not enter the harness's session store and is not sent to the 
 | 0.11.0 | `vibewand-coordinator` 0.11.0; with all tools, `vibewand-overlay` 0.11.0 as well; with “Show commands as voice messages” on, `vibewand-view` 0.11.0 in the harness's desktop and web apps | 0.2.0-rc.2 |
 | 0.11.1 | `vibewand-coordinator`, `vibewand-overlay` and `vibewand-view` 0.11.1. Their contents are those of 0.11.0; only the version and the stated license (GPL-3.0-only) changed | 0.2.0-rc.2 |
 | 0.11.2 | `vibewand-coordinator`, `vibewand-overlay` and `vibewand-view` 0.11.2. Their contents are those of 0.11.1; only the version changed | 0.2.0-rc.2 |
+| 0.11.3 | `vibewand-coordinator`, `vibewand-overlay` and `vibewand-view` 0.11.3. Their contents are those of 0.11.1; only the version changed | 0.2.0-rc.2 |
 
 The settings page shows the version it found and whether it is verified. On a version outside the table a command does not run and says why. You can turn on “Try this unverified version anyway”, and VibeWand then records an exemption the way the harness does, for exactly this plugin version on this harness version. It may fail; switch back to the built-in kernel if it does. The desktop app updates itself, so meeting this after an update is to be expected. The built-in copy stays at 0.2.0-rc.2 and is not affected.
 

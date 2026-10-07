@@ -27,35 +27,42 @@ final class InputController: IMKInputController, InputTextClient {
     override func commitComposition(_ sender: Any!) { Self.composer.interrupt(self) }
 }
 
-/// Switching this input method on and off in macOS. VibeWand runs this program with `select` or `deselect` to
-/// have it done, because a selection asked for by the app that has just put the input method in place does not
-/// hold, while one asked for by a program started afterwards does. It stops being listed when VibeWand deletes it.
+/// Switching this input method on and off in macOS. VibeWand runs this program with `select`, `enable` or
+/// `deselect` to have it done, because a selection asked for by the app that has just put the input method in
+/// place does not hold, while one asked for by a program started afterwards does. It stops being listed when
+/// VibeWand deletes it.
 enum InputSource {
     private static var this: TISInputSource? {
         let filter = [kTISPropertyBundleID as String: InputLink.bundleID] as CFDictionary
         return (TISCreateInputSourceList(filter, true)?.takeRetainedValue() as? [TISInputSource])?.first
     }
-    private static var selected: Bool {
-        guard let this, let value = TISGetInputSourceProperty(this, kTISPropertyInputSourceIsSelected) else { return false }
+    private static func holds(_ property: CFString) -> Bool {
+        guard let this, let value = TISGetInputSourceProperty(this, property) else { return false }
         return Unmanaged<CFBoolean>.fromOpaque(value).takeUnretainedValue() == kCFBooleanTrue
     }
     /// A palette is selected beside the keyboard input source, not instead of it. macOS keeps a list of the
-    /// input methods of other makers that have been enabled, by identifier, and selects none that is not on it;
-    /// once there, an identifier stays when the input method is deleted. macOS is not asked to enable this one:
-    /// that brings System Settings to the front and enables nothing, so an identifier macOS has not seen has
-    /// to be added there by the user.
-    static func select() -> Bool {
-        if !selected {
+    /// input methods of other makers that the user has allowed, by identifier, and selects none that is not on
+    /// it; once there, an identifier stays when the input method is deleted.
+    static func select() -> InputLink.Selection {
+        if !holds(kTISPropertyInputSourceIsSelected) {
             TISRegisterInputSource(Bundle.main.bundleURL as CFURL)
             if let this { TISSelectInputSource(this) }
         }
-        return selected
+        if holds(kTISPropertyInputSourceIsSelected) { return .selected }
+        return this != nil && !holds(kTISPropertyInputSourceIsEnabled) ? .notAllowed : .failed
+    }
+    /// Asks macOS to enable this input method. For one of another maker macOS enables nothing by this call: it
+    /// brings System Settings → Keyboard to the front, where the user is to be asked.
+    static func enable() {
+        TISRegisterInputSource(Bundle.main.bundleURL as CFURL)
+        if let this { TISEnableInputSource(this) }
     }
     static func deselect() { if let this { TISDeselectInputSource(this) } }
 }
 
 switch CommandLine.arguments.dropFirst().first {
-case "select": exit(InputSource.select() ? 0 : 1)
+case "select": exit(InputSource.select().rawValue)
+case "enable": InputSource.enable(); exit(0)
 case "deselect": InputSource.deselect(); exit(0)
 default: break
 }

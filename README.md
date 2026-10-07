@@ -111,7 +111,7 @@ What each capability covers, which channel each app uses and what has been verif
 
 ## Install
 
-**[Download VibeWand 0.11.2 (Apple Silicon)](https://github.com/xuhao1/VibeWand/releases/download/v0.11.2/VibeWand-0.11.2-macOS-arm64.zip)** · [Release notes](https://github.com/xuhao1/VibeWand/releases/latest)
+**[Download VibeWand 0.11.3 (Apple Silicon)](https://github.com/xuhao1/VibeWand/releases/download/v0.11.3/VibeWand-0.11.3-macOS-arm64.zip)** · [Release notes](https://github.com/xuhao1/VibeWand/releases/latest)
 
 Requires macOS 26 or later on an M-series Mac (0.8.4 is the last version for macOS 13 to 15). Unzip, drag **VibeWand.app** into Applications and open it. The first launch shows a guide that walks you through the steps below, voice input and command mode; every step can be skipped. By hand:
 

@@ -259,32 +259,48 @@ struct SpeechSettings: View {
     }
 }
 
-/// Where SenseVoice's models stand and the one thing to do about it. The settings show it in full; the guide,
-/// which has a step's worth of room, shows it `compact`.
-/// The switch for VibeWand's input method, and what switching it on puts on this Mac.
+/// The switch for VibeWand's input method, and what switching it on puts on this Mac. The settings show it in
+/// full; the guide shows it `compact`. While the user has yet to allow the input method in macOS, it says what
+/// macOS asks and where, and looks every two seconds whether that has happened.
 struct InputMethodSetting: View {
     @ObservedObject var model: SettingsModel
     @ObservedObject var input: InputMethod
+    var compact = false
     var body: some View {
         HStack(spacing: 12) {
-            Label(state, systemImage: input.enabled ? "checkmark.seal.fill" : "character.cursor.ibeam")
-                .font(.system(size: 14, weight: .medium)).foregroundStyle(input.enabled ? Color.green : Color.primary)
+            Label(state, systemImage: input.enabled ? "checkmark.seal.fill" : input.waiting ? "hourglass" : "character.cursor.ibeam")
+                .font(.system(size: 14, weight: .medium)).foregroundStyle(input.enabled ? Color.green : input.waiting ? Color.orange : Color.primary)
             Spacer(minLength: 0)
             if input.enabled { Button(tr("关闭并移除", "Turn off and remove")) { input.remove() } }
+            else if input.waiting {
+                Button(tr("不开了", "Leave it off")) { input.remove() }
+                Button(tr("向 macOS 提出请求", "Ask macOS")) { input.ask() }.buttonStyle(.borderedProminent)
+            }
             else { Button(tr("开启", "Turn on")) { model.perform { try input.install() } }.buttonStyle(.borderedProminent).disabled(!input.available || input.starting) }
         }
-        SettingsNote(text: tr("开启后，文字在你说话时就一个字一个字出现在光标处，带下划线表示还会变；松开并整理完成后，整段换成最终文字。Codex、Claude、终端、浏览器等所有应用都一样，不经过剪贴板。这会在“资源库/Input Methods”里装一个 VibeWand 输入法组件，和 macOS 自带的听写是同一类：不替换你的键盘输入法，不接收任何按键，只把 VibeWand 的文字写进当前输入框。", "When on, text appears at the caret as you speak, a character at a time and underlined while it may still change; after you release and polishing finishes, the finished text replaces it in one step. It is the same in every app, Codex, Claude, terminals and browsers included, and the clipboard is not used. This installs a VibeWand input method in Library/Input Methods, of the kind macOS's own dictation is: it does not replace your keyboard input method, receives no keys, and only writes VibeWand's text into the focused field."))
+        .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in input.check() }
+        if input.waiting {
+            SettingsNote(text: tr("macOS 只使用你允许过的第三方输入法，这一步 VibeWand 不能替你做。VibeWand 提出请求时，macOS 会打开“系统设置 → 键盘”：如果它在那里问是否允许 VibeWand 启用这个输入法，点“允许”，这里会自己变成已开启。macOS 的那段提醒是对所有输入法说的；这个组件不接收任何按键，只写 VibeWand 发给它的文字。", "macOS uses an input method from another maker only once you have allowed it, and VibeWand cannot do that for you. When VibeWand asks, macOS opens System Settings → Keyboard: if it asks there whether VibeWand may enable this input method, choose Allow, and this turns on by itself. What macOS warns of there is said of every input method; this one receives no keys and only writes the text VibeWand sends it."))
+            SettingsNote(text: tr("如果“键盘”页什么也没问，就没有可以手动打开的地方：“输入法 → 编辑… → +”的列表里不提供这一类输入法。macOS 27.0 beta 就是这样。在 macOS 询问之前，听写照旧：原生输入框边说边写，其余应用在松开后粘贴。想再问一次，先退出“系统设置”。", "If the Keyboard page asks nothing, there is nothing to switch on by hand: the list under Input Sources → Edit… → + does not offer this kind of input method. macOS 27.0 beta behaves that way. Until macOS asks, dictation works as before: native fields fill in as you speak, other apps get one paste on release. To ask again, quit System Settings first."))
+        } else if !compact || !input.enabled {
+            SettingsNote(text: compact
+                ? tr("文字在你说话时就出现在光标处，Codex、Claude、终端、浏览器等所有应用都一样，不经过剪贴板。这会装一个 VibeWand 输入法组件：不替换你的键盘输入法，不接收任何按键。第一次开启时，macOS 要你自己在“系统设置 → 键盘”里允许它。", "Text appears at the caret as you speak, in every app, Codex, Claude, terminals and browsers included, and the clipboard is not used. This installs a VibeWand input method that does not replace your keyboard input method and receives no keys. The first time, macOS has you allow it yourself in System Settings → Keyboard.")
+                : tr("开启后，文字在你说话时就一个字一个字出现在光标处，带下划线表示还会变；松开并整理完成后，整段换成最终文字。Codex、Claude、终端、浏览器等所有应用都一样，不经过剪贴板。这会在“资源库/Input Methods”里装一个 VibeWand 输入法组件，和 macOS 自带的听写是同一类：不替换你的键盘输入法，不接收任何按键，只把 VibeWand 的文字写进当前输入框。第一次开启时，macOS 要你自己在“系统设置 → 键盘”里允许它。", "When on, text appears at the caret as you speak, a character at a time and underlined while it may still change; after you release and polishing finishes, the finished text replaces it in one step. It is the same in every app, Codex, Claude, terminals and browsers included, and the clipboard is not used. This installs a VibeWand input method in Library/Input Methods, of the kind macOS's own dictation is: it does not replace your keyboard input method, receives no keys, and only writes VibeWand's text into the focused field. The first time, macOS has you allow it yourself in System Settings → Keyboard."))
+        }
     }
     private var state: String {
         if !input.available { return tr("这个版本没有带输入法组件", "This build does not carry the input method") }
         if input.starting { return tr("正在开启…", "Turning on…") }
-        if input.failed { return tr("macOS 没有启用这个输入法组件，请再试一次", "macOS did not switch the input method on; try again") }
+        if input.waiting { return tr("等你在 macOS 里允许这个输入法", "Waiting for you to allow the input method in macOS") }
+        if input.failed { return tr("macOS 没有选中这个输入法组件，请再试一次", "macOS did not select the input method; try again") }
         if !input.enabled { return tr("在任何应用里边说边写：未开启", "Type as you speak in any app: off") }
         return input.connected ? tr("在任何应用里边说边写：已开启", "Type as you speak in any app: on")
             : tr("已开启，输入法组件会在需要时启动", "On; the input method starts when it is needed")
     }
 }
 
+/// Where SenseVoice's models stand and the one thing to do about it. The settings show it in full; the guide,
+/// which has a step's worth of room, shows it `compact`.
 struct SenseVoiceModels: View {
     @ObservedObject var voice: VoiceInputController
     var compact = false

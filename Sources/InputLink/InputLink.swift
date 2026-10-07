@@ -5,10 +5,14 @@ import Foundation
 public enum InputLink {
     /// macOS takes a bundle for an input method only when its identifier contains ".inputmethod.". This one keeps
     /// the name it had before the app became `org.vibewand.bridge`: macOS remembers by identifier which input
-    /// methods of other makers the user has enabled, selects none that is not among them, and gives an app no
-    /// way to add one (tried on 2026-10-07: `TISEnableInputSource` returns no error, brings System Settings to
-    /// the front and enables nothing). Under another identifier it would be off for everyone who has it on.
+    /// methods of other makers the user has allowed and selects none that is not among them. Allowing one is
+    /// the user's to do, in a question System Settings puts when `TISEnableInputSource` is called; macOS 27.0
+    /// beta does not put it, and offers no palette in its list of input sources to add (measured on 2026-10-07,
+    /// see docs/voice-input.md). Under another identifier it would be off for everyone who has it on.
     public static let bundleID = "org.vibekey.inputmethod.VibeWand"
+    /// How the input method's `select` run ends, as its exit status: it is selected; macOS has it and will not
+    /// use it until the user allows it; or anything else went wrong.
+    public enum Selection: Int32 { case selected = 0, failed = 1, notAllowed = 2 }
     /// The name InputMethodKit itself derives for an input method: its identifier and "_Connection".
     public static let connectionName = bundleID + "_Connection"
     /// The only program the input method takes text from.

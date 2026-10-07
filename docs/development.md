@@ -2,9 +2,9 @@
 
 [Documentation / 文档目录](README.md) · [Contributing / 贡献说明](../CONTRIBUTING.md)
 
-Use an Apple Silicon Mac with full Xcode 26 or later (macOS 26+ SDK) and Homebrew Opus for the bundled application. The source and the published 0.11.2 package target macOS 26; 0.8.4 was the last package for macOS 13+. See [Getting started](getting-started.en.md) / [快速开始](getting-started.md) to build the application bundle.
+Use an Apple Silicon Mac with full Xcode 26 or later (macOS 26+ SDK) and Homebrew Opus for the bundled application. The source and the published 0.11.3 package target macOS 26; 0.8.4 was the last package for macOS 13+. See [Getting started](getting-started.en.md) / [快速开始](getting-started.md) to build the application bundle.
 
-打包环境需要 Apple Silicon Mac、完整 Xcode 26+（macOS 26+ SDK）及 Homebrew Opus。源码和已发布的 0.11.2 安装包的最低系统都是 macOS 26；0.8.4 是最后一个支持 macOS 13 以上的安装包。
+打包环境需要 Apple Silicon Mac、完整 Xcode 26+（macOS 26+ SDK）及 Homebrew Opus。源码和已发布的 0.11.3 安装包的最低系统都是 macOS 26；0.8.4 是最后一个支持 macOS 13 以上的安装包。
 
 ## Build from source / 从源码编译
 
@@ -21,9 +21,9 @@ The script compiles a release build, copies the icon, device images and license 
 
 脚本完成 Release 编译、素材与许可证打包和签名，生成 **`dist/VibeWand.app`**。在 Finder 中打开，或复制到「应用程序」后双击；设置、演示、采集与诊断均通过图形界面操作。
 
-The default build targets the build Mac's architecture. The published 0.11.2 package is **arm64 / Apple Silicon**, requires macOS 26+, uses ad-hoc signing, and is not Apple-notarized. The bundled microphone-helper build currently targets arm64, so this packaging flow does not support Intel.
+The default build targets the build Mac's architecture. The published 0.11.3 package is **arm64 / Apple Silicon**, requires macOS 26+, uses ad-hoc signing, and is not Apple-notarized. The bundled microphone-helper build currently targets arm64, so this packaging flow does not support Intel.
 
-默认编译面向构建机器的架构。已发布 0.11.2 为 **arm64 / Apple Silicon**，要求 macOS 26+，临时签名且未公证；当前麦克风组件固定编译为 arm64，此打包流程不支持 Intel。
+默认编译面向构建机器的架构。已发布 0.11.3 为 **arm64 / Apple Silicon**，要求 macOS 26+，临时签名且未公证；当前麦克风组件固定编译为 arm64，此打包流程不支持 Intel。
 
 ## Command kernel / 命令内核
 
@@ -149,7 +149,7 @@ VIBEWAND_COMMAND_LIVE=textedit,keyboard,code,codex,search-claude DEEPSEEK_VIBEWA
 | `docs` | Experience guide, design decisions, device setup, and engineering history |
 | `site` | The project site at [vibewand.xuhao1.me](https://vibewand.xuhao1.me): one static page in both languages, published by `scripts/publish-site.sh` |
 
-The internal `VibeWandBridge` target and the bundle identifier `org.vibewand.bridge` stay as they are, to preserve module references and existing preferences. Until 0.11.0 they were `VibeKeyBridge` and `org.vibekey.bridge`. `FormerIdentity` copies the settings kept under the former identifier at the first launch under the new one and asks a copy of the former version that is still running to quit, and a key in the Keychain under a former service name is written under the new name when it is read. The input method alone keeps its identifier, `org.vibekey.inputmethod.VibeWand`: macOS ties the user's enabling of an input method to it and lets no app enable another (see the [voice input guide](voice-input.md)). macOS grants its permissions to an identifier, so they are asked for again after that update. The app and executable are named VibeWand.
+The internal `VibeWandBridge` target and the bundle identifier `org.vibewand.bridge` stay as they are, to preserve module references and existing preferences. Until 0.11.0 they were `VibeKeyBridge` and `org.vibekey.bridge`. `FormerIdentity` copies the settings kept under the former identifier at the first launch under the new one and asks a copy of the former version that is still running to quit, and a key in the Keychain under a former service name is written under the new name when it is read. The input method alone keeps its identifier, `org.vibekey.inputmethod.VibeWand`: macOS ties the user's leave to use an input method to it, an app cannot give that leave, and macOS 27.0 beta does not ask the user for it either (see the [voice input guide](voice-input.md)). macOS grants its permissions to an identifier, so they are asked for again after that update. The app and executable are named VibeWand.
 
 For repeatable signing, set `VIBEWAND_SIGNING_IDENTITY`. The script otherwise selects the sole Apple Development identity or uses ad-hoc signing. Ad-hoc updates can require Accessibility permission to be registered again. A successful build replaces the app and preserves the previous bundle under `dist/.previous-build.*`.
 

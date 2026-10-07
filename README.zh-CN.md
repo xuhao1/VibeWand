@@ -111,7 +111,7 @@ VibeWand 干的是 computer use 这类事：看懂前台应用的界面，替你
 
 ## 安装
 
-**[下载 VibeWand 0.11.2（Apple Silicon）](https://github.com/xuhao1/VibeWand/releases/download/v0.11.2/VibeWand-0.11.2-macOS-arm64.zip)** · [版本说明](https://github.com/xuhao1/VibeWand/releases/latest)
+**[下载 VibeWand 0.11.3（Apple Silicon）](https://github.com/xuhao1/VibeWand/releases/download/v0.11.3/VibeWand-0.11.3-macOS-arm64.zip)** · [版本说明](https://github.com/xuhao1/VibeWand/releases/latest)
 
 需要 macOS 26 以上和 M 系列芯片（0.8.4 是最后一个支持 macOS 13–15 的版本）。解压后把 **VibeWand.app** 拖进“应用程序”并打开。第一次打开会出现引导，带你走完下面几步、语音输入和命令模式，每一步都可以跳过。手动做的话：
 

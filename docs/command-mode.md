@@ -69,6 +69,7 @@
 | 0.11.0 | `vibewand-coordinator` 0.11.0；全部工具时另加 `vibewand-overlay` 0.11.0；打开了“显示成语音消息”时，Harness 的桌面版和网页版里另有 `vibewand-view` 0.11.0 | 0.2.0-rc.2 |
 | 0.11.1 | `vibewand-coordinator`、`vibewand-overlay` 和 `vibewand-view` 0.11.1。内容与 0.11.0 相同，只改了版本号和写明的许可（GPL-3.0-only） | 0.2.0-rc.2 |
 | 0.11.2 | `vibewand-coordinator`、`vibewand-overlay` 和 `vibewand-view` 0.11.2。内容与 0.11.1 相同，只改了版本号 | 0.2.0-rc.2 |
+| 0.11.3 | `vibewand-coordinator`、`vibewand-overlay` 和 `vibewand-view` 0.11.3。内容与 0.11.1 相同，只改了版本号 | 0.2.0-rc.2 |
 
 设置页会显示检测到的版本和“已验证 / 未验证”。版本不在表里时，命令不会运行，并告诉你原因；可以打开“仍然在这个未验证的版本上尝试”，VibeWand 会按 Harness 的规矩为“这个插件版本 + 这个 Harness 版本”登记一条例外。它可能出错，出错时改回内置内核。Harness 桌面版会自动更新，更新后遇到这种情况是预期之内的。内置的那一份固定在 0.2.0-rc.2，不受影响。
 

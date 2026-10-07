@@ -10,6 +10,8 @@ final class InputMethod: ObservableObject {
     @Published private(set) var enabled = false
     /// Switching on takes macOS a moment; this says it is under way.
     @Published private(set) var starting = false
+    /// macOS has the input method and will not use it until the user allows it, which VibeWand cannot do for them.
+    @Published private(set) var waiting = false
     /// macOS did not start or select the input method.
     @Published private(set) var failed = false
     @Published private(set) var connected = false
@@ -19,59 +21,78 @@ final class InputMethod: ObservableObject {
     /// dictation by itself, or it takes no provisional text and nothing was written.
     var onEnded: ((_ kept: Bool) -> Void)?
 
+    /// One run of the input method's program with a verb, answered with its exit status.
+    typealias Verb = (_ verb: String, _ completion: @escaping (Int32) -> Void) -> Void
+
     private static let wanted = "dictationInputMethod"
-    private let embedded: URL, installed: URL, socket: String
+    private let embedded: URL, installed: URL, socket: String, patience: TimeInterval
+    private let verb: Verb?
     private var line: InputLine?
     private var committed: ((Bool) -> Void)?
+    private var selecting = false
 
     init(embedded: URL = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/VibeWandInput.app"),
          installed: URL = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0].appendingPathComponent("Input Methods/VibeWandInput.app"),
-         socket: String = InputLink.socketPath) {
-        self.embedded = embedded; self.installed = installed; self.socket = socket
+         socket: String = InputLink.socketPath, patience: TimeInterval = 1, verb: Verb? = nil) {
+        self.embedded = embedded; self.installed = installed; self.socket = socket; self.patience = patience; self.verb = verb
     }
 
     /// Whether this build carries the input method at all.
     var available: Bool { FileManager.default.fileExists(atPath: embedded.path) }
 
     /// At launch: the input method the user asked for is kept the one this build carries, and switched on.
+    /// macOS is asked to enable it only when the user presses for it, since asking brings System Settings forward.
     func start() {
         guard available, UserDefaults.standard.bool(forKey: Self.wanted) else { return }
-        try? install()
+        try? install(asking: false)
     }
-    func install() throws {
+    func install(asking: Bool = true) throws {
         if stale { quit(); try place() }
         UserDefaults.standard.set(true, forKey: Self.wanted)
-        starting = true; failed = false
-        select(attempts: 3)
+        starting = true; failed = false; waiting = false
+        select(attempts: 3, asking: asking)
     }
     /// macOS does not always keep the selection asked for in the run that registered the input method again
     /// after it had been deleted; one asked for a second later held each time (tried on 2026-10-07).
-    private func select(attempts: Int) {
-        run("select") { [weak self] selected in
-            guard let self, UserDefaults.standard.bool(forKey: Self.wanted) else { return }
-            if !selected, attempts > 1 {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1) { MainActor.assumeIsolated { self.select(attempts: attempts - 1) } }
+    private func select(attempts: Int, asking: Bool) {
+        selecting = true
+        run("select") { [weak self] status in
+            guard let self else { return }
+            guard UserDefaults.standard.bool(forKey: Self.wanted) else { self.selecting = false; return }
+            let outcome = InputLink.Selection(rawValue: status) ?? .failed
+            if outcome != .selected, attempts > 1 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + self.patience) { MainActor.assumeIsolated { self.select(attempts: attempts - 1, asking: asking) } }
                 return
             }
-            self.starting = false; self.enabled = selected; self.failed = !selected
-            if selected { self.join(attempts: 20) }
+            self.selecting = false; self.starting = false; self.enabled = outcome == .selected; self.waiting = outcome == .notAllowed; self.failed = outcome == .failed
+            if self.enabled { self.join(attempts: 20) }
+            if self.waiting, asking { self.ask() }
         }
+    }
+    /// Asks macOS to enable the input method. macOS takes that to System Settings → Keyboard and leaves the
+    /// answer to the user; see `InputSource.enable` in the input method.
+    func ask() { run("enable") { _ in } }
+    /// While the user has yet to allow the input method: looks whether they have by now, and switches it on.
+    func check() {
+        guard waiting, !selecting else { return }
+        select(attempts: 1, asking: false)
     }
     func remove() {
         UserDefaults.standard.set(false, forKey: Self.wanted)
-        enabled = false; starting = false; failed = false
+        enabled = false; starting = false; failed = false; waiting = false
         run("deselect") { [weak self] _ in
             guard let self else { return }
             self.quit(); try? FileManager.default.removeItem(at: self.installed)
         }
     }
     /// The input method switches itself on and off in macOS; see `InputSource` there for why it is not done here.
-    private func run(_ verb: String, completion: @escaping (Bool) -> Void) {
+    private func run(_ verb: String, completion: @escaping (Int32) -> Void) {
+        if let scripted = self.verb { scripted(verb, completion); return }
         let task = Process()
         task.executableURL = installed.appendingPathComponent("Contents/MacOS/VibeWandInput")
         task.arguments = [verb]
-        task.terminationHandler = { task in DispatchQueue.main.async { MainActor.assumeIsolated { completion(task.terminationStatus == 0) } } }
-        do { try task.run() } catch { completion(false) }
+        task.terminationHandler = { task in DispatchQueue.main.async { MainActor.assumeIsolated { completion(task.terminationStatus) } } }
+        do { try task.run() } catch { completion(InputLink.Selection.failed.rawValue) }
     }
     /// macOS starts a selected input method when an app's text field needs it; this starts it now, so that the
     /// first dictation finds it.
@@ -100,9 +121,11 @@ final class InputMethod: ObservableObject {
         let copied = [installed] + (files.enumerator(at: installed, includingPropertiesForKeys: nil)?.compactMap { $0 as? URL } ?? [])
         for url in copied { removexattr(url.path, "com.apple.quarantine", XATTR_NOFOLLOW) }
     }
+    /// Only the copy this object put in place is asked to quit, not one that runs from somewhere else.
     private func quit() {
         line?.close(); dropped()
-        NSRunningApplication.runningApplications(withBundleIdentifier: InputLink.bundleID).forEach { $0.terminate() }
+        NSRunningApplication.runningApplications(withBundleIdentifier: InputLink.bundleID)
+            .filter { $0.bundleURL?.standardizedFileURL.path == installed.standardizedFileURL.path }.forEach { $0.terminate() }
     }
     /// Joins the input method if it is running. macOS starts a selected one when an app needs it.
     func connect() {
