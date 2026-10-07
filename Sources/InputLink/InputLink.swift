@@ -3,15 +3,17 @@ import Foundation
 /// The wire between VibeWand and its input method: where the two meet and what they say to each other, one JSON
 /// object per line over a Unix socket in VibeWand's own folder.
 public enum InputLink {
-    /// macOS takes a bundle for an input method only when its identifier contains ".inputmethod.".
-    public static let bundleID = "org.vibewand.inputmethod.VibeWand"
+    /// macOS takes a bundle for an input method only when its identifier contains ".inputmethod.". This one keeps
+    /// the name it had before the app became `org.vibewand.bridge`: macOS remembers by identifier which input
+    /// methods of other makers the user has enabled, selects none that is not among them, and gives an app no
+    /// way to add one (tried on 2026-10-07: `TISEnableInputSource` returns no error, brings System Settings to
+    /// the front and enables nothing). Under another identifier it would be off for everyone who has it on.
+    public static let bundleID = "org.vibekey.inputmethod.VibeWand"
     /// The name InputMethodKit itself derives for an input method: its identifier and "_Connection".
     public static let connectionName = bundleID + "_Connection"
     /// The only program the input method takes text from.
     public static let owner = "org.vibewand.bridge"
-    /// What the two were called until 0.11.0. A copy of the input method that such a version left is replaced,
-    /// and the settings VibeWand kept under its former name are taken over.
-    public static let formerBundleID = "org.vibekey.inputmethod.VibeWand"
+    /// What the app was called until 0.11.0; the settings it kept under that name are taken over.
     public static let formerOwner = "org.vibekey.bridge"
     public static var socketPath: String {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]

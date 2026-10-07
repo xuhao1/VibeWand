@@ -27,10 +27,9 @@ final class InputController: IMKInputController, InputTextClient {
     override func commitComposition(_ sender: Any!) { Self.composer.interrupt(self) }
 }
 
-/// Switching this input method on and off in macOS. VibeWand runs this program once with `select` or
-/// `deselect` to have it done, because a selection asked for by the app that has just put the input method in
-/// place does not hold, while one asked for by a program started afterwards does. A palette that is on this
-/// Mac counts as enabled whatever is asked; it stops being listed when VibeWand deletes it.
+/// Switching this input method on and off in macOS. VibeWand runs this program with `select` or `deselect` to
+/// have it done, because a selection asked for by the app that has just put the input method in place does not
+/// hold, while one asked for by a program started afterwards does. It stops being listed when VibeWand deletes it.
 enum InputSource {
     private static var this: TISInputSource? {
         let filter = [kTISPropertyBundleID as String: InputLink.bundleID] as CFDictionary
@@ -40,8 +39,11 @@ enum InputSource {
         guard let this, let value = TISGetInputSourceProperty(this, kTISPropertyInputSourceIsSelected) else { return false }
         return Unmanaged<CFBoolean>.fromOpaque(value).takeUnretainedValue() == kCFBooleanTrue
     }
-    /// A palette is selected beside the keyboard input source, not instead of it. macOS is not asked to enable
-    /// it first: that brings System Settings to the front and changes nothing.
+    /// A palette is selected beside the keyboard input source, not instead of it. macOS keeps a list of the
+    /// input methods of other makers that have been enabled, by identifier, and selects none that is not on it;
+    /// once there, an identifier stays when the input method is deleted. macOS is not asked to enable this one:
+    /// that brings System Settings to the front and enables nothing, so an identifier macOS has not seen has
+    /// to be added there by the user.
     static func select() -> Bool {
         if !selected {
             TISRegisterInputSource(Bundle.main.bundleURL as CFURL)

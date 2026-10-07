@@ -42,8 +42,17 @@ final class InputMethod: ObservableObject {
         if stale { quit(); try place() }
         UserDefaults.standard.set(true, forKey: Self.wanted)
         starting = true; failed = false
+        select(attempts: 3)
+    }
+    /// macOS does not always keep the selection asked for in the run that registered the input method again
+    /// after it had been deleted; one asked for a second later held each time (tried on 2026-10-07).
+    private func select(attempts: Int) {
         run("select") { [weak self] selected in
             guard let self, UserDefaults.standard.bool(forKey: Self.wanted) else { return }
+            if !selected, attempts > 1 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) { MainActor.assumeIsolated { self.select(attempts: attempts - 1) } }
+                return
+            }
             self.starting = false; self.enabled = selected; self.failed = !selected
             if selected { self.join(attempts: 20) }
         }
@@ -93,7 +102,7 @@ final class InputMethod: ObservableObject {
     }
     private func quit() {
         line?.close(); dropped()
-        [InputLink.bundleID, InputLink.formerBundleID].flatMap(NSRunningApplication.runningApplications(withBundleIdentifier:)).forEach { $0.terminate() }
+        NSRunningApplication.runningApplications(withBundleIdentifier: InputLink.bundleID).forEach { $0.terminate() }
     }
     /// Joins the input method if it is running. macOS starts a selected one when an app needs it.
     func connect() {
