@@ -35,7 +35,7 @@ cp "$task_root/output/dualsense-mic/VibeWand Mic.app/Contents/Frameworks/libopus
 cp "$task_root/output/dualsense-mic/VibeWand Mic.app/Contents/Resources/Opus-COPYING.txt" "$task_staged_app/Contents/Resources/Opus-COPYING.txt"
 bash "$task_root/scripts/build-icon.sh" "$task_staged_app/Contents/Resources/AppIcon.icns"
 cp "$task_root/assets/app-icon/BrandMarkLight.png" "$task_staged_app/Contents/Resources/BrandMarkLight.png"
-for task_asset in controller gamepad gamepad-overlay remote; do
+for task_asset in controller gamepad remote; do
   if [ -f "$task_root/assets/device/$task_asset.png" ]; then
     cp "$task_root/assets/device/$task_asset.png" "$task_staged_app/Contents/Resources/$task_asset.png"
   fi

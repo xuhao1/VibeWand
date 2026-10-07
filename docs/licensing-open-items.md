@@ -2,9 +2,9 @@
 
 [文档目录 / Documentation](README.md) · [第三方记录 / Third-party notices](../third-party/README.md) · [许可证 / License](../LICENSE)
 
-截至 2026-10-07。0.10.0 到 0.11.0 带着下面这些项发布在私有仓库里，当时采用的是 PolyForm Noncommercial 1.0.0。作者 2026-10-07 为正式开源做了决定：VibeWand 改用 GPL-3.0，另由作者提供商业授权；两个带 copyleft 的库都保留。第 1 到 5 项据此处理完；第 7 项里的标识符当天也改了；作者确认版权归他本人，源码出处指向上游仓库即可。第 6、8 项仍由作者判断。已经发出去的那些版本，仍按发布时的条款。本文是工程上的盘点，不是法律意见。
+截至 2026-10-07。0.10.0 到 0.11.0 带着下面这些项发布在私有仓库里，当时采用的是 PolyForm Noncommercial 1.0.0。作者 2026-10-07 为正式开源做了决定：VibeWand 改用 GPL-3.0，另由作者提供商业授权；两个带 copyleft 的库都保留。第 1 到 5 项据此处理完；第 7 项里的标识符当天也改了；作者确认版权归他本人，源码出处指向上游仓库即可。第 8 项作者当天决定照常公开；第 6 项里手柄图已重画并经作者认可，其余图片仍未核对。已经发出去的那些版本，仍按发布时的条款。本文是工程上的盘点，不是法律意见。
 
-As of 2026-10-07. Versions 0.10.0 to 0.11.0 were published in the private repository with the items below open, under PolyForm Noncommercial 1.0.0. On 2026-10-07 the owner decided, for opening the project: VibeWand moves to the GPL-3.0 with a commercial license available from the author, and both copyleft libraries stay. Items 1 to 5 are settled accordingly, and the identifiers in item 7 were renamed the same day; the owner confirmed that the copyright is his and that pointing at the upstream repositories for source is enough. Items 6 and 8 remain the owner's call. Copies already released keep the terms they were released under. This is an engineering inventory, not legal advice.
+As of 2026-10-07. Versions 0.10.0 to 0.11.0 were published in the private repository with the items below open, under PolyForm Noncommercial 1.0.0. On 2026-10-07 the owner decided, for opening the project: VibeWand moves to the GPL-3.0 with a commercial license available from the author, and both copyleft libraries stay. Items 1 to 5 are settled accordingly, and the identifiers in item 7 were renamed the same day; the owner confirmed that the copyright is his and that pointing at the upstream repositories for source is enough. The owner decided the same day to publish the constants of item 8 as they are; in item 6 the controller picture was redrawn and approved by him, and the other pictures remain unchecked. Copies already released keep the terms they were released under. This is an engineering inventory, not legal advice.
 
 | # | 事项 / Item | 结果 / Outcome | 状态 / Status |
 | --- | --- | --- | --- |
@@ -13,9 +13,9 @@ As of 2026-10-07. Versions 0.10.0 to 0.11.0 were published in the private reposi
 | 3 | 许可文本和声明随包附上 / License texts and notices in the bundle | 已取齐；一个包上游没有发布文本 / collected; one package has no text upstream | 已处理 / done |
 | 4 | SenseVoice 模型的协议要求署名 / The SenseVoice models' terms ask for attribution | 下载处和文档写明了作者与协议；VAD 文件核对过出处 / author and terms stated where the download is offered and in the guide; the VAD file traced to its origin | 已处理 / done |
 | 5 | VibeWand 自己的许可 / VibeWand's own license | `GPL-3.0-only`，另有作者的商业授权；贡献条款已写 / `GPL-3.0-only` with a commercial license from the author; contribution terms written | 已定 / settled |
-| 6 | 设备插画、图标和文档图片 / Device artwork, icon and documentation images | 是否需要进一步核对或替换 / whether any needs clearing or replacing | 未定 / open |
+| 6 | 设备插画、图标和文档图片 / Device artwork, icon and documentation images | 手柄图已重画并经作者认可；其余没有核对 / the controller picture was redrawn and approved by the owner; the rest is not checked | 部分 / partly |
 | 7 | 名称与商标 / Names and trademarks | 免责声明已覆盖被操作的应用；标识符改为 `org.vibewand.bridge` 和 `VibeWandBridge`，输入法组件的标识符因 macOS 的限制保留 / the disclaimers cover the apps operated; the identifiers are now `org.vibewand.bridge` and `VibeWandBridge`, and the input method keeps its identifier because of a macOS limit | 已定，留一处 / settled, one left |
-| 8 | AU05 协议里的密钥常量 / The key constants of the AU05 protocol | 公开是否合适 / whether publishing them is appropriate | 未定 / open |
+| 8 | AU05 协议里的密钥常量 / The key constants of the AU05 protocol | 照常公开 / published as they are | 已定 / settled |
 
 ## 1. sherpa-onnx 预编译库里的 eSpeak NG（GPL-3.0-or-later）
 
@@ -115,10 +115,11 @@ The models are neither shipped nor stored in the repository. When the user asks,
 ## 6. 设备插画、图标和文档图片 / Device artwork, icon and documentation images
 
 - **设备插画**（`assets/device/`，随包分发）。三张图都由图像生成工具生成，不带厂商标志。`controller.png` 生成时参考过厂商的 AU05 产品页，手柄那张的提示词要的是“可辨认的 PS5 风格轮廓”。[`assets/device/README.md`](../assets/device/README.md) 自己写着：反复修改不等于版权清理。外观设计方面没有做过核对。
+- **手柄图已重画（2026-10-07）。**原图换成了本项目自己画的 `assets/device/gamepad.svg`：常见外形的单色外壳，四个动作键不带符号，没有用任何产品照片；应用、README、封面、项目主页的设备图和按键一览的渲染图都换了。还带着原图的有：README 和主页里 0.8.1 的悬浮窗截图、“它能做什么”的四联插画（AI 生成，画里有手柄）、文档里的历史渲染图和概念图、已发布的宣传片，以及仓库的提交历史。
 - **应用图标和首页场景图。**AI 生成，来源和提示词记录在 [`assets/app-icon/README.md`](../assets/app-icon/README.md) 和 [`docs/images/README.md`](images/README.md)。没有核对所用工具对生成图像的条款，AI 生成图像的权利在各地规定不同。
 - **文档里第三方应用的截图**，例如 `docs/images/terminal-v084-codex.jpg`（iTerm2 里的 Codex CLI）。
 
-**Device artwork** (`assets/device/`, shipped in the app): the three pictures were made with an image generation tool and carry no maker's mark. `controller.png` was generated with the maker's AU05 product sheet viewed as a reference, and the prompt for the gamepad asks for “a recognizable PS5-style silhouette”. [`assets/device/README.md`](../assets/device/README.md) itself says that repeated editing is not proof of clearance. Nothing has been checked on the side of design rights. **App icon and hero images**: generated, with sources and prompts recorded in [`assets/app-icon/README.md`](../assets/app-icon/README.md) and [`docs/images/README.md`](images/README.md); the terms of the tool for generated images were not checked, and rights in generated images differ by country. **Screenshots of other apps in the documentation**, such as `docs/images/terminal-v084-codex.jpg` (Codex CLI in iTerm2).
+**The controller picture was redrawn on 2026-10-07.** It is now this project's own drawing, `assets/device/gamepad.svg`: a one-colour shell of a common shape with four plain action buttons, made without any product photograph. The app, the READMEs, the cover, the site's device picture and the renderings of the controls card use it. Still showing the former picture: the 0.8.1 overlay screenshot in the READMEs and on the site, the four-scene illustration under “What it does” (generated, with a controller in it), historical renderings and concept pictures in the documentation, the published film, and the repository's commit history. **Device artwork** (`assets/device/`, shipped in the app): the three pictures were made with an image generation tool and carry no maker's mark. `controller.png` was generated with the maker's AU05 product sheet viewed as a reference, and the prompt for the gamepad asks for “a recognizable PS5-style silhouette”. [`assets/device/README.md`](../assets/device/README.md) itself says that repeated editing is not proof of clearance. Nothing has been checked on the side of design rights. **App icon and hero images**: generated, with sources and prompts recorded in [`assets/app-icon/README.md`](../assets/app-icon/README.md) and [`docs/images/README.md`](images/README.md); the terms of the tool for generated images were not checked, and rights in generated images differ by country. **Screenshots of other apps in the documentation**, such as `docs/images/terminal-v084-codex.jpg` (Codex CLI in iTerm2).
 
 ## 7. 名称与商标 / Names and trademarks
 
@@ -129,9 +130,9 @@ The models are neither shipped nor stored in the repository. When the user asks,
 
 ## 8. AU05 协议里的密钥常量 / The key constants of the AU05 protocol
 
-`Sources/AU05Device/Protocol.swift` 里报文的加解密、命令格式和按键标识改编自 [AU05 Keys](https://github.com/elliclee/ulanzi-au05-keys)（MIT，许可文本已保留在 `third-party/AU05-Keys-LICENSE`）。其中有设备报文加密用的四个密钥常量。仓库和安装包里没有 Ulanzi 的任何二进制或固件。公开这些常量是否合适，由作者判断。
+`Sources/AU05Device/Protocol.swift` 里报文的加解密、命令格式和按键标识改编自 [AU05 Keys](https://github.com/elliclee/ulanzi-au05-keys)（MIT，许可文本已保留在 `third-party/AU05-Keys-LICENSE`）。其中有设备报文加密用的四个密钥常量。仓库和安装包里没有 Ulanzi 的任何二进制或固件。**决定（2026-10-07）：照常公开。**这四个常量是设备报文所用 TEA 算法的密钥，与 AU05 Keys 的 `Battery.swift` 里的完全一致，是随那个项目的 MIT 许可带署名引用的；它最初是怎样得到的，那个项目没有说明，本项目也没有自己提取过。
 
-The report cipher, command formats and button identifiers in `Sources/AU05Device/Protocol.swift` are adapted from [AU05 Keys](https://github.com/elliclee/ulanzi-au05-keys) (MIT, text kept as `third-party/AU05-Keys-LICENSE`). They include the four key constants of the device's report cipher. No Ulanzi binary or firmware is in the repository or the package. Whether publishing the constants is appropriate is the owner's call.
+The report cipher, command formats and button identifiers in `Sources/AU05Device/Protocol.swift` are adapted from [AU05 Keys](https://github.com/elliclee/ulanzi-au05-keys) (MIT, text kept as `third-party/AU05-Keys-LICENSE`). They include the four key constants of the device's report cipher. No Ulanzi binary or firmware is in the repository or the package. **Decided on 2026-10-07: they are published as they are.** The four constants are the key of the TEA cipher the device's reports use, identical to those in AU05 Keys's `Battery.swift` and taken with attribution under that project's MIT license; how that project first obtained them it does not say, and this project never extracted them itself.
 
 ## 没有核对的 / Not checked
 

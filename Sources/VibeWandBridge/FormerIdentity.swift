@@ -23,6 +23,7 @@ enum FormerIdentity {
         settings[adopted] = true
         defaults.setPersistentDomain(settings, forName: domain)
     }
+    /// Not during a scripted run of the app, which is started beside the copy in use.
     static func retire() {
         NSRunningApplication.runningApplications(withBundleIdentifier: InputLink.formerOwner).forEach { $0.terminate() }
     }

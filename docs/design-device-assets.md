@@ -1,17 +1,17 @@
 # Device photography / 设备图像
 
-The redesigned mapping screen uses a recognizable product photograph with selectable hardware controls. These generic controller and remote images were generated with the built-in image-generation tool on 2026-10-04. They contain no manufacturer logos and do not assert hardware compatibility. The existing `controller.png` remains the VibeKey / AU05 asset.
+The redesigned mapping screen uses a recognizable product photograph with selectable hardware controls. The remote image was generated with the built-in image-generation tool on 2026-10-04. The controller was generated the same way and then replaced on 2026-10-07 by a drawing of this project's own, `assets/device/gamepad.svg`: the generated one had been asked for as “a recognizable PS5-style silhouette” and carried that controller's two-tone shell and the four symbols of its action buttons. The drawing is a one-colour shell of a common shape with four plain action buttons, drawn around the same control centers, so no hotspot moved. Neither picture contains a manufacturer's logo or asserts hardware compatibility. The existing `controller.png` remains the VibeKey / AU05 asset.
 
-重新设计的按键配置界面使用真实产品照片风格的设备图像，并在对应实体按键上叠加可交互热点。以下通用手柄和遥控器图像于 2026-10-04 使用内置图像生成工具制作，不带厂商标识，不代表设备兼容性认证。原有 `controller.png` 继续用于 VibeKey / AU05。
+重新设计的按键配置界面使用真实产品照片风格的设备图像，并在对应实体按键上叠加可交互热点。遥控器图像于 2026-10-04 使用内置图像生成工具制作。手柄原先也是这样生成的，2026-10-07 换成了本项目自己画的 `assets/device/gamepad.svg`：生成时的提示词要的是“可辨认的 PS5 风格轮廓”，那张图带着那款手柄的双色外壳和动作键上的四个符号。新图是常见外形的单色外壳，四个动作键不带符号，按原来的按键中心画，所以热点坐标一个都没有动。两张图都不带厂商标识，不代表设备兼容性认证。原有 `controller.png` 继续用于 VibeKey / AU05。
 
 | Asset / 资源 | Native dimensions / 原始尺寸 | Opaque body bounding box / 主体边界（alpha > 128） |
 | --- | --- | --- |
-| `assets/device/gamepad.png` | 1536 × 1024 | (36, 45) – (1500, 990) |
+| `assets/device/gamepad.png`, rendered from `gamepad.svg` with `rsvg-convert -w 1536 -h 1024` / 由 `gamepad.svg` 渲染 | 1536 × 1024 | (45, 39) – (1490, 978) |
 | `assets/device/remote.png` | 1024 × 1536 | (329, 36) – (695, 1500) |
 
-Both files preserve the generated RGBA channel (alpha extrema 0–254). They were copied directly into the project; no programmatic background removal, cropping, or repainting was used. The faint halo visible in some raw previews is fully or almost fully transparent.
+The remote preserves the generated RGBA channel (alpha extrema 0–254) and was copied directly into the project; no programmatic background removal, cropping, or repainting was used. The controller's transparency is the drawing's own. The faint halo visible in some raw previews is fully or almost fully transparent.
 
-两张图均保留生成工具输出的 RGBA 透明通道（alpha 范围 0–254）。图像直接复制进项目，没有使用程序去背景、裁切或重绘；部分原始预览中可见的光晕为完全或几乎完全透明的像素。
+遥控器保留生成工具输出的 RGBA 透明通道（alpha 范围 0–254），直接复制进项目，没有使用程序去背景、裁切或重绘；手柄的透明背景就是那张画自己的；部分原始预览中可见的光晕为完全或几乎完全透明的像素。
 
 ## Hotspots / 热点坐标
 
@@ -64,6 +64,10 @@ Version 0.5.1 adds four selectable directions around each stick center, alongsid
 0.5.1 在每根摇杆中心周围增加四个可选择的方向入口，保留中心按下热点。这些是叠加在原照片上的导航入口，不是额外实体按钮，也没有重新生成设备素材。「摇杆」分组分别列出两根摇杆的上 / 下 / 左 / 右 / 按下。控制器原图与上表的实体按下坐标保持不变。
 
 ## Generation prompts / 生成提示词
+
+The two controller prompts below made the picture used until 2026-10-07. They are kept as history; that picture is no longer in the repository's tree.
+
+下面两段手柄提示词生成的是 2026-10-07 之前使用的那张图，留作记录；那张图已不在仓库的文件里。
 
 ### Controller initial generation
 

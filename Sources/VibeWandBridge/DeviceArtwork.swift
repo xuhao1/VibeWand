@@ -1,7 +1,8 @@
 import AppKit
 
-/// Product photographs with manually inspected control centers. Coordinates use
+/// Device pictures with manually inspected control centers. Coordinates use
 /// the full image rectangle, with the origin at its top-left, before aspect-fit.
+/// The controller is drawn in `assets/device/gamepad.svg`, around these same centers.
 struct DeviceArtwork {
     let imageName: String
     let aspectRatio: CGFloat
@@ -16,11 +17,6 @@ struct DeviceArtwork {
         let image = NSImage(contentsOf: root.appendingPathComponent("assets/device/\(imageName).png"))
         Self.imageCache[imageName] = image
         return image
-    }
-
-    @MainActor var overlayImage: NSImage? {
-        guard imageName == "gamepad" else { return image }
-        return DeviceArtwork(imageName: "gamepad-overlay", aspectRatio: aspectRatio, hotspots: hotspots).image ?? image
     }
 
     static func forTemplate(_ id: DeviceTemplateID) -> DeviceArtwork {

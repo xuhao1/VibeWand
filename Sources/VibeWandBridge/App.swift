@@ -45,7 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else if let index = arguments.firstIndex(of: "--film"), arguments.indices.contains(index + 1),
                   let director = try? FilmDirector(script: URL(fileURLWithPath: arguments[index + 1])) {
             film = director; runtime = director.makeRuntime()
-        } else { FormerIdentity.retire(); runtime = BridgeRuntime() }
+        } else { runtime = BridgeRuntime() }
         super.init()
     }
     private var overlay: OverlayController!
@@ -155,6 +155,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // The guide opens by itself for someone new, and never during a scripted run of the app.
         let scripted = ["--film", "--demo", "--capture-only", "--settings", "--replay-transcript", "--replay-revision", "--vocabulary-path", "--replay-speech", "--speech-test-editor", "--diagnostics-path",
                         "--render-dark", "--render-overlay", "--render-settings", "--render-audit"].contains(where: CommandLine.arguments.contains)
+        if !scripted { FormerIdentity.retire() }
         if CommandLine.arguments.contains("--onboarding") || (guideOwed && !scripted) { presentOnboarding() }
         if CommandLine.arguments.contains("--settings") { openSettings() }
         if CommandLine.arguments.contains("--render-dark") {

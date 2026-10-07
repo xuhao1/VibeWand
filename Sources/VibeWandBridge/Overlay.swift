@@ -405,7 +405,7 @@ private final class CompanionView: NSView {
             rotationUntil = 0
             pulses.removeAll()
             scrollAccumulator = 0
-            deviceImage = state.deviceTemplate == .vibeKey ? Self.loadDeviceImage() : DeviceArtwork.forTemplate(state.deviceTemplate).overlayImage
+            deviceImage = state.deviceTemplate == .vibeKey ? Self.loadDeviceImage() : DeviceArtwork.forTemplate(state.deviceTemplate).image
             needsLayout = true
         }
         let delta = changedTemplate ? 0 : state.rotation - snapshot.rotation
@@ -418,7 +418,7 @@ private final class CompanionView: NSView {
         for control in state.pressed.subtracting(changedTemplate ? [] : snapshot.pressed) { flash(control) }
         snapshot = state
         updateSettingsButton()
-        if deviceImage == nil { deviceImage = deviceTemplate == .vibeKey ? Self.loadDeviceImage() : DeviceArtwork.forTemplate(deviceTemplate).overlayImage }
+        if deviceImage == nil { deviceImage = deviceTemplate == .vibeKey ? Self.loadDeviceImage() : DeviceArtwork.forTemplate(deviceTemplate).image }
         let demoHint = deviceTemplate == .vibeKey
             ? L10n.tr("拖动移动。演示模式可点击、长按按键或滚动旋钮。", "Drag to move. In demo mode, press or hold buttons and scroll the dial.")
             : L10n.tr("拖动移动。演示模式可点击或长按实际按键。", "Drag to move. In demo mode, click or hold the physical controls.")

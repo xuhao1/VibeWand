@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A generic game controller, drawn for VibeWand on 2026-10-07. The centres of its controls are the hotspots
+     of DeviceArtwork.swift (canvas 1536 × 1024); move a control here and there together.
+     Rendered with: rsvg-convert -w 1536 -h 1024 gamepad.svg -o gamepad.png -->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1536" height="1024" viewBox="0 0 1536 1024">
+  <defs>
+    <path id="body" d="M 352 168 C 262 168 196 196 158 262 C 92 380 44 610 46 792 C 47 900 96 978 182 978 C 262 978 312 916 352 838 C 384 776 430 742 512 742 L 1024 742 C 1106 742 1152 776 1184 838 C 1224 916 1274 978 1354 978 C 1440 978 1489 900 1490 792 C 1492 610 1444 380 1378 262 C 1340 196 1274 168 1184 168 Z"/>
+    <clipPath id="inside"><use xlink:href="#body"/></clipPath>
+    <linearGradient id="shell" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F6F7F9"/><stop offset="0.55" stop-color="#E6E8EC"/><stop offset="1" stop-color="#CFD3D9"/>
+    </linearGradient>
+    <linearGradient id="dark" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#43474F"/><stop offset="1" stop-color="#2A2D33"/>
+    </linearGradient>
+    <linearGradient id="darker" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#34373E"/><stop offset="1" stop-color="#202328"/>
+    </linearGradient>
+    <linearGradient id="recess" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#C3C7CE"/><stop offset="1" stop-color="#DDE0E5"/>
+    </linearGradient>
+    <radialGradient id="cap" cx="0.5" cy="0.42" r="0.6">
+      <stop offset="0" stop-color="#2B2E34"/><stop offset="0.62" stop-color="#3B3F47"/><stop offset="1" stop-color="#4B5059"/>
+    </radialGradient>
+    <radialGradient id="button" cx="0.5" cy="0.35" r="0.75">
+      <stop offset="0" stop-color="#4A4E57"/><stop offset="1" stop-color="#282B31"/>
+    </radialGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="22"/></filter>
+    <filter id="softer" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="46"/></filter>
+    <filter id="lift" x="-30%" y="-30%" width="160%" height="170%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="5"/><feOffset dy="5"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.38"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <g id="trigger">
+      <path d="M -78 44 C -78 -4 -52 -36 0 -36 C 52 -36 78 -4 78 44 Z" fill="url(#darker)" stroke="#6E747E" stroke-width="2"/>
+      <path d="M -62 -8 C -48 -26 -24 -30 0 -30 C 24 -30 48 -26 62 -8" fill="none" stroke="#5B606A" stroke-width="2.5" stroke-linecap="round" opacity="0.8"/>
+    </g>
+    <g id="bumper">
+      <rect x="-104" y="-28" width="208" height="84" rx="26" fill="url(#dark)" stroke="#727882" stroke-width="2"/>
+      <rect x="-90" y="-22" width="180" height="5" rx="2.5" fill="#6A707A" opacity="0.7"/>
+    </g>
+    <g id="stick">
+      <circle r="104" fill="url(#recess)"/>
+      <circle r="104" fill="none" stroke="#AFB4BC" stroke-width="2"/>
+      <circle r="90" fill="#1F2226"/>
+      <g filter="url(#lift)"><circle r="70" fill="url(#cap)"/></g>
+      <circle r="70" fill="none" stroke="#5D626C" stroke-width="2.5"/>
+      <circle r="45" fill="none" stroke="#24272C" stroke-width="3" opacity="0.9"/>
+      <circle r="42" fill="#30333A" opacity="0.55"/>
+    </g>
+    <g id="face">
+      <g filter="url(#lift)"><circle r="46" fill="url(#button)"/></g>
+      <circle r="46" fill="none" stroke="#1D1F23" stroke-width="2"/>
+      <path d="M -30 -24 A 39 39 0 0 1 30 -24" fill="none" stroke="#7A808B" stroke-width="3" stroke-linecap="round" opacity="0.55"/>
+    </g>
+    <g id="pill">
+      <g filter="url(#lift)"><rect x="-29" y="-14" width="58" height="28" rx="14" fill="url(#dark)"/></g>
+    </g>
+  </defs>
+
+  <!-- Triggers behind, bumpers in front of them, both tucked under the top edge of the shell. -->
+  <use xlink:href="#trigger" transform="translate(332 76)"/>
+  <use xlink:href="#trigger" transform="translate(1203 76)"/>
+  <use xlink:href="#bumper" transform="translate(335 139)"/>
+  <use xlink:href="#bumper" transform="translate(1201 139)"/>
+  <g font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-weight="600" font-size="23" fill="#A4A9B2" text-anchor="middle">
+    <text x="332" y="76">L2</text><text x="1203" y="76">R2</text>
+    <text x="335" y="143">L1</text><text x="1201" y="143">R1</text>
+  </g>
+
+  <!-- The shell: one piece, one colour. -->
+  <use xlink:href="#body" fill="url(#shell)"/>
+  <g clip-path="url(#inside)">
+    <use xlink:href="#body" fill="none" stroke="#5F6670" stroke-width="64" opacity="0.30" filter="url(#soft)"/>
+    <ellipse cx="768" cy="150" rx="520" ry="90" fill="#FFFFFF" opacity="0.75" filter="url(#softer)"/>
+    <ellipse cx="170" cy="900" rx="170" ry="150" fill="#6B727C" opacity="0.28" filter="url(#softer)"/>
+    <ellipse cx="1366" cy="900" rx="170" ry="150" fill="#6B727C" opacity="0.28" filter="url(#softer)"/>
+    <path d="M 420 742 L 1116 742 L 1116 700 C 900 716 636 716 420 700 Z" fill="#6B727C" opacity="0.16" filter="url(#soft)"/>
+  </g>
+  <use xlink:href="#body" fill="none" stroke="#9CA2AB" stroke-width="2.5"/>
+
+  <!-- Touch surface. -->
+  <g filter="url(#lift)"><rect x="556" y="174" width="424" height="220" rx="30" fill="url(#darker)"/></g>
+  <rect x="556" y="174" width="424" height="220" rx="30" fill="none" stroke="#16181B" stroke-width="2"/>
+  <path d="M 588 180 L 948 180" stroke="#6A707A" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+
+  <!-- Directional pad. -->
+  <circle cx="319" cy="381" r="128" fill="url(#recess)"/>
+  <circle cx="319" cy="381" r="128" fill="none" stroke="#B3B8C0" stroke-width="2"/>
+  <g filter="url(#lift)">
+    <path d="M 301 273 L 337 273 Q 351 273 351 287 L 351 349 L 413 349 Q 427 349 427 363 L 427 399 Q 427 413 413 413 L 351 413 L 351 475 Q 351 489 337 489 L 301 489 Q 287 489 287 475 L 287 413 L 225 413 Q 211 413 211 399 L 211 363 Q 211 349 225 349 L 287 349 L 287 287 Q 287 273 301 273 Z" fill="url(#dark)"/>
+  </g>
+  <circle cx="319" cy="381" r="17" fill="#25282D" opacity="0.8"/>
+  <g fill="#9CA2AC">
+    <path d="M 321 296 L 333 314 L 309 314 Z"/><path d="M 321 468 L 333 450 L 309 450 Z"/>
+    <path d="M 232 380 L 250 368 L 250 392 Z"/><path d="M 404 380 L 386 368 L 386 392 Z"/>
+  </g>
+
+  <!-- Four plain action buttons. -->
+  <circle cx="1222" cy="380" r="162" fill="url(#recess)" opacity="0.75"/>
+  <use xlink:href="#face" transform="translate(1222 279)"/>
+  <use xlink:href="#face" transform="translate(1122 380)"/>
+  <use xlink:href="#face" transform="translate(1321 380)"/>
+  <use xlink:href="#face" transform="translate(1222 481)"/>
+
+  <!-- The two small buttons beside the touch surface. -->
+  <use xlink:href="#pill" transform="translate(453 240)"/>
+  <use xlink:href="#pill" transform="translate(1080 240)"/>
+
+  <!-- Sticks. -->
+  <use xlink:href="#stick" transform="translate(541 572)"/>
+  <use xlink:href="#stick" transform="translate(998 572)"/>
+
+  <!-- Home and microphone mute. -->
+  <g filter="url(#lift)"><circle cx="768" cy="568" r="35" fill="url(#button)"/></g>
+  <path d="M 768 551 L 786 567 L 781 567 L 781 583 L 772 583 L 772 573 L 764 573 L 764 583 L 755 583 L 755 567 L 750 567 Z" fill="#DADDE2"/>
+  <g filter="url(#lift)"><rect x="722" y="635" width="92" height="40" rx="20" fill="url(#button)"/></g>
+  <g fill="none" stroke="#B4B9C1" stroke-width="2.6" stroke-linecap="round">
+    <rect x="763.5" y="643" width="9" height="15" rx="4.5"/>
+    <path d="M 758 654 A 10 10 0 0 0 778 654"/><path d="M 768 664 L 768 668"/>
+    <path d="M 757 645 L 779 667"/>
+  </g>
+</svg>
